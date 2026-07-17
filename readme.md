@@ -1,103 +1,246 @@
-<p align="center">
-  <img src="/images/wled_logo_akemi.png">
-  <a href="https://github.com/wled-dev/WLED/releases"><img src="https://img.shields.io/github/release/wled-dev/WLED.svg?style=flat-square"></a>
-  <a href="https://raw.githubusercontent.com/wled-dev/WLED/main/LICENSE"><img src="https://img.shields.io/github/license/wled-dev/wled?color=blue&style=flat-square"></a>
-  <a href="https://wled.discourse.group"><img src="https://img.shields.io/discourse/topics?colorB=blue&label=forum&server=https%3A%2F%2Fwled.discourse.group%2F&style=flat-square"></a>
-  <a href="https://discord.gg/QAh7wJHrRM"><img src="https://img.shields.io/discord/473448917040758787.svg?colorB=blue&label=discord&style=flat-square"></a>
-  <a href="https://kno.wled.ge"><img src="https://img.shields.io/badge/quick_start-wiki-blue.svg?style=flat-square"></a>
-  <a href="https://github.com/Aircoookie/WLED-App"><img src="https://img.shields.io/badge/app-wled-blue.svg?style=flat-square"></a>
-  <a href="https://gitpod.io/#https://github.com/wled-dev/WLED"><img src="https://img.shields.io/badge/Gitpod-ready--to--code-blue?style=flat-square&logo=gitpod"></a>
-</p>
+<!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
+<a id="readme-top"></a>
 
-# Welcome to WLED! ✨
+<!--  *** Thanks for checking out the Best-README-Template. If you have a suggestion that would make this better, please fork the repo and create a pull request or simply open an issue with the tag "enhancement". Don't forget to give the project a star! Thanks again! Now go create something AMAZING! :D -->
 
-A fast and feature-rich firmware for ESP32 microcontrollers to control addressable LEDs — from simple strips to large 2D matrices and HUB75 panels.
 
-Originally created by [Aircoookie](https://github.com/Aircoookie), now maintained by a community of contributors.
 
-## ⚙️ Features
+<!-- /// d   u   b   p   i   x   e   l  ---  f   o   r   k   ////--v0.5.6 -->
+<!--this has additionally been modifed by @dubpixel for hardware use -->
+<!--search dpx_tc002_frm.. search & replace is COMMAND OPTION F -->
 
-### Effects & Visuals
-- [**200+ built-in effects**](https://kno.wled.ge/features/effects/) including classic animations, audio-reactive, and 2D/matrix effects
-- [50+ color palettes](https://kno.wled.ge/features/palettes/) plus a built-in **custom palette editor** (PixelForge)
-- [**2D LED matrix support**](https://kno.wled.ge/advanced/mapping/) with dedicated 2D effects and flexible panel mapping
-- [**HUB75 RGB matrix panel support**](https://kno.wled.ge/advanced/HUB75/) (ESP32)
-- [**AudioReactive**](https://kno.wled.ge/advanced/audio-reactive/) effects — included by default, responding to sound via microphone, line-in, or network audio source
-- Effect blending for smooth transitions between animations
-- Antialiased drawing functions for smooth graphics
+<!--this is the version for HARDWARE and SOFTWARE -->
+<!--todo add small product image thats not in a details tag -->
+<!--igure out how to get the details tag to properly render in jekyll for gihub pages.-->
 
-### Segments & Control
-- [**Segments**](https://kno.wled.ge/features/segments/) — apply different effects, colors and palettes to independent parts of your LED setup simultaneously
-- Up to **250 presets** to save and recall colors, effects and segment configurations — supports [playlists](https://kno.wled.ge/features/presets/) for automated cycling
-- Nightlight function with configurable dimming curve
-- Configurable **Auto Brightness Limiter** (per output) for safe operation
 
-### Hardware Support
-- **ESP32** (all variants: original, S2, S3, C3)
-- [**Up to 17 LED outputs**](https://kno.wled.ge/features/multi-strip/) on ESP32 using parallel I2S + RMT
-- [Addressable LED support](https://kno.wled.ge/basics/compatible-led-strips/): WS2812B, WS2811, WS2815, SK6812, WS2805, TM1914, APA102, WS2801, LPD8806, and many more
-- RGBW, [RGB+CCT](https://kno.wled.ge/features/cct/) and white-only strips
-- PWM outputs for analog LEDs and dimmers
-- [**Ethernet** support](https://kno.wled.ge/features/ethernet-lan/) for a wide range of boards (QuinLED, LILYGO, Olimex, and more)
-- Filesystem-based config for easy backup and restore of presets and settings
-- Full OTA firmware updates (HTTP + ArduinoOTA), password-protectable
 
-### Connectivity & Integrations
-- **WLED app** for [Android](https://play.google.com/store/apps/details?id=ca.cgagnier.wlednativeandroid) and [iOS](https://apps.apple.com/gb/app/wled-native/id6446207239)
-- [JSON](https://kno.wled.ge/interfaces/json-api/) and [HTTP request](https://kno.wled.ge/interfaces/http-api/) APIs
-- **Multi-WiFi** — connect to up to 3 networks with automatic AP fallback
-- **ESP-NOW** wireless sync between devices (no WiFi router required)
-- [**MQTT**](https://kno.wled.ge/interfaces/mqtt/) with Home Assistant discovery
-- [**E1.31, Art-Net**](https://kno.wled.ge/interfaces/e1.31-dmx/), [DDP](https://kno.wled.ge/interfaces/ddp/) and [TPM2.net](https://kno.wled.ge/interfaces/udp-realtime/) for DMX/professional lighting control
-- [UDP realtime sync](https://kno.wled.ge/interfaces/udp-notifier/) across multiple WLED devices
-- Alexa voice control (on/off, brightness, color)
-- [Philips Hue sync](https://kno.wled.ge/interfaces/philips-hue/)
-- [diyHue](https://github.com/diyhue/diyHue) and [Hyperion](https://github.com/hyperion-project/hyperion.ng) integration
-- [Adalight / TPM2](https://kno.wled.ge/interfaces/serial/) (PC ambilight via serial)
-- [Infrared remote control](https://kno.wled.ge/interfaces/infrared/) (24-key RGB, receiver required)
-- Timers and schedules (NTP time sync, full timezone and DST support)
+<!-- PROJECT SHIELDS -->
+<!--
+*** I'm using markdown "reference style" links for readability.
+*** Reference links are enclosed in brackets [ ] instead of parentheses ( ).
+*** See the bottom of this document for the declaration of the reference variables
+*** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
+*** https://www.markdownguide.org/basic-syntax/#reference-style-links
+***
+-->
+<div align="center">
 
-### Developer-Friendly
-- **Usermod system** — extend WLED with community or custom modules without modifying core code
-- Large and active [usermod library](https://kno.wled.ge/advanced/community-usermods/) including AudioReactive, temperature sensors, rotary encoders, displays, and much more
-- Well-documented [JSON API](https://kno.wled.ge/interfaces/json-api/)
-- Licensed under the **EUPL v1.2**
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![License][license-shield]][license-url]
+[![LinkedIn][linkedin-shield]][linkedin-url]
+</div>
+<!-- PROJECT LOGO -->
+<div align="center">
+  <a href="https://github.com/dubpixel/dpx_tc002_frm">
+    <img src="images/logo.png" alt="Logo" height="120">
+  </a>
+<h1 align="center">dpx_tc002_frm</h1>
+<h3 align="center"><i>a sassy project tag line here</i></h3>
+  <p align="center">
+    ...a short description to tease interest
+        <br />
+     »  
+     <a href="https://github.com/dubpixel/dpx_tc002_frm/tree/main/"><strong>Project Here!</strong></a>
+     »  
+    <a href="https://github.com/dubpixel/dpx_tc002_frm/tree/main/hardware/src/dpx_tc002_frm/bom"><strong>BOM Here!</strong></a>
+     » 
+    <a href="https://dubpixel.github.io/dpx_tc002_frm/ibom/index.html"><strong>Interactive BOM Here!</strong></a>
+     <br />
+    <a href="https://github.com/dubpixel/dpx_tc002_frm/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    ·
+    <a href="https://github.com/dubpixel/dpx_tc002_frm/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    </p>
+</div>
+   <br />
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary><h3>Table of Contents</h3></summary>
+<ol>
+    <li>
+      <a href="#about-the-project">About The Project</a>
+      <ul>
+        <li><a href="#built-with">Built With</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#getting-started">Getting Started</a>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#installation">Installation</a></li>
+      </ul>
+    </li>
+    <li><a href="#usage">Usage</a></li>    
+    <li><a href="#reflection">Reflection</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+</ol>
+</details>
+<!-- ABOUT THE PROJECT -->
+<details>
+<summary><h3>About The Project</h3></summary>
+a lengthy description about the project that should probably be many lines. this is where you can get deep about shit and be like oh man its the best hot dog in the univberse because i use the koskusko mustart!
+</br>
 
-## 📲 Quick start guide and documentation
+*author(s): // www.dubpixel.tv  - i@dubpixel.tv | other authors* 
+</br>
+<h3>Images</h3>
 
-See the [documentation at kno.wled.ge](https://kno.wled.ge)!
+### FRONT
+![FRONT][product-front]
+### REAR 
+![REAR][product-rear]
+### FRONT Rendering
+![FRONT][product-front-rendering]
+### REAR Rendering
+![REAR][product-rear-rendering]
+### iBOM PCB Front
+![iBOM Front][product-pcbFront]
+### iBOM PCB Rear
+![iBOM Front][product-pcbRear]
+</details>
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-[Tutorials and getting-started guides](https://kno.wled.ge/basics/tutorials/) to help you get your project running quickly.
+### Built With 
+ 
+ * [![KiCad][KiCad.org]][KiCad-url]
+ * [![Fusion360][Fusion-360]][Autodesk-url]
+ * [![FastLed][FastLed.io]][FastLed-url]
 
-## 🖼️ User interface
+<!--
+ * [![KiCad][KiCad.org]][KiCad-url]
+ * [![Fusion360][Fusion-360]][Autodesk-url]
+ * [![FastLed][FastLed.io]][FastLed-url]
+ * [![Fusion360][Fusion-360]][Autodesk-url]
+ * [![Next][Next.js]][Next-url]
+ * [![React][React.js]][React-url]
+ * [![Vue][Vue.js]][Vue-url]
+ * [![Angular][Angular.io]][Angular-url]
+ * [![Svelte][Svelte.dev]][Svelte-url]
+ * [![Laravel][Laravel.com]][Laravel-url]
+ * [![Bootstrap][Bootstrap.com]][Bootstrap-url]
+ * [![JQuery][JQuery.com]][JQuery-url]
+ 
+-->
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+<!-- GETTING STARTED -->
 
-<img src="/images/macbook-pro-space-gray-on-the-wooden-table.jpg" width="50%"><img src="/images/walking-with-iphone-x.jpg" width="50%">
+## Getting Started
 
-## 💾 Compatible hardware
+  ### Prerequisites
+  * 
+  ### Installation
 
-See the [compatible hardware list](https://kno.wled.ge/basics/compatible-hardware) on the wiki.
+  1. 
 
-## ✌️ Other
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Licensed under the [EUPL v1.2](https://raw.githubusercontent.com/wled-dev/WLED/main/LICENSE).  
-Credits to all [contributors](https://kno.wled.ge/about/contributors/)!  
-CORS proxy by [Corsfix](https://corsfix.com/).
+<!-- USAGE EXAMPLES -->
+## Usage
 
-Join the Discord server to discuss everything about WLED!
+1. <!-- Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
 
-<a href="https://discord.gg/QAh7wJHrRM"><img src="https://discordapp.com/api/guilds/473448917040758787/widget.png?style=banner2" width="25%"></a>
+_For more examples, please refer to the [Documentation](https://example.com)_-->
+<!-- REFLECTION -->
+## Reflection
 
-Check out the WLED [Discourse forum](https://wled.discourse.group)!
+* what did we learn? 
+  - _x_
+* what do we like/hate?
+  - _y_
+* what would/could we do differently?
+  - _z_
+  <!-- ROADMAP -->
+## Roadmap
 
-If you'd like to reach the original creator privately: [dev.aircoookie@gmail.com](mailto:dev.aircoookie@gmail.com).
+- [ ] Feature 1
+    - [ ] Nested Feature
 
-If WLED brightens up your day, you can [send a gift to Aircoookie via PayPal](https://paypal.me/aircoookie).
+See the [open issues](https://github.com/dubpixel/dpx_tc002_frm/issues) for a full list of proposed features (and known issues).
 
----
+<!-- CONTRIBUTING -->
+## Contributing
 
-*Disclaimer:*
+_Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**._
 
-If you are prone to photosensitive epilepsy, we recommend you do **not** use this software.  
-If you still want to try, avoid strobe, lightning or noise modes and high effect speed settings.
+If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
+Don't forget to give the project a star! Thanks again!
 
-As per the EUPL license, no liability is assumed for any damage to you or any other person or equipment.
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+### Top contributors:
+<a href="https://github.com/dubpixel/dpx_tc002_frm/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=dubpixel/dpx_tc002_frm" alt="contrib.rocks image" />
+</a>
+
+<!-- LICENSE -->
+## License
+Distributed under the [LICENSE_TYPE] License. See `LICENSE.txt` for more information.
+<!-- CONTACT -->
+## Contact
+
+  ### Joshua Fleitell - i@dubpixel.tv
+
+  Project Link: [https://github.com/dubpixel/dpx_tc002_frm](https://github.com/dubpixel/dpx_tc002_frm)
+
+<!-- ACKNOWLEDGMENTS -->
+## Acknowledgments
+
+<!--
+  * [ ]() - the best !
+-->
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- MARKDOWN LINKS & IMAGES -->
+<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
+[contributors-shield]: https://img.shields.io/github/contributors/dubpixel/dpx_tc002_frm.svg?style=flat-square
+[contributors-url]: https://github.com/dubpixel/dpx_tc002_frm/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/gdubpixel/dpx_tc002_frm.svg?style=flat-square
+[forks-url]: https://github.com/dubpixel/dpx_tc002_frm/network/members
+[stars-shield]: https://img.shields.io/github/stars/dubpixel/dpx_tc002_frm.svg?style=flat-square
+[stars-url]: https://github.com/dubpixel/dpx_tc002_frm/stargazers
+[issues-shield]: https://img.shields.io/github/issues/dubpixel/dpx_tc002_frm.svg?style=flat-square
+[issues-url]: https://github.com/dubpixel/dpx_tc002_frm/issues
+[license-shield]: https://img.shields.io/github/license/dubpixel/dpx_tc002_frm.svg?style=flat-square
+[license-url]: https://github.com/dubpixel/dpx_tc002_frm/blob/main/LICENSE.txt
+[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=flat-square&logo=linkedin&colorB=555
+[linkedin-url]: https://linkedin.com/in/jfleitell
+[product-front]: images/front.png
+[product-rear]: images/rear.png
+[product-front-rendering]: images/front_render.png
+[product-rear-rendering]: images/rear_render.png
+[product-pcbFront]: images/pcb_front.png
+[product-pcbRear]: images/pcb_rear.png
+[Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
+[Next-url]: https://nextjs.org/
+[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
+[React-url]: https://reactjs.org/
+[Vue.js]: https://img.shields.io/badge/Vue.js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D
+[Vue-url]: https://vuejs.org/
+[Angular.io]: https://img.shields.io/badge/Angular-DD0031?style=for-the-badge&logo=angular&logoColor=white
+[Angular-url]: https://angular.io/
+[Svelte.dev]: https://img.shields.io/badge/Svelte-4A4A55?style=for-the-badge&logo=svelte&logoColor=FF3E00
+[Svelte-url]: https://svelte.dev/
+[Laravel.com]: https://img.shields.io/badge/Laravel-FF2D20?style=for-the-badge&logo=laravel&logoColor=white
+[Laravel-url]: https://laravel.com
+[Bootstrap.com]: https://img.shields.io/badge/Bootstrap-563D7C?style=for-the-badge&logo=bootstrap&logoColor=white
+[Bootstrap-url]: https://getbootstrap.com
+[JQuery.com]: https://img.shields.io/badge/jQuery-0769AD?style=for-the-badge&logo=jquery&logoColor=white
+[JQuery-url]: https://jquery.com 
+[KiCad.org]: https://img.shields.io/badge/KiCad-v8.0.6-blue
+[KiCad-url]: https://kicad.org 
+[Fusion-360]: https://img.shields.io/badge/Fusion360-v4.2.0-green
+[Autodesk-url]: https://autodesk.com 
+[FastLed.io]: https://img.shields.io/badge/FastLED-v3.9.9-red
+[FastLed-url]: https://fastled.io 
