@@ -656,7 +656,7 @@ select option{background:#222}
 </div>
 <div class="row">
   <div style="flex:1"><label>Effect</label><select id="n_effect"><option value="">None</option></select></div>
-  <div style="flex:1"><label>Overlay</label><select id="n_overlay"><option value="NONE">None</option><option value="DRIZZLE">Drizzle</option><option value="RAIN">Rain</option><option value="SNOW">Snow</option><option value="STORM">Storm</option><option value="THUNDER">Thunder</option><option value="FROST">Frost</option></select></div>
+  <div style="flex:1"><label>Overlay</label><select id="n_overlay"><option value="">None</option><option value="drizzle">Drizzle</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="storm">Storm</option><option value="thunder">Thunder</option><option value="frost">Frost</option></select></div>
 </div>
 <div class="row">
   <div style="flex:1"><label>Scroll Speed (0-100)</label><input type="number" id="n_speed" value="100" min="0" max="100"></div>
@@ -711,7 +711,7 @@ select option{background:#222}
 </div>
 <div class="row">
   <div style="flex:1"><label>Effect</label><select id="ca_effect"><option value="">None</option></select></div>
-  <div style="flex:1"><label>Overlay</label><select id="ca_overlay"><option value="NONE">None</option><option value="DRIZZLE">Drizzle</option><option value="RAIN">Rain</option><option value="SNOW">Snow</option><option value="STORM">Storm</option><option value="THUNDER">Thunder</option><option value="FROST">Frost</option></select></div>
+  <div style="flex:1"><label>Overlay</label><select id="ca_overlay"><option value="">None</option><option value="drizzle">Drizzle</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="storm">Storm</option><option value="thunder">Thunder</option><option value="frost">Frost</option></select></div>
 </div>
 <div class="row">
   <div style="flex:1"><label>Scroll Speed</label><input type="number" id="ca_speed" value="100" min="0" max="100"></div>
@@ -1019,7 +1019,7 @@ select option{background:#222}
 <h2>Sound <span id="snd_status" style="font-size:10px;color:#666"></span></h2>
 <div class="row" style="margin-bottom:6px">
   <div class="chk"><input type="checkbox" id="snd_en"><label for="snd_en">Sound enabled</label></div>
-  <div style="flex:1;margin-left:10px"><label style="display:inline">Volume (0-30)</label> <input type="number" id="snd_vol" value="25" min="0" max="30" style="width:55px"></div>
+  <div style="flex:1;margin-left:10px;color:#555;font-size:11px">Volume: n/a — passive piezo</div>
   <button class="sm" style="margin-top:0" onclick="saveSndSettings()">Save</button>
 </div>
 <hr>
@@ -1040,7 +1040,7 @@ select option{background:#222}
 <input type="text" id="rtttl" placeholder="Name:d=4,o=5,b=120:c,e,g,c6" style="margin-bottom:4px">
 <div class="row">
   <button onclick="sendRtttl()">&#9834; Play RTTTL</button>
-  <button class="red sm" style="margin-top:8px;margin-left:4px" onclick="fetch('/api/sound',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})">&#9646;&#9646; Stop</button>
+  <button class="red sm" style="margin-top:8px;margin-left:4px" onclick="fetch('/api/rtttl',{method:'POST',headers:{'Content-Type':'text/plain'},body:'stop'}).then(function(r){r.ok?toast('Stopped'):toast('Error '+r.status,false);})">&#9646;&#9646; Stop</button>
 </div>
 <hr>
 <label>Sound File — plays <code style="color:#8cf">/MELODIES/name.txt</code> (upload via Browse → Files)</label>
@@ -1151,12 +1151,7 @@ function deleteCustomApp(){
   var name=document.getElementById("ca_name").value;if(!name){toast("Name required",false);return;}
   fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:""})}).then(function(){
     toast("App removed");
-    // Force loop refresh so the slot is cleared immediately
-    fetch("/api/loop").then(function(r){return r.json();}).then(function(apps){
-      var names=apps.filter(function(a){return a.name!==name;}).map(function(a){return a.name;});
-      fetch("/api/apps",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(names)});
-      setTimeout(loadLoop,600);
-    });
+    setTimeout(loadLoop,600);
   });
 }
 function sendInd(n){
@@ -1223,7 +1218,7 @@ function switchApp(){
 }
 function sendRtttl(){
   var v=document.getElementById("rtttl").value;if(!v){toast("Enter RTTTL string",false);return;}
-  fetch("/api/rtttl",{method:"POST",body:v}).then(function(r){r.ok?toast("Playing"):toast("Error "+r.status,false);});
+  fetch("/api/rtttl",{method:"POST",headers:{"Content-Type":"text/plain"},body:v}).then(function(r){r.ok?toast("Playing ♪"):toast("Error "+r.status,false);});
 }
 function sendSound(){
   var v=document.getElementById("snd_file").value;if(!v){toast("Enter filename",false);return;}

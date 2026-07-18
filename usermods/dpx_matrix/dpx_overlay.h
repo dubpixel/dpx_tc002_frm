@@ -62,7 +62,10 @@ static struct {
     // per-effect private state
     unsigned long lastMs = 0;
     bool     strobeOn = true;
-    uint8_t  rain[DPX_MATRIX_W] = {}; // rain column heights
+    uint8_t  rain[DPX_MATRIX_W] = {}; // rain/drizzle/storm drop positions per column
+    uint8_t  snow[DPX_MATRIX_W] = {}; // snow floor accumulation (rows from bottom)
+    bool     frostInit = false;        // frost: static pattern generated?
+    uint8_t  frost[256] = {};          // frost: which pixels are frosted (1=yes)
 } dpxPixelEffect;
 
 // ── Text overlay control ──────────────────────────────────────────────────────
@@ -149,7 +152,9 @@ static bool dpxSetPixelEffect(const char* json) {
     dpxPixelEffect.active    = (name != "none" && name.length() > 0);
     dpxPixelEffect.lastMs    = 0;
     dpxPixelEffect.strobeOn  = true;
-    memset(dpxPixelEffect.rain, 0, sizeof(dpxPixelEffect.rain));
+    memset(dpxPixelEffect.rain,  0, sizeof(dpxPixelEffect.rain));
+    memset(dpxPixelEffect.snow,  0, sizeof(dpxPixelEffect.snow));
+    dpxPixelEffect.frostInit = false;
     return true;
 }
 
@@ -231,6 +236,124 @@ static void dpxRenderPixelEffect() {
                 if (dpxPixelEffect.rain[x] == 0 && (random(256) < (iv * 2)))
                     dpxPixelEffect.rain[x] = 1;
             }
+        }
+    }
+
+    // ── Drizzle: lighter rain \u2014 fewer, slower, dimmer drops ──────────────────
+    else if (dpxPixelEffect.name == "drizzle") {
+        int intervalMs = map(iv, 0, 100, 400, 80);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            for (int x = 0; x < DPX_MATRIX_W; x++) {
+                if (dpxPixelEffect.rain[x] > 0) {
+                    int y = dpxPixelEffect.rain[x] - 1;
+                    if (y < DPX_MATRIX_H) dpxSetPixel(x, y, 0);
+                    dpxPixelEffect.rain[x]++;
+                    if ((int)dpxPixelEffect.rain[x] - 1 < DPX_MATRIX_H)
+                        dpxSetPixel(x, dpxPixelEffect.rain[x] - 1, 0x4466AA);
+                    if ((int)dpxPixelEffect.rain[x] > DPX_MATRIX_H + 1)
+                        dpxPixelEffect.rain[x] = 0;
+                }
+                if (dpxPixelEffect.rain[x] == 0 && (random(512) < (uint32_t)(iv + 5)))
+                    dpxPixelEffect.rain[x] = 1;
+            }
+        }
+    }
+
+    // ── Storm: heavy rain + occasional lightning flash ────────────────────
+    else if (dpxPixelEffect.name == "storm") {
+        int intervalMs = map(iv, 0, 100, 100, 10);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            for (int x = 0; x < DPX_MATRIX_W; x++) {
+                if (dpxPixelEffect.rain[x] > 0) {
+                    int y = dpxPixelEffect.rain[x] - 1;
+                    if (y < DPX_MATRIX_H) dpxSetPixel(x, y, 0);
+                    dpxPixelEffect.rain[x]++;
+                    if ((int)dpxPixelEffect.rain[x] - 1 < DPX_MATRIX_H)
+                        dpxSetPixel(x, dpxPixelEffect.rain[x] - 1, 0x4466FF);
+                    if ((int)dpxPixelEffect.rain[x] > DPX_MATRIX_H + 1)
+                        dpxPixelEffect.rain[x] = 0;
+                }
+                if (dpxPixelEffect.rain[x] == 0 && (random(128) < (uint32_t)(iv * 3 + 20)))
+                    dpxPixelEffect.rain[x] = 1;
+            }
+        }
+        // Occasional lightning flash (2 bright frames)
+        static unsigned long _stormFlashMs = 0;
+        static int _stormFlashFrames = 0;
+        if (_stormFlashFrames > 0) {
+            for (int i = 0; i < 256; i++)
+                strip.setPixelColor(i, color_blend(strip.getPixelColor(i), 0xFFFFFF, 180));
+            _stormFlashFrames--;
+        } else if (now - _stormFlashMs > 2000 && random(200) < 5) {
+            _stormFlashMs = now;
+            _stormFlashFrames = 2;
+        }
+    }
+
+    // ── Thunder: periodic full-screen white flash, no rain ───────────────
+    else if (dpxPixelEffect.name == "thunder") {
+        // intervalMs decreases with intensity (more frequent flashes)
+        int intervalMs = map(iv, 0, 100, 4000, 600);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            dpxPixelEffect.strobeOn = true;
+        }
+        if (dpxPixelEffect.strobeOn) {
+            for (int i = 0; i < 256; i++)
+                strip.setPixelColor(i, color_blend(strip.getPixelColor(i), 0xFFFFFF, 220));
+            dpxPixelEffect.strobeOn = false; // single frame flash
+        }
+    }
+
+    // ── Snow: slow-falling white flakes, accumulate at the bottom ─────────
+    else if (dpxPixelEffect.name == "snow") {
+        int intervalMs = map(iv, 0, 100, 350, 70);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            for (int x = 0; x < DPX_MATRIX_W; x++) {
+                if (dpxPixelEffect.rain[x] > 0) {
+                    int y = dpxPixelEffect.rain[x] - 1;
+                    // floor = bottom of free space above snow pile
+                    int floorY = DPX_MATRIX_H - 1 - (int)dpxPixelEffect.snow[x];
+                    if (y >= floorY) {
+                        // Flake landed \u2014 grow pile
+                        if (dpxPixelEffect.snow[x] < DPX_MATRIX_H)
+                            dpxPixelEffect.snow[x]++;
+                        dpxPixelEffect.rain[x] = 0;
+                    } else {
+                        if (y < DPX_MATRIX_H) dpxSetPixel(x, y, 0);
+                        dpxPixelEffect.rain[x]++;
+                        if ((int)dpxPixelEffect.rain[x] - 1 < DPX_MATRIX_H)
+                            dpxSetPixel(x, dpxPixelEffect.rain[x] - 1, 0xDDDDFF);
+                    }
+                } else if (random(1024) < (uint32_t)(iv + 5)) {
+                    dpxPixelEffect.rain[x] = 1;
+                }
+            }
+            // Redraw snow floor every tick
+            for (int x = 0; x < DPX_MATRIX_W; x++) {
+                for (uint8_t py = 0; py < dpxPixelEffect.snow[x]; py++) {
+                    dpxSetPixel(x, DPX_MATRIX_H - 1 - py, 0xDDDDFF);
+                }
+            }
+        }
+    }
+
+    // ── Frost: static blue-white scatter generated once per activation ────
+    else if (dpxPixelEffect.name == "frost") {
+        if (!dpxPixelEffect.frostInit) {
+            // Generate pattern once: ~(intensity/2)% of pixels frosted
+            dpxPixelEffect.frostInit = true;
+            int count = (256 * iv) / 200;
+            memset(dpxPixelEffect.frost, 0, sizeof(dpxPixelEffect.frost));
+            for (int i = 0; i < count; i++)
+                dpxPixelEffect.frost[(int)random(256)] = 1;
+        }
+        for (int i = 0; i < 256; i++) {
+            if (dpxPixelEffect.frost[i])
+                strip.setPixelColor(i, color_blend(strip.getPixelColor(i), 0xAADDFF, 160));
         }
     }
 }

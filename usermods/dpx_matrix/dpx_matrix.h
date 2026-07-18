@@ -42,31 +42,7 @@ class DpxMatrix : public Usermod {
 
 private:
     bool _initDone  = false;
-
-    // ── Button debounce state ───────────────────────────────────────────────
-    // Buttons are active-LOW (internal pull-up). We fire on falling edge.
-    struct BtnState {
-        uint8_t  pin;
-        bool     lastRaw   = true;    // last raw read (true = not pressed)
-        bool     debounced = true;    // debounced state
-        uint32_t lastMs    = 0;
-    };
-    BtnState _btn[3]; // index 0=left, 1=mid, 2=right
-
-    // Poll one button; returns true on falling-edge (press event).
-    bool _pollBtn(BtnState& b) {
-        if (b.pin == 255) return false;
-        bool raw = digitalRead(b.pin);
-        uint32_t now = millis();
-        if (raw != b.lastRaw) b.lastMs = now;   // reset timer on any change
-        b.lastRaw = raw;
-        if ((now - b.lastMs) >= 50) {            // 50 ms debounce
-            bool prev = b.debounced;
-            b.debounced = raw;
-            if (prev && !raw) return true;        // falling edge = press
-        }
-        return false;
-    }
+    bool dpxEnabled = true;
 
     // Render the 3 indicator pixels (corner dots).
     // Indicator 1 = top-left (pixel 0)
@@ -93,16 +69,6 @@ public:
         // Build the initial app loop (Time, Date only to start)
         dpxRebuildLoop();
         dpxAppStartMs = millis();
-
-        // Initialise button pins (active-low, internal pull-up)
-        const uint8_t btnPins[3] = { DPX_BTN_LEFT, DPX_BTN_MID, DPX_BTN_RIGHT };
-        for (int i = 0; i < 3; i++) {
-            _btn[i].pin       = btnPins[i];
-            _btn[i].lastRaw   = true;
-            _btn[i].debounced = true;
-            _btn[i].lastMs    = 0;
-            if (_btn[i].pin != 255) pinMode(_btn[i].pin, INPUT_PULLUP);
-        }
 
         // Initialise TC001 buzzer pin; drives LOW to prevent float noise.
         dpxBuzzerInit();
@@ -160,7 +126,47 @@ public:
         if (now - _lastLoopMs < 20) return;
         _lastLoopMs = now;
 
-        // Reprint IP whenever serial is freshly connected
+        // ── Serial debug command handler ────────────────────────────────
+        // Send a character to get status info. Commands:
+        //   ? / h  — help
+        //   s      — status (IP, app, time, RSSI, heap)
+        //   r      — reboot
+        if (Serial.available()) {
+            char cmd = Serial.read();
+            while (Serial.available()) Serial.read();  // flush
+            switch (cmd) {
+                case '?': case 'h':
+                    Serial.println(F("[dpx] commands: s=status  r=reboot  h=help"));
+                    break;
+                case 's': {
+                    Serial.printf("[dpx] IP      : %s\n", WiFi.localIP().toString().c_str());
+                    Serial.printf("[dpx] AP SSID : %s (%s) clients=%d\n",
+                        apSSID,
+                        WiFi.softAPIP().toString().c_str(),
+                        WiFi.softAPgetStationNum());
+                    Serial.printf("[dpx] WiFi    : %s (RSSI %d dBm)\n",
+                        WiFi.SSID().c_str(), WiFi.RSSI());
+                    Serial.printf("[dpx] Heap    : %u free / %u total\n",
+                        ESP.getFreeHeap(), ESP.getHeapSize());
+                    Serial.printf("[dpx] App     : %s (#%u of %u)\n",
+                        dpxCurrentApp < dpxApps.size() ? dpxApps[dpxCurrentApp].name.c_str() : "?",
+                        (unsigned)dpxCurrentApp, (unsigned)dpxApps.size());
+                    Serial.printf("[dpx] Notifs  : %u queued\n", (unsigned)dpxNotifQueue.size());
+                    Serial.printf("[dpx] Time    : %02d:%02d:%02d (localTime=%lu)\n",
+                        hour(localTime), minute(localTime), second(localTime), (unsigned long)localTime);
+                    Serial.printf("[dpx] Uptime  : %lus\n", millis() / 1000);
+                    Serial.printf("[dpx] MQTT    : %s\n", WLED_MQTT_CONNECTED ? "connected" : "disconnected");
+                    Serial.printf("[dpx] OSC UDP : %s port %d\n", dpxUdpStarted ? "started" : "stopped", DPX_OSC_PORT);
+                    break;
+                }
+                case 'r':
+                    Serial.println(F("[dpx] rebooting..."));
+                    delay(100); ESP.restart();
+                    break;
+                default:
+                    Serial.printf("[dpx] unknown command '%c' — send h for help\n", cmd);
+            }
+        }
         static bool _serialWasConnected = false;
         bool serialNow = (bool)Serial;
         if (serialNow && !_serialWasConnected && WiFi.localIP()[0] != 0) {
@@ -186,15 +192,64 @@ public:
 
         // Advance RTTTL note sequencer
         dpxBuzzerTick();
+    }
 
-        // Physical buttons
-        // LEFT → previous app, RIGHT → next app, MIDDLE → toggle dpxEnabled
-        if (_pollBtn(_btn[0])) dpxPrevApp();
-        if (_pollBtn(_btn[2])) dpxNextApp();
-        if (_pollBtn(_btn[1])) {
-            dpxEnabled = !dpxEnabled;
-            DEBUG_PRINTF("DpxMatrix: button toggle enabled=%d\n", (int)dpxEnabled);
+    // ── Button handling ────────────────────────────────────────────────────
+    // Called by WLED's button loop on every tick for each configured button.
+    // Returning true consumes the event — WLED will not act on it.
+    // We use WLED's APIs (toggleOnOff, stateUpdated) for WLED-level actions.
+    //
+    // Button layout (TC001 front, left→right):
+    //   b=0  GPIO DPX_BTN_LEFT   short=prev app    long=dismiss notification
+    //   b=1  GPIO DPX_BTN_MID    short=next app    long=cycle WLED effect
+    //   b=2  GPIO DPX_BTN_RIGHT  short=power tog   long=show IP
+    bool handleButton(uint8_t b) override {
+        if (!_initDone || b > 2) return false;
+
+        static const uint8_t PINS[3] = {DPX_BTN_LEFT, DPX_BTN_MID, DPX_BTN_RIGHT};
+        static unsigned long pressStart[3] = {0, 0, 0};
+        static bool          wasPressed[3] = {false, false, false};
+
+        bool pressed = (digitalRead(PINS[b]) == LOW);  // active-low
+        unsigned long now = millis();
+
+        if (pressed && !wasPressed[b]) {
+            pressStart[b] = now;  // rising edge
+        } else if (!pressed && wasPressed[b]) {
+            // falling edge — determine action
+            unsigned long dur = now - pressStart[b];
+            if (dur >= 30) {  // debounce threshold
+                bool lng = (dur > 800);
+                switch (b) {
+                    case 0:  // LEFT
+                        lng ? dpxDismissNotification() : dpxPrevApp();
+                        break;
+                    case 1:  // MIDDLE — next app / long=cycle effect
+                        if (lng) {
+                            effectCurrent = (effectCurrent + 1) % strip.getModeCount();
+                            stateChanged = true;
+                            colorUpdated(CALL_MODE_BUTTON);
+                        } else {
+                            dpxNextApp();
+                        }
+                        break;
+                    case 2:  // RIGHT — power toggle / long=show IP
+                        if (lng) {
+                            String ip = WiFi.localIP().toString();
+                            StaticJsonDocument<64> doc;
+                            doc["text"] = ip; doc["color"] = "#00FF88";
+                            String s; serializeJson(doc, s);
+                            dpxPushNotification(s.c_str());
+                        } else {
+                            toggleOnOff();
+                            stateUpdated(CALL_MODE_BUTTON);
+                        }
+                        break;
+                }
+            }
         }
+        wasPressed[b] = pressed;
+        return true;  // always consume — prevent WLED double-acting on these pins
     }
 
     void handleOverlayDraw() override {
@@ -208,6 +263,26 @@ public:
         }
 
         // Pixel effects + text overlay on top of app content
+        // Per-app overlay: activate the pixel effect requested by the current
+        // app or notification. Resets when the displayed item changes.
+        {
+            String wantEffect;
+            if (dpxNotifActive && dpxCurrentNotif.data.valid)
+                wantEffect = dpxCurrentNotif.data.overlay;
+            else if (!dpxApps.empty() && !dpxApps[dpxCurrentApp].isNative)
+                wantEffect = dpxApps[dpxCurrentApp].data.overlay;
+
+            static String _prevAppEffect;
+            if (wantEffect != _prevAppEffect) {
+                _prevAppEffect = wantEffect;
+                if (wantEffect.length() && wantEffect != "none") {
+                    String j = String("{\"name\":\"") + wantEffect + "\",\"intensity\":60}";
+                    dpxSetPixelEffect(j.c_str());
+                } else {
+                    dpxClearPixelEffect();
+                }
+            }
+        }
         dpxRenderOverlays();
 
         // Indicator corner dots (topmost layer)
@@ -241,6 +316,13 @@ public:
         if (dpx.containsKey(F("tc"))) {
             String tc = dpx[F("tc")].as<String>(); tc.trim();
             if (tc.length() >= 8) dpxPushTC(tc);
+        }
+
+        // Mute/unmute channels: {"mute": {"Time": true, "WLED": false}}
+        if (dpx.containsKey(F("mute"))) {
+            JsonObject mutes = dpx[F("mute")].as<JsonObject>();
+            for (JsonPair kv : mutes)
+                dpxMuteApp(String(kv.key().c_str()), kv.value().as<bool>());
         }
 
         // Enable/disable matrix overlay

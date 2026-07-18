@@ -96,6 +96,10 @@ static String dpxSettingsJson() {
     doc[F("UPPERCASE")]  = DPX_UPPERCASE;
     doc[F("Timezone")]   = DPX_TIMEZONE;
     doc[F("MQTT_PREFIX")] = String(mqttDeviceTopic);
+    doc[F("SOUND")]      = true;   // TC001 piezo always available
+    doc[F("VOL")]        = 0;      // passive piezo — no volume control
+    doc[F("TIM")]        = DPX_SHOW_TIME;
+    doc[F("DAT")]        = DPX_SHOW_DATE;
     String s; serializeJson(doc, s); return s;
 }
 
@@ -119,6 +123,8 @@ static void dpxApplySettings(const String& body) {
         tzset();
         dpxMergeDev(("{\"timezone_posix\":\"" + DPX_TIMEZONE + "\"}").c_str());
     }
+    if (doc.containsKey("TIM")) { DPX_SHOW_TIME = doc["TIM"].as<bool>(); dpxRebuildLoop(); }
+    if (doc.containsKey("DAT")) { DPX_SHOW_DATE = doc["DAT"].as<bool>(); dpxRebuildLoop(); }
 }
 
 // ── Route registration ────────────────────────────────────────────────────────
@@ -389,32 +395,58 @@ static void dpxRegisterRoutes() {
     });
 
     // ── RTTTL / Sound — TC001 piezo buzzer on GPIO 15 ────────────────────────
-    // POST /api/rtttl  body: raw RTTTL string (e.g. "Beep:d=4,o=5,b=200:c,e,g")
+    // POST /api/rtttl  body: raw RTTTL string or "stop" to silence
     server.on("/api/rtttl", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
         body.trim();
-        if (body.length()) {
-            dpxBuzzerPlay(body.c_str());
-            r->send(200, F("application/json"), F("{\"ok\":true}"));
+        if (!body.length()) { r->send(400, F("text/plain"), F("RTTTL string or 'stop' required")); return; }
+        if (body.equalsIgnoreCase("stop")) {
+            dpxBuzzerStop();
         } else {
-            r->send(400, F("text/plain"), F("RTTTL string required"));
+            dpxBuzzerPlay(body.c_str());
         }
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
-    // POST /api/sound  body: JSON {"rtttl":"..."} — compatible with old senders
+    // POST /api/sound  body: JSON {"rtttl":"..."} or {"sound":"filename"} or empty=stop
+    // sound files are RTTTL text stored in /MELODIES/<name>.txt on LittleFS
     server.on("/api/sound", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
         body.trim();
-        StaticJsonDocument<256> doc;
-        if (!deserializeJson(doc, body) && doc.containsKey("rtttl")) {
-            String s = doc["rtttl"].as<String>();
-            dpxBuzzerPlay(s.c_str());
+        // Empty body or {} = stop
+        if (!body.length() || body == F("{}")) {
+            dpxBuzzerStop();
             r->send(200, F("application/json"), F("{\"ok\":true}"));
-        } else if (body.startsWith("Beep") || body.indexOf(':') > 0) {
-            // Plain RTTTL string passed to /api/sound as well
+            return;
+        }
+        StaticJsonDocument<256> doc;
+        if (!deserializeJson(doc, body)) {
+            if (doc.containsKey("rtttl")) {
+                dpxBuzzerPlay(doc["rtttl"].as<const char*>());
+                r->send(200, F("application/json"), F("{\"ok\":true}"));
+                return;
+            }
+            if (doc.containsKey("sound")) {
+                // Load RTTTL from /MELODIES/<name>.txt
+                String path = String(F("/MELODIES/")) + doc["sound"].as<String>() + F(".txt");
+                File f = LittleFS.open(path, "r");
+                if (f) {
+                    String rtttl = f.readString();
+                    f.close();
+                    rtttl.trim();
+                    dpxBuzzerPlay(rtttl.c_str());
+                    r->send(200, F("application/json"), F("{\"ok\":true}"));
+                } else {
+                    r->send(404, F("text/plain"), F("melody file not found"));
+                }
+                return;
+            }
+        }
+        // Fallback: treat raw body as RTTTL string
+        if (body.indexOf(':') > 0) {
             dpxBuzzerPlay(body.c_str());
             r->send(200, F("application/json"), F("{\"ok\":true}"));
         } else {
-            r->send(400, F("text/plain"), F("rtttl field required"));
+            r->send(400, F("text/plain"), F("rtttl or sound field required"));
         }
     });
 
@@ -455,7 +487,8 @@ static void dpxRegisterRoutes() {
 
     // ── Transitions list (stub — not implemented) ─────────────────────────────
     server.on("/api/transitions", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, F("application/json"), F("[]"));
+        // Transition names (cross-fade is the only supported type currently)
+        r->send(200, F("application/json"), F("[\"fade\",\"slide\"]"));
     });
 
     // ── Reboot ────────────────────────────────────────────────────────────────
@@ -468,5 +501,21 @@ static void dpxRegisterRoutes() {
         r->send(200, F("application/json"), F("{\"ok\":true}"));
         delay(200);
         ESP.restart();
+    });
+
+    // ── Sleep (ESP32 deep sleep) ──────────────────────────────────────────
+    // POST body: {"sleep": N}  — sleep N seconds then wake via timer.
+    // If N is 0 or omitted, sleeps indefinitely (wake on button press only).
+    server.on("/api/sleep", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        DynamicJsonDocument doc(64);
+        uint64_t secs = 0;
+        if (!deserializeJson(doc, body) && doc.containsKey("sleep"))
+            secs = (uint64_t)doc["sleep"].as<uint32_t>();
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+        delay(200);
+        if (secs > 0)
+            esp_sleep_enable_timer_wakeup(secs * 1000000ULL);
+        esp_deep_sleep_start();
     });
 }

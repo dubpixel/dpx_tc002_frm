@@ -17,6 +17,7 @@
 #pragma once
 #include <vector>
 #include <map>
+#include <set>
 #include <Arduino.h>
 #include "dpx_text.h"
 #include "dpx_persist.h"
@@ -49,6 +50,9 @@ struct DpxCustomApp {
     unsigned long addedMs = 0;       // millis() when app was added
     bool     save        = false;
     std::vector<DpxDrawCmd> drawCmds;
+    String   overlay   = "";   // per-app pixel effect name (e.g. "rain", "snow")
+    String   icon      = "";   // icon name (no extension, no path)
+    int      pushIcon  = 0;    // 0=fixed left, 1=scroll+gone, 2=scroll+loop
 
     bool valid = false;  // false = slot unused
 
@@ -69,7 +73,8 @@ struct DpxCustomApp {
 struct DpxApp {
     String        name;
     DpxCustomApp  data;
-    bool          isNative = false; // Time, Date, Temp etc.
+    bool          isNative = false; // Time, Date, WLED etc.
+    bool          muted    = false; // if true, skipped in rotation
 };
 
 // ── OSC Listener Registry ─────────────────────────────────────────────────────
@@ -80,9 +85,10 @@ struct DpxOscListener {
 };
 
 // ── Global app state ──────────────────────────────────────────────────────────
-static std::vector<DpxApp>         dpxApps;       // ordered app loop
-static std::map<String, DpxCustomApp> dpxCustom;  // named custom apps
-static std::vector<DpxOscListener> dpxOscListeners;
+static std::vector<DpxApp>            dpxApps;         // ordered app loop
+static std::map<String, DpxCustomApp> dpxCustom;       // named custom apps
+static std::set<String>               dpxHiddenApps;   // removed from rotation (incl. natives)
+static std::vector<DpxOscListener>    dpxOscListeners;
 
 static int     dpxCurrentApp   = 0;               // index into dpxApps
 static bool    dpxAutoTrans    = true;             // auto-advance enabled
@@ -133,6 +139,9 @@ static DpxCustomApp dpxParseApp(const char* json) {
     if (doc.containsKey("progressBC"))  app.pbColor     = dpxParseColor(doc["progressBC"], 0x1a1a1a);
     if (doc.containsKey("lifetime"))    app.lifetime    = doc["lifetime"].as<unsigned long>();
     if (doc.containsKey("save"))        app.save        = doc["save"].as<bool>();
+    if (doc.containsKey("overlay"))  { app.overlay = doc["overlay"].as<String>(); app.overlay.toLowerCase(); }
+    if (doc.containsKey("icon"))       app.icon     = doc["icon"].as<String>();
+    if (doc.containsKey("pushIcon"))   app.pushIcon = doc["pushIcon"].as<int>();
     app.addedMs = millis();
 
     // Draw commands
@@ -168,20 +177,32 @@ static void dpxExecDraw(const std::vector<DpxDrawCmd>& cmds) {
 
 // ── Native app rendering ──────────────────────────────────────────────────────
 static void dpxRenderNativeTime() {
-    time_t now; struct tm ti;
-    time(&now); localtime_r(&now, &ti);
+    // localTime is WLED's timezone-adjusted Unix epoch. Respect WLED's useAMPM setting.
+    // Wrong time → set timezone in WLED: Config → Time & NTP → select timezone.
     char buf[9];
-    strftime(buf, sizeof(buf), "%H:%M", &ti);
+    if (localTime < 100000UL) {
+        strncpy(buf, "--:--", sizeof(buf));  // NTP not synced yet
+    } else if (useAMPM) {
+        // 12h format with AM/PM indicator
+        uint8_t h = hourFormat12(localTime);
+        snprintf(buf, sizeof(buf), "%d:%02d%s", h, minute(localTime),
+                 (hour(localTime) < 12) ? "a" : "p");
+    } else {
+        snprintf(buf, sizeof(buf), "%02d:%02d", hour(localTime), minute(localTime));
+    }
     int w = dpxTextPixelWidth(buf);
     int x = (DPX_MATRIX_W - w) / 2;
     dpxRenderText(x, DPX_FONT_BASELINE, buf, 0xFFFFFF);
 }
 
 static void dpxRenderNativeDate() {
-    time_t now; struct tm ti;
-    time(&now); localtime_r(&now, &ti);
     char buf[9];
-    strftime(buf, sizeof(buf), "%d.%m.%y", &ti);
+    if (localTime < 100000UL) {
+        strncpy(buf, "--.--.--", sizeof(buf));
+    } else {
+        snprintf(buf, sizeof(buf), "%02d.%02d.%02d",
+                 day(localTime), month(localTime), year(localTime) % 100);
+    }
     int w = dpxTextPixelWidth(buf);
     int x = (DPX_MATRIX_W - w) / 2;
     dpxRenderText(x, DPX_FONT_BASELINE, buf, 0x8888FF);
@@ -203,7 +224,7 @@ static bool dpxRenderApp(DpxCustomApp& app) {
         dpxDrawProgressBar(app.progress, app.pColor, app.pbColor);
     }
 
-    int textY = app.topText ? 0 : 1; // text row
+    int textY = app.topText ? (DPX_FONT_BASELINE - 1) : DPX_FONT_BASELINE; // proper AwtrixFont baselines
     int textW = dpxTextPixelWidth(app.text.c_str());
 
     if (app.noScroll || textW <= DPX_MATRIX_W) {
@@ -225,12 +246,17 @@ static bool dpxRenderApp(DpxCustomApp& app) {
 
 // ── App loop management ───────────────────────────────────────────────────────
 
-// Rebuild dpxApps from dpxCustom (preserves native apps, appends custom ones).
+// Rebuild dpxApps from dpxCustom. Any app in dpxHiddenApps is skipped.
 static void dpxRebuildLoop() {
     std::vector<DpxApp> newList;
-    // Always-first native apps
-    { DpxApp a; a.name="Time"; a.isNative=true; newList.push_back(a); }
-    { DpxApp a; a.name="Date"; a.isNative=true; newList.push_back(a); }
+    // Native apps — included unless user deleted them from the rotation
+    const char* natives[] = {"Time", "Date", "WLED"};
+    for (auto n : natives) {
+        if (dpxHiddenApps.find(String(n)) == dpxHiddenApps.end()) {
+            DpxApp a; a.name = n; a.isNative = true;
+            newList.push_back(a);
+        }
+    }
     // Custom apps in insertion order
     for (auto& kv : dpxCustom) {
         if (kv.second.valid) {
@@ -245,30 +271,47 @@ static void dpxRebuildLoop() {
     if (dpxCurrentApp >= (int)dpxApps.size()) dpxCurrentApp = 0;
 }
 
-// Add or update a custom app by name. Empty body = delete.
+// Add or update a custom app. Empty body = remove from rotation.
+// Native apps (Time, Date, WLED) are hidden (not deleted); custom apps are erased.
 static void dpxSetCustomApp(const String& name, const char* json) {
     if (!json || strlen(json) <= 2) {
-        // Empty JSON or null → delete
+        // Remove from rotation — custom erased, natives hidden
         dpxCustom.erase(name);
+        dpxHiddenApps.insert(name);
+        LittleFS.remove("/CUSTOMAPPS/" + name + ".json");
     } else {
         DpxCustomApp app = dpxParseApp(json);
-        if (app.valid) dpxCustom[name] = app;
+        if (app.valid) {
+            dpxCustom[name] = app;
+            dpxHiddenApps.erase(name);  // restore if previously removed
+            if (app.save) {
+                LittleFS.mkdir("/CUSTOMAPPS");
+                File f = LittleFS.open("/CUSTOMAPPS/" + name + ".json", "w");
+                if (f) { f.print(json); f.close(); }
+            }
+        }
     }
     dpxRebuildLoop();
 }
 
-// Advance to next app
+// Advance to next unmuted app
 static void dpxNextApp() {
     if (dpxApps.empty()) return;
-    dpxCurrentApp = (dpxCurrentApp + 1) % dpxApps.size();
+    int start = dpxCurrentApp;
+    do {
+        dpxCurrentApp = (dpxCurrentApp + 1) % dpxApps.size();
+    } while (dpxApps[dpxCurrentApp].muted && dpxCurrentApp != start);
     dpxAppStartMs = millis();
     dpxScroll.stop();
 }
 
-// Go to previous app
+// Go to previous unmuted app
 static void dpxPrevApp() {
     if (dpxApps.empty()) return;
-    dpxCurrentApp = (dpxCurrentApp + (int)dpxApps.size() - 1) % dpxApps.size();
+    int start = dpxCurrentApp;
+    do {
+        dpxCurrentApp = (dpxCurrentApp + (int)dpxApps.size() - 1) % dpxApps.size();
+    } while (dpxApps[dpxCurrentApp].muted && dpxCurrentApp != start);
     dpxAppStartMs = millis();
     dpxScroll.stop();
 }
@@ -304,10 +347,19 @@ static String dpxGetAppsJson() {
     JsonArray arr = doc.to<JsonArray>();
     for (auto& a : dpxApps) {
         JsonObject o = arr.createNestedObject();
-        o["name"] = a.name;
+        o["name"]   = a.name;
         o["native"] = a.isNative;
+        o["muted"]  = a.muted;
     }
     String s; serializeJson(doc, s); return s;
+}
+
+// Mute or unmute an app by name. Returns false if name not found.
+static bool dpxMuteApp(const String& name, bool mute) {
+    for (auto& a : dpxApps) {
+        if (a.name == name) { a.muted = mute; return true; }
+    }
+    return false;
 }
 
 // Return JSON of a specific custom app's current state
@@ -324,6 +376,9 @@ static String dpxGetCustomAppJson(const String& name) {
     doc["scrollSpeed"] = a.scrollSpeed;
     doc["duration"]    = a.duration;
     doc["progress"]    = a.progress;
+    doc["icon"]        = a.icon;
+    doc["pushIcon"]    = a.pushIcon;
+    doc["overlay"]     = a.overlay;
     String s; serializeJson(doc, s); return s;
 }
 
@@ -347,7 +402,7 @@ static void dpxAppLoopTick() {
         : dpxApps[dpxCurrentApp].data.durationMs();
 
     if (now - dpxAppStartMs >= dur) {
-        dpxNextApp();
+        dpxNextApp();  // dpxNextApp already skips muted apps
     }
 }
 
@@ -362,6 +417,7 @@ static void dpxRenderCurrentApp() {
 
     DpxApp& app = dpxApps[dpxCurrentApp];
     if (app.isNative) {
+        if (app.name == "WLED") return;  // passthrough — WLED effect renders unobstructed
         dpxClear();
         if (app.name == "Time") dpxRenderNativeTime();
         else if (app.name == "Date") dpxRenderNativeDate();

@@ -73,7 +73,7 @@ static void dpxFirstBoot() {
     panel["b"]  = false;  // top start
     panel["r"]  = false;  // left start
     panel["v"]  = false;  // horizontal
-    panel["s"]  = false;  // serpentine — set true in WLED UI if needed
+    panel["s"]  = true;   // TC001 is serpentine-wired
     panel["x"]  = 0;
     panel["y"]  = 0;
     panel["h"]  = 8;
@@ -97,6 +97,11 @@ static void dpxFirstBoot() {
     doc["def"]["bri"] = 128;
 
     doc["ota"]["lock"] = false;
+
+    // Enable NTP — time sync is needed for Time/Date apps
+    doc["if"]["ntp"]["en"]     = true;
+    doc["if"]["ntp"]["host"]   = "pool.ntp.org";
+    doc["if"]["ntp"]["tz"]     = 0;   // UTC; user sets timezone in WLED → Config → Time
 
     File f = LittleFS.open(F("/cfg.json"), "w");
     if (!f) { DEBUG_PRINTLN(F("DpxMatrix: failed to open /cfg.json")); return; }

@@ -184,6 +184,16 @@ static bool dpxMqttMessage(char* topic, char* payload) {
         return true;
     }
 
+    // ── Channel mute ──────────────────────────────────────────────────────────
+    // topic: .../dpx/mute/<AppName>  payload: 1/0/true/false/on/off
+    if (cmd.startsWith(F("mute/"))) {
+        String name = cmd.substring(5);
+        String p(payload); p.trim(); p.toLowerCase();
+        bool mute = (p == "1" || p == "true" || p == "on");
+        dpxMuteApp(name, mute);
+        return true;
+    }
+
     // ── Text overlay ──────────────────────────────────────────────────────────
     if (cmd == F("overlay")) {
         String p(payload); p.trim();

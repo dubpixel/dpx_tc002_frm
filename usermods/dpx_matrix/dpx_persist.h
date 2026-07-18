@@ -41,6 +41,9 @@ static int      DPX_SSPEED         = 100;     // global scroll speed %
 static bool     DPX_UPPERCASE      = true;    // force uppercase text
 static bool     dpxEnabled         = true;    // false = pass-through to WLED effects
 static String   DPX_TIMEZONE;                 // POSIX TZ string (e.g. PST8PDT,...)
+// Native app visibility (toggled via POST /api/settings TIM/DAT keys)
+static bool     DPX_SHOW_TIME      = true;
+static bool     DPX_SHOW_DATE      = false;
 
 // ── Load dev.json from LittleFS ───────────────────────────────────────────────
 static void dpxLoadDev() {
