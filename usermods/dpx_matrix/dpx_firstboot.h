@@ -95,7 +95,8 @@ static void dpxFirstBoot() {
     doc["def"]["ps"]  = 0;
     doc["def"]["on"]  = true;
     doc["def"]["bri"] = 128;
-    doc["def"]["fx"]  = 200;   // dpx Matrix effect (registered by dpx_matrix usermod)
+    // def.fx intentionally omitted — dpxActivateEffect() in connected() sets
+    // the correct dynamic effect ID after strip.addEffect() has run.
 
     doc["ota"]["lock"] = false;
 

@@ -88,8 +88,8 @@ public:
 
         // Register dpx Matrix as a WLED effect — this replaces handleOverlayDraw.
         // Using SEGMENT APIs means brightness/transitions/power-fade work natively.
-        _dpxEffectId = strip.addEffect(200, &mode_dpx_matrix,
-            "dpx Matrix;!;2");  // 2D capable
+        _dpxEffectId = strip.addEffect(255, &mode_dpx_matrix,
+            "dpx Matrix;!;2");  // 255 = auto-assign next available ID
         // Switch the main segment to our effect on startup
         strip.getMainSegment().setMode(_dpxEffectId);
         stateUpdated(CALL_MODE_INIT);

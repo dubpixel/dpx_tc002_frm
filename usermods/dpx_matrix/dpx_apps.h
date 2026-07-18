@@ -73,7 +73,7 @@ struct DpxCustomApp {
 struct DpxApp {
     String        name;
     DpxCustomApp  data;
-    bool          isNative = false; // Time, Date, WLED etc.
+    bool          isNative = false; // Time, Date — built-in apps
     bool          muted    = false; // if true, skipped in rotation
 };
 
@@ -261,7 +261,7 @@ static bool dpxRenderApp(DpxCustomApp& app) {
 static void dpxRebuildLoop() {
     std::vector<DpxApp> newList;
     // Native apps — included unless user deleted them from the rotation
-    const char* natives[] = {"Time", "Date", "WLED"};
+    const char* natives[] = {"Time", "Date"};  // WLED removed — dpx Matrix IS the WLED effect
     for (auto n : natives) {
         if (dpxHiddenApps.find(String(n)) == dpxHiddenApps.end()) {
             DpxApp a; a.name = n; a.isNative = true;
@@ -283,7 +283,7 @@ static void dpxRebuildLoop() {
 }
 
 // Add or update a custom app. Empty body = remove from rotation.
-// Native apps (Time, Date, WLED) are hidden (not deleted); custom apps are erased.
+// Native apps (Time, Date) are hidden (not deleted); custom apps are erased.
 static void dpxSetCustomApp(const String& name, const char* json) {
     if (!json || strlen(json) <= 2) {
         // Remove from rotation — custom erased, natives hidden
@@ -430,15 +430,6 @@ static void dpxRenderCurrentApp() {
 
     DpxApp& app = dpxApps[dpxCurrentApp];
     if (app.isNative) {
-        if (app.name == "WLED") {
-            // Passthrough: switch away from dpx Matrix so WLED effects show.
-            // Switches to DNA Spiral (182); user can change via WLED UI.
-            if (_dpxEffectId != 255 && strip.getMainSegment().mode == _dpxEffectId) {
-                strip.getMainSegment().setMode(FX_MODE_2DDNASPIRAL);
-                stateUpdated(CALL_MODE_DIRECT_CHANGE);
-            }
-            return;
-        }
         dpxClear();
         if (app.name == "Time") dpxRenderNativeTime();
         else if (app.name == "Date") dpxRenderNativeDate();
