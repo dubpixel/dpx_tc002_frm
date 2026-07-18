@@ -234,6 +234,7 @@ No automated linting is configured. Match existing code style in files you edit.
 ## General Rules
 
 - Important: Repository language is **English**. This applies to source code (including comments), commit messages and any kind of documentation for developer or users.
+- **Check if WLED already does it before implementing it in a usermod.** WLED has built-in handling for: buttons, NTP time sync, MQTT, HTTP API, OTA, effects, segments, presets, and more. Adding parallel implementations will fight WLED and cause double-actions, wrong state, and bugs. Always check `wled00/button.cpp`, `wled00/ntp.cpp`, `wled00/fcn_declare.h`, and the Usermod base class hooks (`handleButton()`, `connected()`, `onMqttConnect()`, etc.) before writing new handling code. Use WLED's internal APIs (`toggleOnOff()`, `stateUpdated()`, `localTime`, `hour()`, `minute()`) rather than reimplementing the same functionality.
 - The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`.
 - When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.

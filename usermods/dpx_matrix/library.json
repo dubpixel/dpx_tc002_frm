@@ -1,0 +1,5 @@
+{
+  "name": "dpx_matrix",
+  "build": { "libArchive": false },
+  "dependencies": {}
+}
