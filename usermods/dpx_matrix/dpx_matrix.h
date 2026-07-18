@@ -152,10 +152,6 @@ public:
                         dpxCurrentApp < dpxApps.size() ? dpxApps[dpxCurrentApp].name.c_str() : "?",
                         (unsigned)dpxCurrentApp, (unsigned)dpxApps.size());
                     Serial.printf("[dpx] Notifs  : %u queued\n", (unsigned)dpxNotifQueue.size());
-                    Serial.printf("[dpx] NTP     : enabled=%s synced=%s server=%s\n",
-                        ntpEnabled ? "YES" : "NO",
-                        (localTime > 100000UL) ? "YES" : "NO",
-                        ntpServerName);
                     Serial.printf("[dpx] Time    : %02d:%02d:%02d (localTime=%lu)\n",
                         hour(localTime), minute(localTime), second(localTime), (unsigned long)localTime);
                     Serial.printf("[dpx] Uptime  : %lus\n", millis() / 1000);

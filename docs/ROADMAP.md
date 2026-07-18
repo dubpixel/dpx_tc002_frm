@@ -31,6 +31,12 @@ See Part 2 of this file.
 - [x] **1.7** `/api/sleep` not implemented — added ESP32 deep sleep with optional timer wakeup (`{"sleep":N}`)
 - [x] **1.8** `save` flag — `save: true` in custom app JSON now persists to `/CUSTOMAPPS/<name>.json` on LittleFS; delete also removes the file
 - [x] **1.9** Per-app overlay activation — added hook in `handleOverlayDraw()` in `dpx_matrix.h`; overlay activates automatically when app/notification is shown, clears on transition
+- [ ] **1.10** Serial config dump `dpx_matrix.h`
+  - Add `c` command to the serial debug handler that dumps key LittleFS config files to serial
+  - Print `/dev.json`, `/cfg.json` (WLED wifi/mqtt config), `/osc_listeners.json` — pretty-printed with section headers
+  - Format: `─── /dev.json ───` header, then indented JSON, then a separator line
+  - Also print active runtime globals (DPX_TIMEZONE, DPX_ATIME, DPX_SHOW_TIME, etc.) below the raw file
+  - Update help string: `s=status  c=config dump  r=reboot  h=help`
 
 ---
 

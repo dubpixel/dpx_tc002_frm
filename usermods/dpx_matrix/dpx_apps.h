@@ -177,16 +177,18 @@ static void dpxExecDraw(const std::vector<DpxDrawCmd>& cmds) {
 
 // ── Native app rendering ──────────────────────────────────────────────────────
 static void dpxRenderNativeTime() {
-    // Snapshot localTime once to avoid reading a partially-updated value mid-render.
-    time_t t = localTime;
+    // localTime is WLED's timezone-adjusted Unix epoch. Respect WLED's useAMPM setting.
+    // Wrong time → set timezone in WLED: Config → Time & NTP → select timezone.
     char buf[9];
-    if (t < 100000UL) {
-        strncpy(buf, "--:--", sizeof(buf));
+    if (localTime < 100000UL) {
+        strncpy(buf, "--:--", sizeof(buf));  // NTP not synced yet
     } else if (useAMPM) {
-        snprintf(buf, sizeof(buf), "%d:%02d%s",
-                 hourFormat12(t), minute(t), (hour(t) < 12) ? "a" : "p");
+        // 12h format with AM/PM indicator
+        uint8_t h = hourFormat12(localTime);
+        snprintf(buf, sizeof(buf), "%d:%02d%s", h, minute(localTime),
+                 (hour(localTime) < 12) ? "a" : "p");
     } else {
-        snprintf(buf, sizeof(buf), "%02d:%02d", hour(t), minute(t));
+        snprintf(buf, sizeof(buf), "%02d:%02d", hour(localTime), minute(localTime));
     }
     int w = dpxTextPixelWidth(buf);
     int x = (DPX_MATRIX_W - w) / 2;
@@ -194,13 +196,12 @@ static void dpxRenderNativeTime() {
 }
 
 static void dpxRenderNativeDate() {
-    time_t t = localTime;
     char buf[9];
-    if (t < 100000UL) {
+    if (localTime < 100000UL) {
         strncpy(buf, "--.--.--", sizeof(buf));
     } else {
         snprintf(buf, sizeof(buf), "%02d.%02d.%02d",
-                 day(t), month(t), year(t) % 100);
+                 day(localTime), month(localTime), year(localTime) % 100);
     }
     int w = dpxTextPixelWidth(buf);
     int x = (DPX_MATRIX_W - w) / 2;
