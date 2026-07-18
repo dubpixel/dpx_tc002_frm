@@ -60,21 +60,10 @@
 <details>
   <summary><h3>Table of Contents</h3></summary>
 <ol>
-    <li>
-      <a href="#about-the-project">About The Project</a>
-      <ul>
-        <li><a href="#built-with">Built With</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#prerequisites">Prerequisites</a></li>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#usage">Usage</a></li>    
-    <li><a href="#reflection">Reflection</a></li>
+    <li><a href="#about-the-project">About The Project</a></li>
+    <li><a href="#getting-started">Getting Started</a></li>
+    <li><a href="#first-boot-defaults">First Boot Defaults</a></li>
+    <li><a href="#usage">Usage</a></li>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
@@ -85,84 +74,155 @@
 <!-- ABOUT THE PROJECT -->
 <details>
 <summary><h3>About The Project</h3></summary>
-a lengthy description about the project that should probably be many lines. this is where you can get deep about shit and be like oh man its the best hot dog in the univberse because i use the koskusko mustart!
-</br>
 
-*author(s): // www.dubpixel.tv  - i@dubpixel.tv | other authors* 
-</br>
-<h3>Images</h3>
+**dpx_tc002_frm** is a custom WLED firmware build for the [Ulanzi TC001](https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882) pixel clock — a battery-powered ESP32 device with a 32×8 WS2812B LED matrix. It replaces the stock Awtrix firmware with a WLED base plus the `dpx_matrix` usermod, adding timecode display, OSC/MQTT control, scrolling text apps, pixel overlay effects, and first-boot hardware configuration.
+
+Built on top of [WLED](https://github.com/wled/WLED) (EUPL v1.2) — all WLED features remain fully functional.
+
+### What WLED brings
+
+- **200+ built-in LED effects** including 2D/matrix effects, audio-reactive, and palettes
+- **Segments** — independent effects/colors on parts of the strip simultaneously
+- **Up to 250 presets** with playlist support
+- **JSON + HTTP APIs**, MQTT with Home Assistant discovery, E1.31/Art-Net/DDP
+- **Multi-WiFi** with automatic AP fallback, OTA firmware updates
+- **NTP time sync** with full timezone + DST support
+- Full [WLED documentation at kno.wled.ge](https://kno.wled.ge)
+- [WLED mobile app](https://kno.wled.ge/basics/getting-started/) for Android and iOS
+
+### What dpx_matrix adds
+
+- Scrolling/static **text app loop** (Time, Date, custom apps) with AwtrixFont
+- **Timecode display** (LTC via OSC) with frame progress bar
+- **Notifications** — one-shot priority messages
+- **Text overlay** + pixel effects (sparkle, strobe, rain, twinkle, blink) on top of any WLED effect
+- **OSC receiver** (UDP 4210) — compatible with dpx_tc001 and AWTRIX OSC senders
+- **MQTT** via WLED's broker connection
+- **First-boot config** — device is usable out of the box, no wizard required
+
+*author: [Joshua Fleitell](https://www.dubpixel.tv) — i@dubpixel.tv*
+
+> ⚠️ If you are prone to photosensitive epilepsy, avoid strobe/lightning effects and high speed settings.
+
+### Images
 
 ### FRONT
 ![FRONT][product-front]
-### REAR 
+### REAR
 ![REAR][product-rear]
 ### FRONT Rendering
 ![FRONT][product-front-rendering]
 ### REAR Rendering
 ![REAR][product-rear-rendering]
-### iBOM PCB Front
-![iBOM Front][product-pcbFront]
-### iBOM PCB Rear
-![iBOM Front][product-pcbRear]
 </details>
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-### Built With 
- 
- * [![KiCad][KiCad.org]][KiCad-url]
- * [![Fusion360][Fusion-360]][Autodesk-url]
- * [![FastLed][FastLed.io]][FastLed-url]
+### Built With
 
-<!--
- * [![KiCad][KiCad.org]][KiCad-url]
- * [![Fusion360][Fusion-360]][Autodesk-url]
- * [![FastLed][FastLed.io]][FastLed-url]
- * [![Fusion360][Fusion-360]][Autodesk-url]
- * [![Next][Next.js]][Next-url]
- * [![React][React.js]][React-url]
- * [![Vue][Vue.js]][Vue-url]
- * [![Angular][Angular.io]][Angular-url]
- * [![Svelte][Svelte.dev]][Svelte-url]
- * [![Laravel][Laravel.com]][Laravel-url]
- * [![Bootstrap][Bootstrap.com]][Bootstrap-url]
- * [![JQuery][JQuery.com]][JQuery-url]
- 
--->
+* [![WLED][WLED-badge]][WLED-url]
+* [![PlatformIO][PlatformIO-badge]][PlatformIO-url]
+* [![ESP32][ESP32-badge]][ESP32-url]
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 <!-- GETTING STARTED -->
 
 ## Getting Started
 
   ### Prerequisites
-  * 
+  * PlatformIO (VS Code extension or CLI)
+  * Node.js 20+ (`npm ci` before first build)
+
   ### Installation
 
-  1. 
+  1. Clone the repo and open in VS Code
+  2. `npm ci && npm run build` — generate web UI headers
+  3. Hit **Upload** (PlatformIO sidebar → `ulanzi_tc001`) or run `pio run -t upload -e ulanzi_tc001`
+  4. On first boot the device writes its own config — see [First Boot Defaults](#first-boot-defaults) below
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- FIRST BOOT DEFAULTS -->
+## First Boot Defaults
+
+When you flash this firmware the device is **not stock WLED** — it boots into a pre-configured state. Here's what to expect:
+
+### Connecting for the first time
+
+1. Power the device
+2. Look for WiFi network **`dpx-tc002`** (not `WLED-AP`)
+3. Password: **`dubpixel1`** (not `wled1234`)
+4. Connect and go to **`http://4.3.2.1`** in a browser
+5. Set your WiFi network under **WiFi Setup**
+6. The device joins your network and is accessible at **`http://dpx-tc002.local`**
+
+> This AP stays open indefinitely whenever the device is not connected to WiFi — no 5-minute timeout.
+
+### Default hardware config (written once on first boot)
+
+| Setting | Value | Notes |
+|---|---|---|
+| **AP SSID** | `dpx-tc002` | |
+| **AP Password** | `dubpixel1` | |
+| **mDNS** | `dpx-tc002.local` | |
+| **LED GPIO** | 32 | |
+| **LED Count** | 256 | 32×8 matrix |
+| **LED Type** | WS2812B GRB | |
+| **2D Panel** | 32×8, non-serpentine | Toggle serpentine in WLED → LED Preferences |
+| **Buttons** | GPIO 26 / 14 / 27 | Configurable macros in WLED |
+| **Transitions** | 0 ms | Instant — better for text |
+| **WiFi** | Not saved | Configure on first connect |
+
+> Reflashing **preserves** your saved WiFi credentials. To reset to factory defaults, delete `/cfg.json` via WLED → File Manager, then reboot.
+
+### Control interfaces
+
+| Interface | How |
+|---|---|
+| **Web UI** | `http://dpx-tc002.local` |
+| **OSC** | UDP 4210 — `/dpx/notify`, `/dpx/tc`, `/dpx/app/<name>`, `/dpx/overlay`, `/dpx/effect` |
+| **MQTT** | `{deviceTopic}/dpx/#` — same structure as OSC |
+| **JSON** | `POST /json {"dpx":{...}}` — WLED standard JSON API |
+| **Serial** | 115200 baud — prints IP on connect |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- USAGE EXAMPLES -->
 ## Usage
 
-1. <!-- Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
+Send a notification via OSC:
+```
+/dpx/notify  {"text":"HELLO","color":"#FF0000","duration":5}
+```
 
-_For more examples, please refer to the [Documentation](https://example.com)_-->
-<!-- REFLECTION -->
-## Reflection
+Send timecode via OSC (compatible with dpx_tc001 and AWTRIX senders):
+```
+/dpx/tc  01:23:45:12
+```
 
-* what did we learn? 
-  - _x_
-* what do we like/hate?
-  - _y_
-* what would/could we do differently?
-  - _z_
-  <!-- ROADMAP -->
+Set a custom scrolling app via MQTT:
+```
+{deviceTopic}/dpx/app/mylabel  {"text":"LIVE","color":"#FF4400","duration":10}
+```
+
+Via WLED JSON API:
+```json
+POST /json
+{"dpx": {"notify": {"text": "HELLO", "color": "#FF0000"}}}
+```
+
+See [First Boot Defaults](#first-boot-defaults) for all control interfaces.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Feature 1
-    - [ ] Nested Feature
+- [ ] Button macros (prev/next app, dismiss notification, show IP)
+- [ ] LDR-based auto brightness
+- [ ] Temperature/humidity sensor display (I²C)
+- [ ] Preset integration — trigger dpx apps from WLED presets
+- [ ] 2D effect groups in web UI
 
-See the [open issues](https://github.com/dubpixel/dpx_tc002_frm/issues) for a full list of proposed features (and known issues).
+See the [open issues](https://github.com/dubpixel/dpx_tc002_frm/issues) for a full list of proposed features and known issues.
 
 <!-- CONTRIBUTING -->
 ## Contributing
@@ -185,62 +245,47 @@ Don't forget to give the project a star! Thanks again!
 
 <!-- LICENSE -->
 ## License
-Distributed under the [LICENSE_TYPE] License. See `LICENSE.txt` for more information.
+This firmware is distributed under the **EUPL v1.2** (inherited from WLED). See `LICENSE` for details.
+
+The `dpx_matrix` usermod (original work) is additionally available under MIT.
+
+AwtrixFont used in dpx_font.h is BSD 3-Clause — see header for full attribution.
 <!-- CONTACT -->
 ## Contact
 
-  ### Joshua Fleitell - i@dubpixel.tv
+  ### Joshua Fleitell — i@dubpixel.tv
 
   Project Link: [https://github.com/dubpixel/dpx_tc002_frm](https://github.com/dubpixel/dpx_tc002_frm)
 
 <!-- ACKNOWLEDGMENTS -->
 ## Acknowledgments
 
-<!--
-  * [ ]() - the best !
--->
+* [WLED](https://github.com/wled/WLED) — the firmware base. Originally by [Aircoookie](https://github.com/Aircoookie), now community-maintained. EUPL v1.2.
+* [AwtrixFont](https://github.com/Blueforcer/awtrix3) — TomThumb-derived 3×5 pixel font by Blueforcer et al. BSD 3-Clause.
+* [Ulanzi TC001](https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882) — the hardware platform.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- MARKDOWN LINKS & IMAGES -->
-<!-- https://www.markdownguide.org/basic-syntax/#reference-style-links -->
 [contributors-shield]: https://img.shields.io/github/contributors/dubpixel/dpx_tc002_frm.svg?style=flat-square
 [contributors-url]: https://github.com/dubpixel/dpx_tc002_frm/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/gdubpixel/dpx_tc002_frm.svg?style=flat-square
+[forks-shield]: https://img.shields.io/github/forks/dubpixel/dpx_tc002_frm.svg?style=flat-square
 [forks-url]: https://github.com/dubpixel/dpx_tc002_frm/network/members
 [stars-shield]: https://img.shields.io/github/stars/dubpixel/dpx_tc002_frm.svg?style=flat-square
 [stars-url]: https://github.com/dubpixel/dpx_tc002_frm/stargazers
 [issues-shield]: https://img.shields.io/github/issues/dubpixel/dpx_tc002_frm.svg?style=flat-square
 [issues-url]: https://github.com/dubpixel/dpx_tc002_frm/issues
 [license-shield]: https://img.shields.io/github/license/dubpixel/dpx_tc002_frm.svg?style=flat-square
-[license-url]: https://github.com/dubpixel/dpx_tc002_frm/blob/main/LICENSE.txt
+[license-url]: https://github.com/dubpixel/dpx_tc002_frm/blob/main/LICENSE
 [linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=flat-square&logo=linkedin&colorB=555
 [linkedin-url]: https://linkedin.com/in/jfleitell
 [product-front]: images/front.png
 [product-rear]: images/rear.png
 [product-front-rendering]: images/front_render.png
 [product-rear-rendering]: images/rear_render.png
-[product-pcbFront]: images/pcb_front.png
-[product-pcbRear]: images/pcb_rear.png
-[Next.js]: https://img.shields.io/badge/next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white
-[Next-url]: https://nextjs.org/
-[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
-[React-url]: https://reactjs.org/
-[Vue.js]: https://img.shields.io/badge/Vue.js-35495E?style=for-the-badge&logo=vuedotjs&logoColor=4FC08D
-[Vue-url]: https://vuejs.org/
-[Angular.io]: https://img.shields.io/badge/Angular-DD0031?style=for-the-badge&logo=angular&logoColor=white
-[Angular-url]: https://angular.io/
-[Svelte.dev]: https://img.shields.io/badge/Svelte-4A4A55?style=for-the-badge&logo=svelte&logoColor=FF3E00
-[Svelte-url]: https://svelte.dev/
-[Laravel.com]: https://img.shields.io/badge/Laravel-FF2D20?style=for-the-badge&logo=laravel&logoColor=white
-[Laravel-url]: https://laravel.com
-[Bootstrap.com]: https://img.shields.io/badge/Bootstrap-563D7C?style=for-the-badge&logo=bootstrap&logoColor=white
-[Bootstrap-url]: https://getbootstrap.com
-[JQuery.com]: https://img.shields.io/badge/jQuery-0769AD?style=for-the-badge&logo=jquery&logoColor=white
-[JQuery-url]: https://jquery.com 
-[KiCad.org]: https://img.shields.io/badge/KiCad-v8.0.6-blue
-[KiCad-url]: https://kicad.org 
-[Fusion-360]: https://img.shields.io/badge/Fusion360-v4.2.0-green
-[Autodesk-url]: https://autodesk.com 
-[FastLed.io]: https://img.shields.io/badge/FastLED-v3.9.9-red
-[FastLed-url]: https://fastled.io 
+[WLED-badge]: https://img.shields.io/badge/WLED-17.0.0--dev-blue?style=flat-square
+[WLED-url]: https://github.com/wled/WLED
+[PlatformIO-badge]: https://img.shields.io/badge/PlatformIO-ESP32-orange?style=flat-square
+[PlatformIO-url]: https://platformio.org
+[ESP32-badge]: https://img.shields.io/badge/ESP32--WROOM--32D-240MHz-green?style=flat-square
+[ESP32-url]: https://www.espressif.com/en/products/socs/esp32

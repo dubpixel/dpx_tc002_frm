@@ -15,3 +15,11 @@
 
 #include "wled.h"
 #include "dpx_matrix.h"
+
+// ── Global definitions ────────────────────────────────────────────────────────
+// dpxIndicator is declared extern in dpx_osc.h; one definition here.
+uint32_t dpxIndicator[3] = {0, 0, 0};
+
+// ── Usermod registration ──────────────────────────────────────────────────────
+static DpxMatrix dpxMatrixMod;
+REGISTER_USERMOD(dpxMatrixMod);

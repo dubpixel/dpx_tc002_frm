@@ -1,386 +1,472 @@
 // ================================================================================
-// dpx_api.h — HTTP Route Registration (AsyncWebServer)
+// dpx_api.h — HTTP Routes: pages + REST API
 // ================================================================================
 // Original work — dubpixel / dpx_tc002 (MIT)
-// Behavioral reference: SPEC.md §5 (HTTP API Reference)
-// Implementation adapted from dpx_tc001 ServerManager.cpp (original work)
 // ================================================================================
 // PROJECT: dpx_tc002_frm
 // ================================================================================
 //
 // File: dpx_api.h
-// Purpose: Register all custom HTTP routes with WLED's AsyncWebServer instance.
-//          Call dpxRegisterRoutes() once from DpxMatrix::setup().
+// Purpose: Register all HTTP routes for the dpx_matrix usermod.
 //
-// Routes registered:
-//   GET  /ctrl, /browse, /api-ref, /screen, /fullscreen
-//   GET  /api/loop, /api/apps, /api/custom, /api/settings, /api/time,
-//         /api/dev, /api/stats, /api/screen, /api/effects, /api/transitions,
-//         /api/osc/listeners, /api/reboot
-//   POST /api/notify, /api/notify/dismiss, /api/custom, /api/switch,
-//         /api/nextapp, /api/previousapp, /api/power, /api/settings,
-//         /api/moodlight, /api/indicator1/2/3, /api/rtttl, /api/sound,
-//         /api/apps, /api/reorder, /api/time, /api/syncntp, /api/rename,
-//         /api/tc, /api/dev, /api/osc/listeners
-//   DELETE /api/osc/listeners
+// Pages:
+//   GET /ctrl      → Control panel (dpx_html.h → ctrl_html)
+//   GET /browse    → Icon browser (dpx_html.h → browse_html)
+//   GET /api-ref   → API reference (dpx_html.h → apiref_html)
+//   GET /screen    → Live matrix view (dpx_html.h → screenfull_html)
+//
+// API:
+//   GET/POST /api/stats            device stats
+//   GET      /api/apps             app list
+//   GET      /api/loop             app loop map
+//   POST     /api/notify           push notification
+//   POST     /api/notify/dismiss   dismiss held notification
+//   GET/POST /api/custom           get or push custom app (?name=)
+//   POST     /api/switch           switch to named app
+//   POST     /api/nextapp          advance loop
+//   POST     /api/previousapp      go back in loop
+//   POST     /api/power            {"power":true/false}
+//   POST     /api/indicator1|2|3   {"color":[r,g,b],"blink":ms}
+//   GET/POST /api/time             get/set device time
+//   POST     /api/syncntp          re-trigger NTP sync
+//   GET/POST /api/settings         DPX + WLED settings
+//   GET/POST /api/dev              raw dev.json
+//   GET/POST/DELETE /api/osc/listeners   OSC listener registry
+//   POST     /api/moodlight        enable WLED effects (disable matrix overlay)
+//   POST     /api/rtttl            play RTTTL melody on TC001 piezo buzzer (GPIO 15)
+//   POST     /api/sound            stub
+//   POST     /api/rename           LittleFS rename
+//   GET      /api/effects          WLED effect names
+//   GET      /api/transitions      empty list (not implemented)
+//   GET/POST /api/reboot           restart device
+//   GET      /dpx                  legacy status (compat)
+//   GET      /dpx/screen           legacy pixel dump (compat)
 //
 // ================================================================================
 
 #pragma once
-#include <ESPAsyncWebServer.h>
-#include <LittleFS.h>
 #include "dpx_html.h"
-#include "dpx_osc.h"
-#include "dpx_tc.h"
 
-// Indicator pixel colors (rendered in handleOverlayDraw)
-uint32_t dpxIndicator[3] = {0, 0, 0};
+// dpxIndicator is declared extern in dpx_osc.h; defined in dpx_matrix.cpp.
+extern uint32_t dpxIndicator[3];
 
-// Helper: get plain text body as String
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Get plain-text POST body from AsyncWebServerRequest.
 static inline String dpxBody(AsyncWebServerRequest* req) {
-    if (req->hasParam("plain", true)) {
+    if (req->hasParam("plain", true))
         return req->getParam("plain", true)->value();
-    }
     return "";
 }
 
-// Helper: read and return /api/screen — 256 RGB values as JSON array
+// 256-pixel screen dump as JSON array.
 static String dpxScreenJson() {
     DynamicJsonDocument doc(4096);
     JsonArray arr = doc.to<JsonArray>();
-    for (int i = 0; i < 256; i++) {
-        uint32_t c = strip.getPixelColor(i);
-        // WLED returns WRGB — extract RGB
-        arr.add((uint32_t)(c & 0x00FFFFFF));
-    }
+    for (int i = 0; i < 256; i++)
+        arr.add((uint32_t)(strip.getPixelColor(i) & 0x00FFFFFF));
     String s; serializeJson(doc, s); return s;
 }
 
-// Helper: basic stats JSON
+// Device stats JSON (shared by /dpx and /api/stats).
 static String dpxStatsJson() {
     DynamicJsonDocument doc(512);
-    doc["version"]   = "dpx_tc002";
-    doc["uptime"]    = millis() / 1000;
-    doc["ram"]       = ESP.getFreeHeap();
-    doc["ip"]        = WiFi.localIP().toString();
-    doc["rssi"]      = WiFi.RSSI();
-    doc["hostname"]  = WiFi.getHostname();
+    doc[F("version")]   = F("dpx_tc002");
+    doc[F("uptime")]    = millis() / 1000;
+    doc[F("ram")]       = ESP.getFreeHeap();
+    doc[F("ip")]        = WiFi.localIP().toString();
+    doc[F("rssi")]      = WiFi.RSSI();
+    doc[F("hostname")]  = WiFi.getHostname();
+    doc[F("app")]       = (dpxCurrentApp < (int)dpxApps.size())
+                          ? dpxApps[dpxCurrentApp].name : String();
+    doc[F("notif")]     = (int)dpxNotifQueue.size();
+    doc[F("autoTrans")] = dpxAutoTrans;
+    doc[F("enabled")]   = dpxEnabled;
     String s; serializeJson(doc, s); return s;
 }
 
+// Settings JSON: DPX runtime + WLED globals.
+// GET /api/settings returns this; POST /api/settings applies supported keys.
+static String dpxSettingsJson() {
+    DynamicJsonDocument doc(768);
+    doc[F("BRI")]        = (int)bri;
+    doc[F("ATIME")]      = DPX_ATIME;
+    doc[F("ATRANS")]     = DPX_ATRANS;
+    doc[F("SSPEED")]     = DPX_SSPEED;
+    doc[F("UPPERCASE")]  = DPX_UPPERCASE;
+    doc[F("Timezone")]   = DPX_TIMEZONE;
+    doc[F("MQTT_PREFIX")] = String(mqttDeviceTopic);
+    String s; serializeJson(doc, s); return s;
+}
+
+// Apply settings from JSON body to DPX runtime + WLED globals.
+static void dpxApplySettings(const String& body) {
+    DynamicJsonDocument doc(512);
+    if (deserializeJson(doc, body)) return;
+
+    if (doc.containsKey("BRI")) {
+        bri = (uint8_t)constrain(doc["BRI"].as<int>(), 0, 255);
+        stateUpdated(CALL_MODE_DIRECT_CHANGE);
+    }
+    if (doc.containsKey("ATIME"))    { DPX_ATIME    = doc["ATIME"].as<int>(); }
+    if (doc.containsKey("ATRANS"))   { DPX_ATRANS   = doc["ATRANS"].as<bool>(); dpxAutoTrans = DPX_ATRANS; }
+    if (doc.containsKey("SSPEED"))   { DPX_SSPEED   = doc["SSPEED"].as<int>(); }
+    if (doc.containsKey("UPPERCASE")){ DPX_UPPERCASE = doc["UPPERCASE"].as<bool>(); }
+    // Timezone is handled via /api/syncntp for full resync
+    if (doc.containsKey("Timezone")) {
+        DPX_TIMEZONE = doc["Timezone"].as<String>();
+        setenv("TZ", DPX_TIMEZONE.c_str(), 1);
+        tzset();
+        dpxMergeDev(("{\"timezone_posix\":\"" + DPX_TIMEZONE + "\"}").c_str());
+    }
+}
+
+// ── Route registration ────────────────────────────────────────────────────────
+
 static void dpxRegisterRoutes() {
-    // ── Web pages ──────────────────────────────────────────────────────────
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->redirect("/ctrl");
+
+    // ── Pages ─────────────────────────────────────────────────────────────────
+    server.on("/ctrl",    HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send_P(200, PSTR("text/html"), ctrl_html);
     });
-    server.on("/ctrl", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send_P(200, "text/html", ctrl_html);
-    });
-    server.on("/browse", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send_P(200, "text/html", browse_html);
+    server.on("/browse",  HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send_P(200, PSTR("text/html"), browse_html);
     });
     server.on("/api-ref", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send_P(200, "text/html", apiref_html);
+        r->send_P(200, PSTR("text/html"), apiref_html);
     });
-    server.on("/screen", HTTP_GET, [](AsyncWebServerRequest* r) {
-        // /screen uses screenfull_html but since it has %%FPS%% placeholder,
-        // serve it statically; JS fetches /api/screen.
-        r->send_P(200, "text/html", screenfull_html);
-    });
-    server.on("/fullscreen", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send_P(200, "text/html", screenfull_html);
+    server.on("/screen",  HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send_P(200, PSTR("text/html"), screenfull_html);
     });
 
-    // ── Read endpoints ────────────────────────────────────────────────────
-    server.on("/api/loop", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, "application/json", dpxGetLoopJson());
-    });
-    server.on("/api/apps", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, "application/json", dpxGetAppsJson());
-    });
-    server.on("/api/custom", HTTP_GET, [](AsyncWebServerRequest* r) {
-        if (r->hasParam("name")) {
-            r->send(200, "application/json",
-                dpxGetCustomAppJson(r->getParam("name")->value()));
-        } else {
-            r->send(200, "application/json", dpxGetAppsJson());
-        }
-    });
-    server.on("/api/screen", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, "application/json", dpxScreenJson());
+    // ── Stats ─────────────────────────────────────────────────────────────────
+    // Legacy endpoint kept for back-compat
+    server.on("/dpx", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), dpxStatsJson());
     });
     server.on("/api/stats", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, "application/json", dpxStatsJson());
+        r->send(200, F("application/json"), dpxStatsJson());
     });
-    server.on("/api/time", HTTP_GET, [](AsyncWebServerRequest* r) {
+
+    // ── Screen dump ───────────────────────────────────────────────────────────
+    server.on("/dpx/screen", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), dpxScreenJson());
+    });
+    server.on("/api/screen", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), dpxScreenJson());
+    });
+
+    // ── App loop ──────────────────────────────────────────────────────────────
+    server.on("/api/apps", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), dpxGetAppsJson());
+    });
+    server.on("/api/loop", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), dpxGetLoopJson());
+    });
+
+    // ── Notifications ─────────────────────────────────────────────────────────
+    server.on("/api/notify", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        if (body.length()) dpxPushNotification(body.c_str());
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    });
+    server.on("/api/notify/dismiss", HTTP_POST, [](AsyncWebServerRequest* r) {
+        dpxDismissNotification();
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    });
+
+    // ── Custom apps (GET=load, POST=push, name in query) ──────────────────────
+    server.on("/api/custom", HTTP_ANY, [](AsyncWebServerRequest* r) {
+        String name = r->hasParam("name") ? r->getParam("name")->value() : String();
+        if (name.isEmpty()) { r->send(400, F("text/plain"), F("name required")); return; }
+
+        if (r->method() == HTTP_GET) {
+            r->send(200, F("application/json"), dpxGetCustomAppJson(name));
+            return;
+        }
+        // POST: push or delete (empty body = delete)
+        String body = dpxBody(r);
+        dpxSetCustomApp(name, body.c_str());
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    });
+
+    // ── App navigation ────────────────────────────────────────────────────────
+    server.on("/api/switch", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        bool ok = body.length() ? dpxSwitchToApp(body.c_str()) : false;
+        r->send(ok ? 200 : 400, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"not found\"}"));
+    });
+    server.on("/api/nextapp", HTTP_POST, [](AsyncWebServerRequest* r) {
+        dpxNextApp();
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    });
+    server.on("/api/previousapp", HTTP_POST, [](AsyncWebServerRequest* r) {
+        dpxPrevApp();
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    });
+
+    // ── Power on/off ──────────────────────────────────────────────────────────
+    // {"power": true/false}  — maps to WLED brightness
+    server.on("/api/power", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        DynamicJsonDocument doc(64);
+        if (!deserializeJson(doc, body) && doc.containsKey("power")) {
+            bool on = doc["power"].as<bool>();
+            if (on) {
+                bri = briLast ? briLast : 128;
+            } else {
+                briLast = bri;
+                bri = 0;
+            }
+            stateUpdated(CALL_MODE_DIRECT_CHANGE);
+        }
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    });
+
+    // ── Indicators ────────────────────────────────────────────────────────────
+    // {"color":[r,g,b],"blink":ms}  — blink is ignored (no HW PWM), color stored
+    auto handleIndicator = [](AsyncWebServerRequest* r, int idx) {
+        String body = dpxBody(r);
+        DynamicJsonDocument doc(128);
+        if (!deserializeJson(doc, body)) {
+            if (doc.containsKey("color")) {
+                JsonArray a = doc["color"].as<JsonArray>();
+                if (a.size() >= 3)
+                    dpxIndicator[idx] = ((uint32_t)(uint8_t)a[0].as<int>() << 16)
+                                      | ((uint32_t)(uint8_t)a[1].as<int>() <<  8)
+                                      |  (uint32_t)(uint8_t)a[2].as<int>();
+                else
+                    dpxIndicator[idx] = 0;
+            }
+        }
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    };
+    server.on("/api/indicator1", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 0); });
+    server.on("/api/indicator2", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 1); });
+    server.on("/api/indicator3", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 2); });
+
+    // ── Time ──────────────────────────────────────────────────────────────────
+    server.on("/api/time", HTTP_ANY, [](AsyncWebServerRequest* r) {
+        if (r->method() == HTTP_POST) {
+            String body = dpxBody(r);
+            DynamicJsonDocument doc(64);
+            if (!deserializeJson(doc, body) && doc.containsKey("utc")) {
+                time_t t = (time_t)doc["utc"].as<uint32_t>();
+                struct timeval tv = { t, 0 };
+                settimeofday(&tv, nullptr);
+            }
+            r->send(200, F("application/json"), F("{\"ok\":true}"));
+            return;
+        }
+        // GET: return local time string + UTC epoch
         time_t now; struct tm ti;
         time(&now); localtime_r(&now, &ti);
-        char buf[32]; strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &ti);
-        StaticJsonDocument<128> doc;
-        doc["local"] = buf; doc["utc"] = (long)now;
-        String j; serializeJson(doc, j);
-        r->send(200, "application/json", j);
+        char buf[24];
+        strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &ti);
+        DynamicJsonDocument doc(128);
+        doc[F("local")] = buf;
+        doc[F("utc")]   = (uint32_t)now;
+        String s; serializeJson(doc, s);
+        r->send(200, F("application/json"), s);
     });
-    server.on("/api/dev", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, "application/json", dpxReadDevJson());
+
+    // ── NTP resync + timezone ─────────────────────────────────────────────────
+    // POST body (optional): {"timezone":"PST8PDT,...","server":"pool.ntp.org"}
+    server.on("/api/syncntp", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        DynamicJsonDocument doc(256);
+        if (!deserializeJson(doc, body)) {
+            if (doc.containsKey("timezone")) {
+                DPX_TIMEZONE = doc["timezone"].as<String>();
+                dpxMergeDev(("{\"timezone_posix\":\"" + DPX_TIMEZONE + "\"}").c_str());
+            }
+        }
+        // Apply TZ env variable
+        if (DPX_TIMEZONE.length()) {
+            setenv("TZ", DPX_TIMEZONE.c_str(), 1);
+            tzset();
+        }
+        // Re-trigger ESP32 SNTP via configTzTime (sets TZ env + syncs)
+        String ntpSrv = (!doc.isNull() && doc.containsKey("server"))
+            ? doc["server"].as<String>() : String(ntpServerName);
+        if (!ntpSrv.length()) ntpSrv = F("pool.ntp.org");
+
+        if (DPX_TIMEZONE.length()) {
+            configTzTime(DPX_TIMEZONE.c_str(), ntpSrv.c_str());
+        } else {
+            configTime(0, 0, ntpSrv.c_str());
+        }
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
-    server.on("/api/osc/listeners", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, "application/json", dpxOscListenersJson());
+
+    // ── Settings ──────────────────────────────────────────────────────────────
+    server.on("/api/settings", HTTP_ANY, [](AsyncWebServerRequest* r) {
+        if (r->method() == HTTP_POST) {
+            dpxApplySettings(dpxBody(r));
+            r->send(200, F("application/json"), F("{\"ok\":true}"));
+            return;
+        }
+        r->send(200, F("application/json"), dpxSettingsJson());
     });
-    server.on("/api/reboot", HTTP_ANY, [](AsyncWebServerRequest* r) {
-        r->send(200, "text/plain", "OK");
+
+    // ── dev.json (raw device settings) ────────────────────────────────────────
+    server.on("/api/dev", HTTP_ANY, [](AsyncWebServerRequest* r) {
+        if (r->method() == HTTP_POST) {
+            String body = dpxBody(r);
+            if (body.length()) dpxMergeDev(body.c_str());
+            r->send(200, F("application/json"), F("{\"ok\":true}"));
+            return;
+        }
+        r->send(200, F("application/json"), dpxReadDevJson());
+    });
+
+    // ── OSC Listeners ─────────────────────────────────────────────────────────
+    server.on("/api/osc/listeners", HTTP_ANY, [](AsyncWebServerRequest* r) {
+        if (r->method() == HTTP_GET) {
+            r->send(200, F("application/json"), dpxOscListenersJson());
+            return;
+        }
+        String body = dpxBody(r);
+        DynamicJsonDocument doc(256);
+        if (deserializeJson(doc, body)) { r->send(400, F("text/plain"), F("bad JSON")); return; }
+
+        if (r->method() == HTTP_DELETE) {
+            String path = doc["path"] | String();
+            if (path.length()) {
+                dpxOscListeners.erase(
+                    std::remove_if(dpxOscListeners.begin(), dpxOscListeners.end(),
+                        [&path](const DpxOscListener& l){ return l.path == path; }),
+                    dpxOscListeners.end());
+                dpxSaveOscListeners();
+            }
+            r->send(200, F("application/json"), F("{\"ok\":true}"));
+            return;
+        }
+        // POST: add listener
+        DpxOscListener lsr;
+        lsr.path    = doc["path"]    | String();
+        lsr.channel = doc["channel"] | String();
+        lsr.label   = doc["label"]   | lsr.channel;
+        if (lsr.path.length() && lsr.channel.length()) {
+            // Remove any existing entry for this path first
+            dpxOscListeners.erase(
+                std::remove_if(dpxOscListeners.begin(), dpxOscListeners.end(),
+                    [&lsr](const DpxOscListener& l){ return l.path == lsr.path; }),
+                dpxOscListeners.end());
+            dpxOscListeners.push_back(lsr);
+            dpxSaveOscListeners();
+            // Ensure target app channel exists
+            if (dpxCustom.find(lsr.channel) == dpxCustom.end()) {
+                DpxCustomApp a; a.valid = true; a.text = lsr.label;
+                dpxCustom[lsr.channel] = a;
+                dpxRebuildLoop();
+            }
+        }
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    });
+
+    // ── Moodlight ─────────────────────────────────────────────────────────────
+    // Non-empty body  → disable dpx overlay, WLED effects take over
+    // Empty body      → re-enable dpx overlay
+    server.on("/api/moodlight", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        body.trim();
+        if (!body.length() || body == "{}") {
+            dpxEnabled = true;
+            r->send(200, F("application/json"), F("{\"ok\":true,\"enabled\":true}"));
+            return;
+        }
+        dpxEnabled = false;
+        // Apply brightness/color to WLED if provided
+        DynamicJsonDocument doc(256);
+        if (!deserializeJson(doc, body)) {
+            if (doc.containsKey("brightness")) {
+                bri = (uint8_t)constrain(doc["brightness"].as<int>(), 0, 255);
+                stateUpdated(CALL_MODE_DIRECT_CHANGE);
+            }
+        }
+        r->send(200, F("application/json"), F("{\"ok\":true,\"enabled\":false}"));
+    });
+
+    // ── RTTTL / Sound — TC001 piezo buzzer on GPIO 15 ────────────────────────
+    // POST /api/rtttl  body: raw RTTTL string (e.g. "Beep:d=4,o=5,b=200:c,e,g")
+    server.on("/api/rtttl", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        body.trim();
+        if (body.length()) {
+            dpxBuzzerPlay(body.c_str());
+            r->send(200, F("application/json"), F("{\"ok\":true}"));
+        } else {
+            r->send(400, F("text/plain"), F("RTTTL string required"));
+        }
+    });
+    // POST /api/sound  body: JSON {"rtttl":"..."} — compatible with old senders
+    server.on("/api/sound", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        body.trim();
+        StaticJsonDocument<256> doc;
+        if (!deserializeJson(doc, body) && doc.containsKey("rtttl")) {
+            String s = doc["rtttl"].as<String>();
+            dpxBuzzerPlay(s.c_str());
+            r->send(200, F("application/json"), F("{\"ok\":true}"));
+        } else if (body.startsWith("Beep") || body.indexOf(':') > 0) {
+            // Plain RTTTL string passed to /api/sound as well
+            dpxBuzzerPlay(body.c_str());
+            r->send(200, F("application/json"), F("{\"ok\":true}"));
+        } else {
+            r->send(400, F("text/plain"), F("rtttl field required"));
+        }
+    });
+
+    // ── File rename ───────────────────────────────────────────────────────────
+    // {"from":"/ICONS/a.jpg","to":"/ICONS/b.jpg"}
+    server.on("/api/rename", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        DynamicJsonDocument doc(256);
+        if (deserializeJson(doc, body)) { r->send(400, F("text/plain"), F("bad JSON")); return; }
+        String from = doc["from"] | String();
+        String to   = doc["to"]   | String();
+        if (from.isEmpty() || to.isEmpty()) { r->send(400, F("text/plain"), F("from/to required")); return; }
+        if (!LittleFS.exists(from)) { r->send(404, F("text/plain"), F("not found")); return; }
+        if (LittleFS.rename(from, to)) {
+            r->send(200, F("application/json"), F("{\"ok\":true}"));
+        } else {
+            r->send(500, F("text/plain"), F("rename failed"));
+        }
+    });
+
+    // ── WLED effects list ─────────────────────────────────────────────────────
+    server.on("/api/effects", HTTP_GET, [](AsyncWebServerRequest* r) {
+        DynamicJsonDocument doc(8192);
+        JsonArray arr = doc.to<JsonArray>();
+        uint8_t cnt = strip.getModeCount();
+        for (uint8_t i = 0; i < cnt; i++) {
+            const char* data = strip.getModeData(i);
+            if (!data) continue;
+            // Mode string format: "Name@param1,param2;..." — extract up to '@' or ';' or '\0'
+            String name;
+            while (*data && *data != '@' && *data != ';') name += *data++;
+            name.trim();
+            if (name.length()) arr.add(name);
+        }
+        String s; serializeJson(doc, s);
+        r->send(200, F("application/json"), s);
+    });
+
+    // ── Transitions list (stub — not implemented) ─────────────────────────────
+    server.on("/api/transitions", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), F("[]"));
+    });
+
+    // ── Reboot ────────────────────────────────────────────────────────────────
+    server.on("/dpx/reboot", HTTP_ANY, [](AsyncWebServerRequest* r) {
+        r->send(200, F("text/plain"), F("OK"));
         delay(200);
         ESP.restart();
     });
-    // WLED's /api/effects and /api/transitions handled by WLED itself; add stubs
-    server.on("/api/effects", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, "application/json", F("[]"));
-    });
-    server.on("/api/transitions", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, "application/json", F("[\"None\",\"Fade\",\"Slide\"]"));
-    });
-
-    // ── Control endpoints ─────────────────────────────────────────────────
-    server.on("/api/notify", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            String body((char*)data, len);
-            dpxPushNotification(body.c_str())
-                ? r->send(200, "text/plain", "OK")
-                : r->send(500, "text/plain", "ParseError");
-        });
-
-    server.on("/api/notify/dismiss", HTTP_ANY, [](AsyncWebServerRequest* r) {
-        dpxDismissNotification();
-        r->send(200, "text/plain", "OK");
-    });
-
-    server.on("/api/custom", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            String name = r->hasParam("name") ? r->getParam("name")->value() : "";
-            String body((char*)data, len);
-            body.trim();
-            if (name.length()) dpxSetCustomApp(name, body.c_str());
-            r->send(200, "text/plain", "OK");
-        });
-
-    server.on("/api/switch", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            String body((char*)data, len);
-            dpxSwitchToApp(body.c_str())
-                ? r->send(200, "text/plain", "OK")
-                : r->send(500, "text/plain", "FAILED");
-        });
-
-    server.on("/api/nextapp", HTTP_ANY, [](AsyncWebServerRequest* r) {
-        dpxNextApp(); r->send(200, "text/plain", "OK");
-    });
-    server.on("/api/previousapp", HTTP_ANY, [](AsyncWebServerRequest* r) {
-        dpxPrevApp(); r->send(200, "text/plain", "OK");
-    });
-
-    server.on("/api/power", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            String body((char*)data, len);
-            StaticJsonDocument<64> doc;
-            if (!deserializeJson(doc, body) && doc.containsKey("power")) {
-                bool on = doc["power"].as<bool>();
-                bri = on ? (briLast > 0 ? briLast : 128) : 0;
-                stateUpdated(CALL_MODE_DIRECT_CHANGE);
-            }
-            r->send(200, "text/plain", "OK");
-        });
-
-    server.on("/api/tc", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            String body((char*)data, len);
-            body.trim(); body.replace("\"", "");
-            if (body.length() >= 8) {
-                dpxPushTC(body);
-                r->send(200, "text/plain", "OK");
-            } else {
-                r->send(400, "text/plain", "BadRequest");
-            }
-        });
-
-    server.on("/api/dev", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            String body((char*)data, len);
-            dpxMergeDev(body.c_str())
-                ? r->send(200, "text/plain", "OK")
-                : r->send(400, "text/plain", "BadRequest");
-        });
-
-    server.on("/api/time", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            StaticJsonDocument<128> doc;
-            String body((char*)data, len);
-            if (!deserializeJson(doc, body) && doc.containsKey("utc")) {
-                time_t t = (time_t)doc["utc"].as<long>();
-                struct timeval tv = {t, 0};
-                settimeofday(&tv, nullptr);
-                r->send(200, "text/plain", "OK");
-            } else {
-                r->send(400, "text/plain", "BadRequest");
-            }
-        });
-
-    server.on("/api/syncntp", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            String body((char*)data, len);
-            if (body.length() > 2) {
-                StaticJsonDocument<256> doc;
-                if (!deserializeJson(doc, body)) {
-                    if (doc.containsKey("timezone")) {
-                        configTzTime(doc["timezone"].as<const char*>(), "pool.ntp.org");
-                    }
-                }
-            }
-            r->send(200, "text/plain", "OK");
-        });
-
-    server.on("/api/rename", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            StaticJsonDocument<256> doc;
-            String body((char*)data, len);
-            if (deserializeJson(doc, body) || !doc.containsKey("from") || !doc.containsKey("to")) {
-                r->send(400, "text/plain", "BadRequest"); return;
-            }
-            String from = doc["from"].as<String>();
-            String to   = doc["to"].as<String>();
-            if (!LittleFS.exists(from)) { r->send(404, "text/plain", "NotFound"); return; }
-            LittleFS.rename(from, to)
-                ? r->send(200, "text/plain", "OK")
-                : r->send(500, "text/plain", "Failed");
-        });
-
-    server.on("/api/apps", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            // Reorder apps — array of name strings; rebuild loop in that order
-            DynamicJsonDocument doc(1024);
-            String body((char*)data, len);
-            if (deserializeJson(doc, body)) { r->send(400, "text/plain", "BadRequest"); return; }
-            // For now just acknowledge — reorder TODO
-            r->send(200, "text/plain", "OK");
-        });
-
-    server.on("/api/reorder", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            r->send(200, "text/plain", "OK");
-        });
-
-    // Indicator endpoints (1, 2, 3)
-    auto indicatorHandler = [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-        // Extract indicator number from URL
-        String url = r->url();
-        int num = url.charAt(url.length() - 1) - '0';
-        if (num < 1 || num > 3) { r->send(400, "text/plain", "BadRequest"); return; }
-        StaticJsonDocument<256> doc;
-        String body((char*)data, len);
-        if (!deserializeJson(doc, body) && doc.containsKey("color")) {
-            JsonArray a = doc["color"].as<JsonArray>();
-            if (a.size() >= 3) {
-                uint32_t col = ((uint32_t)(uint8_t)a[0] << 16)
-                             | ((uint32_t)(uint8_t)a[1] << 8)
-                             |  (uint32_t)(uint8_t)a[2];
-                dpxIndicator[num - 1] = col;
-            }
-        } else {
-            dpxIndicator[num - 1] = 0;
-        }
-        r->send(200, "text/plain", "OK");
-    };
-    server.on("/api/indicator1", HTTP_POST, [](AsyncWebServerRequest* r){}, nullptr, indicatorHandler);
-    server.on("/api/indicator2", HTTP_POST, [](AsyncWebServerRequest* r){}, nullptr, indicatorHandler);
-    server.on("/api/indicator3", HTTP_POST, [](AsyncWebServerRequest* r){}, nullptr, indicatorHandler);
-
-    // OSC listener add/delete
-    server.on("/api/osc/listeners", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            StaticJsonDocument<256> doc;
-            String body((char*)data, len);
-            if (deserializeJson(doc, body)) { r->send(400, "text/plain", "BadRequest"); return; }
-            String path    = doc["path"].as<String>();
-            String channel = doc["channel"].as<String>();
-            String label   = doc.containsKey("label") ? doc["label"].as<String>() : channel;
-            if (!path.length() || !channel.length()) { r->send(400, "text/plain", "BadRequest"); return; }
-            // Update or add
-            bool found = false;
-            for (auto& lsr : dpxOscListeners) {
-                if (lsr.path == path) { lsr.channel = channel; lsr.label = label; found = true; break; }
-            }
-            if (!found) { DpxOscListener l; l.path=path; l.channel=channel; l.label=label; dpxOscListeners.push_back(l); }
-            dpxSaveOscListeners();
-            r->send(200, "text/plain", "OK");
-        });
-
-    server.on("/api/osc/listeners", HTTP_DELETE, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            StaticJsonDocument<128> doc;
-            String body((char*)data, len);
-            if (deserializeJson(doc, body)) { r->send(400, "text/plain", "BadRequest"); return; }
-            String path = doc["path"].as<String>();
-            dpxOscListeners.erase(
-                std::remove_if(dpxOscListeners.begin(), dpxOscListeners.end(),
-                    [&](const DpxOscListener& l){ return l.path == path; }),
-                dpxOscListeners.end());
-            dpxSaveOscListeners();
-            r->send(200, "text/plain", "OK");
-        });
-
-    // Settings passthrough — read/write WLED settings JSON (partial — BRI only for now)
-    server.on("/api/settings", HTTP_GET, [](AsyncWebServerRequest* r) {
-        StaticJsonDocument<256> doc;
-        doc["BRI"]   = bri;
-        doc["ATIME"] = DPX_ATIME;
-        doc["ATRANS"] = DPX_ATRANS;
-        doc["SSPEED"] = DPX_SSPEED;
-        String s; serializeJson(doc, s);
-        r->send(200, "application/json", s);
-    });
-    server.on("/api/settings", HTTP_POST, [](AsyncWebServerRequest* r) {},
-        nullptr,
-        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t, size_t) {
-            StaticJsonDocument<512> doc;
-            String body((char*)data, len);
-            if (!deserializeJson(doc, body)) {
-                if (doc.containsKey("BRI")) { bri = doc["BRI"].as<uint8_t>(); stateUpdated(CALL_MODE_DIRECT_CHANGE); }
-                if (doc.containsKey("ATIME"))  DPX_ATIME  = doc["ATIME"].as<int>();
-                if (doc.containsKey("ATRANS")) DPX_ATRANS = doc["ATRANS"].as<bool>();
-                if (doc.containsKey("SSPEED")) DPX_SSPEED = doc["SSPEED"].as<int>();
-            }
-            r->send(200, "text/plain", "OK");
-        });
-
-    // Moodlight — placeholder (WLED handles this differently; delegate to WLED /json endpoint)
-    server.on("/api/moodlight", HTTP_ANY, [](AsyncWebServerRequest* r) {
-        r->send(200, "text/plain", "OK");
-    });
-
-    // RTTTL — no buzzer in this build; accept and ignore for compatibility
-    server.on("/api/rtttl", HTTP_POST, [](AsyncWebServerRequest* r) {
-        r->send(200, "text/plain", "OK");
-    });
-
-    // Sound — placeholder
-    server.on("/api/sound", HTTP_ANY, [](AsyncWebServerRequest* r) {
-        r->send(200, "text/plain", "OK");
-    });
-
-    // Sleep — WLED handles deep sleep; placeholder
-    server.on("/api/sleep", HTTP_POST, [](AsyncWebServerRequest* r) {
-        r->send(200, "text/plain", "OK");
+    server.on("/api/reboot", HTTP_ANY, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+        delay(200);
+        ESP.restart();
     });
 }

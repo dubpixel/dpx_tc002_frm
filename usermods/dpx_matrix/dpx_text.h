@@ -22,8 +22,6 @@ static const int DPX_MATRIX_W = 32;
 static const int DPX_MATRIX_H = 8;
 
 // ── Raw pixel write ────────────────────────────────────────────────────────────
-// Writes one pixel to the WLED LED strip buffer.
-// Clamps silently on out-of-bounds coordinates.
 static inline void dpxSetPixel(int x, int y, uint32_t color) {
     if (x < 0 || x >= DPX_MATRIX_W || y < 0 || y >= DPX_MATRIX_H) return;
     strip.setPixelColor(y * DPX_MATRIX_W + x, color);
@@ -57,38 +55,56 @@ static inline uint32_t dpxRainbowColor(int charIdx, int totalChars) {
     return (uint32_t)rgb.r << 16 | (uint32_t)rgb.g << 8 | rgb.b;
 }
 
-// ── Draw a single glyph at (x, y) ─────────────────────────────────────────────
-// x, y = top-left corner. Returns the x position after the character (x + DPX_FONT_W + gap).
-// Clips to matrix bounds. Columns with x < 0 are skipped (off-left).
-static int dpxDrawChar(int x, int y, char c, uint32_t color) {
-    const uint8_t* glyph = dpxFontGlyph(c);
-    for (int col = 0; col < DPX_FONT_W; col++) {
-        int px = x + col;
-        if (px < 0) continue;
-        if (px >= DPX_MATRIX_W) break;
-        uint8_t colData = pgm_read_byte(glyph + col);
-        for (int row = 0; row < DPX_FONT_H; row++) {
-            int py = y + row;
-            if (colData & (1 << row)) {
-                dpxSetPixel(px, py, color);
+// ── Draw a single glyph using AwtrixFont (GFX row-major format) ───────────────
+// x         = left edge of where the glyph will land
+// baseline  = cursor_y (pass DPX_FONT_BASELINE to centre in 8-row display)
+// Returns the next cursor X (x + xAdvance).
+// Glyphs that land partially off-left are clipped pixel-by-pixel.
+static int dpxDrawChar(int x, int baseline, char c, uint32_t color) {
+    extern const GFXfont AwtrixFont;
+    uint8_t ci = (uint8_t)c;
+    if (ci < AwtrixFont.first || ci > AwtrixFont.last) return x + 4;
+
+    GFXglyph g;
+    memcpy_P(&g, &AwtrixFont.glyph[ci - AwtrixFont.first], sizeof(GFXglyph));
+
+    // Each row of the glyph is ceil(g.width/8) bytes; here always 1 byte (width=8)
+    int bytesPerRow = (g.width + 7) / 8;
+    int glyphTop = baseline + g.yOffset; // top pixel row on matrix
+
+    for (int row = 0; row < (int)g.height; row++) {
+        int py = glyphTop + row;
+        if (py < 0 || py >= DPX_MATRIX_H) continue;
+        for (int b = 0; b < bytesPerRow; b++) {
+            uint8_t bits = pgm_read_byte(
+                &((uint8_t*)AwtrixFont.bitmap)[g.bitmapOffset + row * bytesPerRow + b]);
+            for (int bit = 7; bit >= 0; bit--) {
+                int col = (b * 8) + (7 - bit);
+                if (col >= (int)g.width) break;
+                int px = x + g.xOffset + col;
+                if (px < 0) continue;
+                if (px >= DPX_MATRIX_W) break;
+                if (bits & (1 << bit))
+                    dpxSetPixel(px, py, color);
             }
         }
     }
-    return x + DPX_FONT_W + DPX_FONT_GAP;
+    return x + g.xAdvance;
 }
 
-// ── Render a text string at (x, y) ────────────────────────────────────────────
-// Renders left to right from (x, y). Clips at matrix edges.
-// rainbow=true overrides color with per-character rainbow.
+// ── Render a text string ───────────────────────────────────────────────────────
+// x        = left cursor position
+// baseline = cursor_y (use DPX_FONT_BASELINE for centered output)
+// rainbow  = true overrides color with per-character hue sweep
 // Returns the x position after the last character.
-static int dpxRenderText(int x, int y, const char* text, uint32_t color, bool rainbow = false) {
+static int dpxRenderText(int x, int baseline, const char* text, uint32_t color, bool rainbow = false) {
     if (!text) return x;
     int n = strlen(text);
     int curX = x;
     for (int i = 0; i < n; i++) {
         uint32_t c = rainbow ? dpxRainbowColor(i, n) : color;
-        curX = dpxDrawChar(curX, y, text[i], c);
-        if (curX >= DPX_MATRIX_W) break; // off-right edge
+        curX = dpxDrawChar(curX, baseline, text[i], c);
+        if (curX >= DPX_MATRIX_W) break;
     }
     return curX;
 }
@@ -98,7 +114,7 @@ struct DpxScrollState {
     String  text;
     uint32_t color     = 0xFFFFFF;
     bool    rainbow    = false;
-    int     y          = 0;          // row (0 = top)
+    int     y          = DPX_FONT_BASELINE; // baseline row (centred in 8-row display)
     int     scrollX    = DPX_MATRIX_W; // current x offset (starts at right edge)
     int     speedMs    = 50;         // ms between scroll steps (lower = faster)
     unsigned long lastStepMs = 0;
@@ -111,7 +127,7 @@ struct DpxScrollState {
         text       = t;
         color      = col;
         rainbow    = rb;
-        y          = y_;
+        y          = (y_ == 0) ? DPX_FONT_BASELINE : y_; // default to centred baseline
         speedMs    = max(10, (int)(50 * 100 / max(1, speedPct)));
         repeat     = rep;
         repeatsDone = 0;

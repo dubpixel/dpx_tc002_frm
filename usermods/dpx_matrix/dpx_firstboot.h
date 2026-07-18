@@ -6,99 +6,102 @@
 // PROJECT: dpx_tc002_frm
 // ================================================================================
 //
-// File: dpx_firstboot.h
-// Purpose: On first boot (no /cfg.json on LittleFS), write a complete default
-//          configuration for the Ulanzi TC001 hardware so the device is usable
-//          out of the box without needing the WLED setup wizard.
+// Writes /cfg.json on first boot (file absent) so the device is usable
+// out of the box without the WLED setup wizard.
 //
-// Pre-configured defaults:
-//   - LED:    GPIO 32, 256 WS2812B, GRB, no 2D yet (set via WLED UI)
-//   - AP:     behav=1 (always open when disconnected, no timeout)
-//   - AP SSID: dpx-tc002  password: dubpixel1
-//   - mDNS:   dpx-tc002
-//   - Name:   dpx_tc002
+// Defaults written:
+//   AP      dpx-tc002 / dubpixel1, behav=1 (always open when disconnected)
+//   mDNS    dpx-tc002
+//   LED     GPIO 32, 256× WS2812B GRB, 42fps, 8.5W limit
+//   2D      32×8 panel, non-serpentine (change via WLED UI if needed)
+//   Buttons GPIO 26/14/27, push-button type
+//   Trans   0ms (instant, better for matrix text)
 // ================================================================================
 
 #pragma once
 
 static void dpxFirstBoot() {
-    // Only run if /cfg.json does not exist (genuine first boot or wiped flash)
     if (LittleFS.exists(F("/cfg.json"))) return;
 
-    DEBUG_PRINTLN(F("DpxMatrix: first boot — writing default cfg.json"));
+    DEBUG_PRINTLN(F("DpxMatrix: first boot — writing /cfg.json"));
 
-    // Write a minimal but complete cfg.json that WLED will load at next boot.
-    // We use a raw string to keep it readable and avoid ArduinoJson overhead.
-    // Field reference: wled00/cfg.cpp deserializeConfig()
-    //
-    // Key fields set here:
-    //   id.mdns / id.name  — hostname and device name
-    //   ap.ssid / ap.psk   — AP credentials (behav 1 = always open when disco)
-    //   hw.led.ins         — GPIO 32, 256 WS2812B GRB
-    //   hw.btn.ins         — left=GPIO26 short-press (type 2 = push button)
-    //   light.tr.dur       — transition duration 0 (instant, better for matrix)
+    DynamicJsonDocument doc(2048);
+
+    // Identity
+    JsonObject id   = doc.createNestedObject("id");
+    id["mdns"]      = "dpx-tc002";
+    id["name"]      = "dpx_tc002";
+    id["inv"]       = "TC001";
+    id["sui"]       = false;
+
+    // Access point
+    JsonObject ap   = doc.createNestedObject("ap");
+    ap["ssid"]      = "dpx-tc002";
+    ap["psk"]       = "dubpixel1";
+    ap["chan"]       = 6;
+    ap["hide"]      = 0;
+    ap["behav"]     = 1;  // AP_BEHAVIOR_NO_CONN — always open when disconnected
+
+    // WiFi
+    doc["wifi"]["sleep"] = false;
+
+    // Hardware — LED
+    JsonObject hw   = doc.createNestedObject("hw");
+    JsonObject led  = hw.createNestedObject("led");
+    led["total"]    = 256;
+    led["maxpwr"]   = 8500;
+    led["fps"]      = 42;
+
+    JsonObject ins  = led["ins"].createNestedObject();
+    ins["start"]    = 0;
+    ins["len"]      = 256;
+    ins["pin"][0]   = 32;
+    ins["order"]    = 0;   // GRB
+    ins["rev"]      = false;
+    ins["skip"]     = 0;
+    ins["type"]     = 22;  // TYPE_WS2812_RGB
+    ins["ref"]      = false;
+    ins["rgbwm"]    = 255;
+    ins["freq"]     = 0;
+    ins["ledma"]    = 55;
+    ins["drv"]      = 0;
+
+    // 2D matrix — 32×8, non-serpentine (user can toggle serpentine in WLED UI)
+    JsonObject matrix  = led.createNestedObject("matrix");
+    matrix["mpc"]      = 1;
+    JsonObject panel   = matrix["panels"].createNestedObject();
+    panel["b"]  = false;  // top start
+    panel["r"]  = false;  // left start
+    panel["v"]  = false;  // horizontal
+    panel["s"]  = false;  // serpentine — set true in WLED UI if needed
+    panel["x"]  = 0;
+    panel["y"]  = 0;
+    panel["h"]  = 8;
+    panel["w"]  = 32;
+
+    // Hardware — buttons
+    JsonObject btn  = hw.createNestedObject("btn");
+    btn["max"]      = 3;
+    btn["pull"]     = true;
+    JsonObject b0 = btn["ins"].createNestedObject(); b0["type"]=2; b0["pin"][0]=26; b0["macros"][0]=0; b0["macros"][1]=0; b0["macros"][2]=0;
+    JsonObject b1 = btn["ins"].createNestedObject(); b1["type"]=2; b1["pin"][0]=14; b1["macros"][0]=0; b1["macros"][1]=0; b1["macros"][2]=0;
+    JsonObject b2 = btn["ins"].createNestedObject(); b2["type"]=2; b2["pin"][0]=27; b2["macros"][0]=0; b2["macros"][1]=0; b2["macros"][2]=0;
+
+    // Light — instant transitions
+    doc["light"]["tr"]["dur"] = 0;
+    doc["light"]["tr"]["rpc"] = 5;
+
+    // Defaults
+    doc["def"]["ps"]  = 0;
+    doc["def"]["on"]  = true;
+    doc["def"]["bri"] = 128;
+
+    doc["ota"]["lock"] = false;
 
     File f = LittleFS.open(F("/cfg.json"), "w");
-    if (!f) {
-        DEBUG_PRINTLN(F("DpxMatrix: failed to open /cfg.json for writing"));
-        return;
-    }
-
-    f.print(F(
-        "{"
-        "\"rev\":[1,0],"
-        "\"id\":{"
-            "\"mdns\":\"dpx-tc002\","
-            "\"name\":\"dpx_tc002\","
-            "\"inv\":\"TC001\","
-            "\"sui\":false"
-        "},"
-        "\"ap\":{"
-            "\"ssid\":\"dpx-tc002\","
-            "\"psk\":\"dubpixel1\","
-            "\"chan\":6,"
-            "\"hide\":0,"
-            "\"behav\":1"
-        "},"
-        "\"wifi\":{\"sleep\":false},"
-        "\"hw\":{"
-            "\"led\":{"
-                "\"total\":256,"
-                "\"maxpwr\":8500,"
-                "\"fps\":42,"
-                "\"ins\":[{"
-                    "\"start\":0,"
-                    "\"len\":256,"
-                    "\"pin\":[32],"
-                    "\"order\":0,"
-                    "\"rev\":false,"
-                    "\"skip\":0,"
-                    "\"type\":22,"
-                    "\"ref\":false,"
-                    "\"rgbwm\":255,"
-                    "\"freq\":0,"
-                    "\"ledma\":55,"
-                    "\"drv\":0"
-                "}]"
-            "},"
-            "\"btn\":{"
-                "\"max\":3,"
-                "\"pull\":true,"
-                "\"ins\":["
-                    "{\"type\":2,\"pin\":[26],\"macros\":[0,0,0]},"
-                    "{\"type\":2,\"pin\":[14],\"macros\":[0,0,0]},"
-                    "{\"type\":2,\"pin\":[27],\"macros\":[0,0,0]}"
-                "]"
-            "}"
-        "},"
-        "\"light\":{"
-            "\"tr\":{\"dur\":0,\"rpc\":5,\"hrp\":false}"
-        "},"
-        "\"def\":{\"ps\":0,\"on\":true,\"bri\":128},"
-        "\"ota\":{\"lock\":false}"
-        "}"
-    ));
-
+    if (!f) { DEBUG_PRINTLN(F("DpxMatrix: failed to open /cfg.json")); return; }
+    serializeJson(doc, f);
     f.close();
-    DEBUG_PRINTLN(F("DpxMatrix: default cfg.json written — reboot to apply"));
+    DEBUG_PRINTLN(F("DpxMatrix: /cfg.json written — takes effect on next boot"));
 }
+

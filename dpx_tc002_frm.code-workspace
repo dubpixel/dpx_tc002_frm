@@ -18,6 +18,7 @@
       "**/dpx_reference/**": true,
       "**/WLED/**": true,
       "**/dpx_showsite_ops/**": true
-    }
+    },
+    "platformio-ide.activeProjectPioEnv": "ulanzi_tc001"
   }
 }

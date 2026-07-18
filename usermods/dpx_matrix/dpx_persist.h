@@ -39,6 +39,8 @@ static int      DPX_ATIME          = 7;       // app display seconds
 static bool     DPX_ATRANS         = true;    // auto-advance apps
 static int      DPX_SSPEED         = 100;     // global scroll speed %
 static bool     DPX_UPPERCASE      = true;    // force uppercase text
+static bool     dpxEnabled         = true;    // false = pass-through to WLED effects
+static String   DPX_TIMEZONE;                 // POSIX TZ string (e.g. PST8PDT,...)
 
 // ── Load dev.json from LittleFS ───────────────────────────────────────────────
 static void dpxLoadDev() {
@@ -61,6 +63,11 @@ static void dpxLoadDev() {
     if (doc.containsKey("rotate_screen"))  DPX_ROTATE_SCREEN  = doc["rotate_screen"].as<bool>();
     if (doc.containsKey("mirror_screen"))  DPX_MIRROR_SCREEN  = doc["mirror_screen"].as<bool>();
     if (doc.containsKey("sensor_reading")) DPX_SENSOR_READING = doc["sensor_reading"].as<bool>();
+    if (doc.containsKey("timezone_posix")) {
+        DPX_TIMEZONE = doc["timezone_posix"].as<String>();
+        setenv("TZ", DPX_TIMEZONE.c_str(), 1);
+        tzset();
+    }
 }
 
 // ── Merge a JSON object into dev.json and apply immediately ───────────────────
@@ -92,6 +99,11 @@ static bool dpxMergeDev(const char* json) {
     if (incoming.containsKey("max_brightness")) DPX_MAX_BRI        = incoming["max_brightness"].as<int>();
     if (incoming.containsKey("ldr_factor"))     DPX_LDR_FACTOR     = incoming["ldr_factor"].as<float>();
     if (incoming.containsKey("ldr_gamma"))      DPX_LDR_GAMMA      = incoming["ldr_gamma"].as<float>();
+    if (incoming.containsKey("timezone_posix")) {
+        DPX_TIMEZONE = incoming["timezone_posix"].as<String>();
+        setenv("TZ", DPX_TIMEZONE.c_str(), 1);
+        tzset();
+    }
 
     return true;
 }

@@ -171,11 +171,10 @@ static void dpxRenderNativeTime() {
     time_t now; struct tm ti;
     time(&now); localtime_r(&now, &ti);
     char buf[9];
-    // HH:MM format on 32px wide
     strftime(buf, sizeof(buf), "%H:%M", &ti);
     int w = dpxTextPixelWidth(buf);
     int x = (DPX_MATRIX_W - w) / 2;
-    dpxRenderText(x, 0, buf, 0xFFFFFF);
+    dpxRenderText(x, DPX_FONT_BASELINE, buf, 0xFFFFFF);
 }
 
 static void dpxRenderNativeDate() {
@@ -185,7 +184,7 @@ static void dpxRenderNativeDate() {
     strftime(buf, sizeof(buf), "%d.%m.%y", &ti);
     int w = dpxTextPixelWidth(buf);
     int x = (DPX_MATRIX_W - w) / 2;
-    dpxRenderText(x, 0, buf, 0x8888FF);
+    dpxRenderText(x, DPX_FONT_BASELINE, buf, 0x8888FF);
 }
 
 // ── Render one custom app frame (static or scroll) ───────────────────────────
@@ -357,7 +356,7 @@ static void dpxAppLoopTick() {
 static void dpxRenderCurrentApp() {
     if (dpxApps.empty()) {
         dpxClear();
-        dpxRenderText(0, 0, "NO APP", 0x444444);
+        dpxRenderText(0, DPX_FONT_BASELINE, "NO APP", 0x444444);
         return;
     }
 
