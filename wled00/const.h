@@ -230,6 +230,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define USERMOD_ID_RF433                 56     //Usermod "usermod_v2_RF433.h"
 #define USERMOD_ID_BRIGHTNESS_FOLLOW_SUN 57     //Usermod "usermod_v2_brightness_follow_sun.h"
 #define USERMOD_ID_USER_FX               58     //Usermod "user_fx"
+#define USERMOD_ID_DPX_MATRIX            59     //Usermod "dpx_matrix" — dubpixel TC002 LED matrix display
 
 //Wifi encryption type
 #ifdef WLED_ENABLE_WPA_ENTERPRISE

@@ -1,0 +1,23 @@
+{
+  "folders": [
+    {
+      "name": "dpx_tc002_frm",
+      "path": "."
+    },
+    {
+      "name": "⊘ dpx_reference",
+      "path": "../dpx_tc001/dpx_reference"
+    },
+    {
+      "name": "⊘ dpx_showsite_ops",
+      "path": "/Users/yourmom/Code/DPX_SHOWSITE_OPS"
+    }
+  ],
+  "settings": {
+    "files.readonlyInclude": {
+      "**/dpx_reference/**": true,
+      "**/WLED/**": true,
+      "**/dpx_showsite_ops/**": true
+    }
+  }
+}
