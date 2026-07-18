@@ -73,7 +73,7 @@ struct DpxCustomApp {
 struct DpxApp {
     String        name;
     DpxCustomApp  data;
-    bool          isNative = false; // Time, Date, WLED etc.
+    bool          isNative = false; // Time, Date — built-in apps
     bool          muted    = false; // if true, skipped in rotation
 };
 
@@ -85,6 +85,17 @@ struct DpxOscListener {
 };
 
 // ── Global app state ──────────────────────────────────────────────────────────
+// Effect ID assigned by strip.addEffect() in DpxMatrix::setup().
+static uint8_t _dpxEffectId = 255;
+
+// Switch the main segment to dpx Matrix effect if not already active.
+static inline void dpxActivateEffect() {
+    if (_dpxEffectId != 255 && strip.getMainSegment().mode != _dpxEffectId) {
+        strip.getMainSegment().setMode(_dpxEffectId);
+        stateUpdated(CALL_MODE_DIRECT_CHANGE);
+    }
+}
+
 static std::vector<DpxApp>            dpxApps;         // ordered app loop
 static std::map<String, DpxCustomApp> dpxCustom;       // named custom apps
 static std::set<String>               dpxHiddenApps;   // removed from rotation (incl. natives)
@@ -250,7 +261,7 @@ static bool dpxRenderApp(DpxCustomApp& app) {
 static void dpxRebuildLoop() {
     std::vector<DpxApp> newList;
     // Native apps — included unless user deleted them from the rotation
-    const char* natives[] = {"Time", "Date", "WLED"};
+    const char* natives[] = {"Time", "Date"};  // WLED removed — dpx Matrix IS the WLED effect
     for (auto n : natives) {
         if (dpxHiddenApps.find(String(n)) == dpxHiddenApps.end()) {
             DpxApp a; a.name = n; a.isNative = true;
@@ -272,7 +283,7 @@ static void dpxRebuildLoop() {
 }
 
 // Add or update a custom app. Empty body = remove from rotation.
-// Native apps (Time, Date, WLED) are hidden (not deleted); custom apps are erased.
+// Native apps (Time, Date) are hidden (not deleted); custom apps are erased.
 static void dpxSetCustomApp(const String& name, const char* json) {
     if (!json || strlen(json) <= 2) {
         // Remove from rotation — custom erased, natives hidden
@@ -283,7 +294,8 @@ static void dpxSetCustomApp(const String& name, const char* json) {
         DpxCustomApp app = dpxParseApp(json);
         if (app.valid) {
             dpxCustom[name] = app;
-            dpxHiddenApps.erase(name);  // restore if previously removed
+            dpxHiddenApps.erase(name);
+            dpxActivateEffect();  // incoming app — switch display to dpx Matrix
             if (app.save) {
                 LittleFS.mkdir("/CUSTOMAPPS");
                 File f = LittleFS.open("/CUSTOMAPPS/" + name + ".json", "w");
@@ -326,6 +338,7 @@ static bool dpxSwitchToApp(const char* json) {
             dpxCurrentApp = i;
             dpxAppStartMs = millis();
             dpxScroll.stop();
+            dpxActivateEffect();  // switch display to dpx Matrix
             return true;
         }
     }
@@ -417,7 +430,6 @@ static void dpxRenderCurrentApp() {
 
     DpxApp& app = dpxApps[dpxCurrentApp];
     if (app.isNative) {
-        if (app.name == "WLED") return;  // passthrough — WLED effect renders unobstructed
         dpxClear();
         if (app.name == "Time") dpxRenderNativeTime();
         else if (app.name == "Date") dpxRenderNativeDate();

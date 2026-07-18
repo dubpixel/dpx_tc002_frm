@@ -38,21 +38,31 @@
 #include "dpx_mqtt.h"
 #include "dpx_api.h"
 
+// ── dpx Matrix WLED effect ────────────────────────────────────────────────────
+// Registered as a proper WLED effect so brightness, transitions, and power-fade
+// all work natively. Replaces the old handleOverlayDraw() hack.
+// _dpxEffectId is declared in dpx_apps.h and assigned in DpxMatrix::setup().
+
+static void mode_dpx_matrix() {
+    // Notifications take priority
+    if (dpxNotifTick()) {
+        dpxRenderNotification();
+    } else {
+        dpxRenderCurrentApp();
+    }
+    // Text overlay + pixel effects on top
+    dpxRenderOverlays();
+    // Corner indicator dots (topmost layer)
+    if (dpxIndicator[0]) SEGMENT.setPixelColorXY(0,  0, dpxIndicator[0]);
+    if (dpxIndicator[1]) SEGMENT.setPixelColorXY(31, 0, dpxIndicator[1]);
+    if (dpxIndicator[2]) SEGMENT.setPixelColorXY(0,  7, dpxIndicator[2]);
+}
+
 class DpxMatrix : public Usermod {
 
 private:
     bool _initDone  = false;
     bool dpxEnabled = true;
-
-    // Render the 3 indicator pixels (corner dots).
-    // Indicator 1 = top-left (pixel 0)
-    // Indicator 2 = top-right (pixel 31)
-    // Indicator 3 = bottom-left (pixel 224)
-    void renderIndicators() {
-        if (dpxIndicator[0]) strip.setPixelColor(0,   dpxIndicator[0]);
-        if (dpxIndicator[1]) strip.setPixelColor(31,  dpxIndicator[1]);
-        if (dpxIndicator[2]) strip.setPixelColor(224, dpxIndicator[2]);
-    }
 
 public:
     static const char _name[];
@@ -76,11 +86,19 @@ public:
         // NOTE: dpxOscBegin() is called in connected() once WiFi is up.
         // Opening a UDP socket before lwip is ready crashes the device.
 
+        // Register dpx Matrix as a WLED effect — this replaces handleOverlayDraw.
+        // Using SEGMENT APIs means brightness/transitions/power-fade work natively.
+        _dpxEffectId = strip.addEffect(255, &mode_dpx_matrix,
+            "dpx Matrix;!;2");  // 255 = auto-assign next available ID
+        // Switch the main segment to our effect on startup
+        strip.getMainSegment().setMode(_dpxEffectId);
+        stateUpdated(CALL_MODE_INIT);
+
         // Register HTTP routes
         dpxRegisterRoutes();
 
         _initDone = true;
-        DEBUG_PRINTLN(F("DpxMatrix: setup complete"));
+        DEBUG_PRINTF("DpxMatrix: setup complete, effect id=%d\n", _dpxEffectId);
     }
 
     void connected() override {
@@ -252,42 +270,9 @@ public:
         return true;  // always consume — prevent WLED double-acting on these pins
     }
 
-    void handleOverlayDraw() override {
-        if (!_initDone || !dpxEnabled) return;
-
-        // Notifications take priority over the app loop
-        if (dpxNotifTick()) {
-            dpxRenderNotification();
-        } else {
-            dpxRenderCurrentApp();
-        }
-
-        // Pixel effects + text overlay on top of app content
-        // Per-app overlay: activate the pixel effect requested by the current
-        // app or notification. Resets when the displayed item changes.
-        {
-            String wantEffect;
-            if (dpxNotifActive && dpxCurrentNotif.data.valid)
-                wantEffect = dpxCurrentNotif.data.overlay;
-            else if (!dpxApps.empty() && !dpxApps[dpxCurrentApp].isNative)
-                wantEffect = dpxApps[dpxCurrentApp].data.overlay;
-
-            static String _prevAppEffect;
-            if (wantEffect != _prevAppEffect) {
-                _prevAppEffect = wantEffect;
-                if (wantEffect.length() && wantEffect != "none") {
-                    String j = String("{\"name\":\"") + wantEffect + "\",\"intensity\":60}";
-                    dpxSetPixelEffect(j.c_str());
-                } else {
-                    dpxClearPixelEffect();
-                }
-            }
-        }
-        dpxRenderOverlays();
-
-        // Indicator corner dots (topmost layer)
-        renderIndicators();
-    }
+    // handleOverlayDraw() removed — rendering now happens in mode_dpx_matrix()
+    // which is a proper WLED effect registered in setup(). This gives correct
+    // brightness scaling, transitions, and power-fade for free.
 
     // ── MQTT integration ──────────────────────────────────────────────────
     void onMqttConnect(bool /*sessionPresent*/) override {
