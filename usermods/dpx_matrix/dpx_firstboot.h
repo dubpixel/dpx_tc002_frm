@@ -95,7 +95,7 @@ static void dpxFirstBoot() {
     doc["def"]["ps"]  = 0;
     doc["def"]["on"]  = true;
     doc["def"]["bri"] = 128;
-    doc["def"]["fx"]  = 182;   // 2D DNA Spiral — works great on 32×8 matrix
+    doc["def"]["fx"]  = 200;   // dpx Matrix effect (registered by dpx_matrix usermod)
 
     doc["ota"]["lock"] = false;
 

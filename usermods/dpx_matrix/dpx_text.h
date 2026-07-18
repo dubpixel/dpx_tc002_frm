@@ -21,28 +21,28 @@
 static const int DPX_MATRIX_W = 32;
 static const int DPX_MATRIX_H = 8;
 
-// ── Raw pixel write ────────────────────────────────────────────────────────────
+// ── Pixel write via SEGMENT ────────────────────────────────────────────────────
+// Using SEGMENT.setPixelColorXY() instead of strip.setPixelColor() means WLED
+// handles brightness, transitions, power-fade, and 2D panel mapping (incl.
+// serpentine) automatically. Only valid from within an effect function context.
 static inline void dpxSetPixel(int x, int y, uint32_t color) {
     if (x < 0 || x >= DPX_MATRIX_W || y < 0 || y >= DPX_MATRIX_H) return;
-    strip.setPixelColor(y * DPX_MATRIX_W + x, color);
+    SEGMENT.setPixelColorXY(x, y, color);
 }
 
 static inline uint32_t dpxGetPixel(int x, int y) {
     if (x < 0 || x >= DPX_MATRIX_W || y < 0 || y >= DPX_MATRIX_H) return 0;
-    return strip.getPixelColor(y * DPX_MATRIX_W + x);
+    return SEGMENT.getPixelColorXY(x, y);
 }
 
-// ── Clear a rectangular region ────────────────────────────────────────────────
+// ── Fill / clear ───────────────────────────────────────────────────────────────
 static inline void dpxFillRect(int x, int y, int w, int h, uint32_t color) {
     for (int row = y; row < y + h; row++)
         for (int col = x; col < x + w; col++)
-            dpxSetPixel(col, row, color);
+            SEGMENT.setPixelColorXY(col, row, color);
 }
 
-// Clear entire matrix to black.
-static inline void dpxClear() {
-    dpxFillRect(0, 0, DPX_MATRIX_W, DPX_MATRIX_H, 0x000000);
-}
+static inline void dpxClear() { SEGMENT.fill(0); }
 
 // ── Rainbow colour for a character index ──────────────────────────────────────
 static inline uint32_t dpxRainbowColor(int charIdx, int totalChars) {

@@ -47,6 +47,7 @@ static bool dpxPushNotification(const char* json) {
         dpxNotifActive = false;
     }
     dpxNotifQueue.push_back(notif);
+    dpxActivateEffect();  // ensure dpx Matrix effect is showing
     return true;
 }
 

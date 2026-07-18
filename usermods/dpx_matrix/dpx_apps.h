@@ -85,6 +85,17 @@ struct DpxOscListener {
 };
 
 // ── Global app state ──────────────────────────────────────────────────────────
+// Effect ID assigned by strip.addEffect() in DpxMatrix::setup().
+static uint8_t _dpxEffectId = 255;
+
+// Switch the main segment to dpx Matrix effect if not already active.
+static inline void dpxActivateEffect() {
+    if (_dpxEffectId != 255 && strip.getMainSegment().mode != _dpxEffectId) {
+        strip.getMainSegment().setMode(_dpxEffectId);
+        stateUpdated(CALL_MODE_DIRECT_CHANGE);
+    }
+}
+
 static std::vector<DpxApp>            dpxApps;         // ordered app loop
 static std::map<String, DpxCustomApp> dpxCustom;       // named custom apps
 static std::set<String>               dpxHiddenApps;   // removed from rotation (incl. natives)
@@ -283,7 +294,8 @@ static void dpxSetCustomApp(const String& name, const char* json) {
         DpxCustomApp app = dpxParseApp(json);
         if (app.valid) {
             dpxCustom[name] = app;
-            dpxHiddenApps.erase(name);  // restore if previously removed
+            dpxHiddenApps.erase(name);
+            dpxActivateEffect();  // incoming app — switch display to dpx Matrix
             if (app.save) {
                 LittleFS.mkdir("/CUSTOMAPPS");
                 File f = LittleFS.open("/CUSTOMAPPS/" + name + ".json", "w");
@@ -326,6 +338,7 @@ static bool dpxSwitchToApp(const char* json) {
             dpxCurrentApp = i;
             dpxAppStartMs = millis();
             dpxScroll.stop();
+            dpxActivateEffect();  // switch display to dpx Matrix
             return true;
         }
     }
@@ -417,7 +430,15 @@ static void dpxRenderCurrentApp() {
 
     DpxApp& app = dpxApps[dpxCurrentApp];
     if (app.isNative) {
-        if (app.name == "WLED") return;  // passthrough — WLED effect renders unobstructed
+        if (app.name == "WLED") {
+            // Passthrough: switch away from dpx Matrix so WLED effects show.
+            // Switches to DNA Spiral (182); user can change via WLED UI.
+            if (_dpxEffectId != 255 && strip.getMainSegment().mode == _dpxEffectId) {
+                strip.getMainSegment().setMode(FX_MODE_2DDNASPIRAL);
+                stateUpdated(CALL_MODE_DIRECT_CHANGE);
+            }
+            return;
+        }
         dpxClear();
         if (app.name == "Time") dpxRenderNativeTime();
         else if (app.name == "Date") dpxRenderNativeDate();

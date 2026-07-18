@@ -93,6 +93,7 @@ static void dpxPushTC(const String& tc, int fps = 30) {
         }
         dpxAutoTrans = false;
         dpxTcLocked  = true;
+        dpxActivateEffect();  // ensure dpx Matrix effect is showing
     }
 }
 
