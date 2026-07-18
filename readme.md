@@ -245,11 +245,17 @@ Don't forget to give the project a star! Thanks again!
 
 <!-- LICENSE -->
 ## License
-This firmware is distributed under the **EUPL v1.2** (inherited from WLED). See `LICENSE` for details.
 
-The `dpx_matrix` usermod (original work) is additionally available under MIT.
+This project is a fork of [WLED](https://github.com/wled/WLED) and is distributed under the **[EUPL v1.2](https://github.com/dubpixel/dpx_tc002_frm/blob/main/LICENSE)** (European Union Public Licence).
 
-AwtrixFont used in dpx_font.h is BSD 3-Clause — see header for full attribution.
+Key points:
+- **Source must be provided** with any distribution — this GitHub repo fulfils that requirement
+- Derivative works must be licensed under EUPL or a [compatible license](https://joinup.ec.europa.eu/collection/eupl/matrix-eupl-compatible-open-source-licences) (GPL, LGPL, AGPL, MPL, etc.)
+- Attribution to WLED contributors is required — see [kno.wled.ge/about/contributors](https://kno.wled.ge/about/contributors/)
+
+The `dpx_matrix` usermod is original work by dubpixel, but as part of this compiled firmware distribution it is covered by EUPL v1.2.
+
+AwtrixFont (`dpx_font.h`) is BSD 3-Clause — see file header for full attribution.
 <!-- CONTACT -->
 ## Contact
 

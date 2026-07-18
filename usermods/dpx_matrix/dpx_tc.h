@@ -1,7 +1,7 @@
 // ================================================================================
 // dpx_tc.h — Timecode Display Helper
 // ================================================================================
-// Original work — dubpixel / dpx_tc002 (MIT)
+// Original work — dubpixel / dpx_tc002 (EUPL v1.2)
 // Ported/adapted from dpx_tc001 ServerManager.cpp::pushTCDisplay()
 // (original work, not AWTRIX-derived)
 // ================================================================================

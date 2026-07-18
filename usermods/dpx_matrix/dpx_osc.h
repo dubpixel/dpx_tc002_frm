@@ -1,7 +1,7 @@
 // ================================================================================
 // dpx_osc.h — OSC Receiver (UDP port 4210)
 // ================================================================================
-// Original work — dubpixel / dpx_tc002 (MIT)
+// Original work — dubpixel / dpx_tc002 (EUPL v1.2)
 // Ported/adapted from dpx_tc001 ServerManager.cpp::handleOSC()
 // (original work — OSC protocol handling, not AWTRIX-derived)
 // ================================================================================

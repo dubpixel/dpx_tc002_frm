@@ -1,7 +1,7 @@
 // ================================================================================
 // dpx_html.h — PROGMEM Web UI Pages
 // ================================================================================
-// Original work — dubpixel / dpx_tc002 (MIT)
+// Original work — dubpixel / dpx_tc002 (EUPL v1.2)
 // Pages: /api-ref, /browse, /ctrl, /screen, /fullscreen
 // Ported from dpx_tc001/src/htmls.h (original work, not AWTRIX-derived).
 // EXCLUDED: custom_html, screen_html, backup_html (contain AWTRIX references).

@@ -1,7 +1,7 @@
 // ================================================================================
 // dpx_apps.h — App Loop System
 // ================================================================================
-// Original work — dubpixel / dpx_tc002 (MIT)
+// Original work — dubpixel / dpx_tc002 (EUPL v1.2)
 // NOT derived from MatrixDisplayUi.cpp (AWTRIX CC BY-NC-SA 4.0).
 // Written from scratch using SPEC.md §3-4 as behavioral reference.
 // ================================================================================
