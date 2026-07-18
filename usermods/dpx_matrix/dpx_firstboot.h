@@ -87,14 +87,15 @@ static void dpxFirstBoot() {
     JsonObject b1 = btn["ins"].createNestedObject(); b1["type"]=2; b1["pin"][0]=14; b1["macros"][0]=0; b1["macros"][1]=0; b1["macros"][2]=0;
     JsonObject b2 = btn["ins"].createNestedObject(); b2["type"]=2; b2["pin"][0]=27; b2["macros"][0]=0; b2["macros"][1]=0; b2["macros"][2]=0;
 
-    // Light — instant transitions
-    doc["light"]["tr"]["dur"] = 0;
-    doc["light"]["tr"]["rpc"] = 5;
+    // Light — keep WLED's default transition (750ms) so power fade works
+    // Do NOT set dur=0 here; that kills the power-on/off fade animation.
+    // Users can reduce transition in WLED → LED Preferences if desired.
 
-    // Defaults
+    // Defaults — DNA Spiral as startup effect (FX_MODE_2DDNASPIRAL = 182)
     doc["def"]["ps"]  = 0;
     doc["def"]["on"]  = true;
     doc["def"]["bri"] = 128;
+    doc["def"]["fx"]  = 182;   // 2D DNA Spiral — works great on 32×8 matrix
 
     doc["ota"]["lock"] = false;
 
