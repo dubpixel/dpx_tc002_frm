@@ -28,6 +28,7 @@ static float    DPX_HUM_OFFSET     =  0.0f;
 static uint32_t DPX_TC_DWELL_MS    = 2000;   // ms before TC app auto-dismiss
 static bool     DPX_TC_HOLD        = false;   // if true, TC never auto-dismisses
 static bool     DPX_TC_SHOW_FRAMES = false;   // false=HH:MM:SS+bar, true=MM:SS.FF
+static bool     DPX_TC_STOP_BEEP   = false;   // 2x beep when TC signal stops
 static int      DPX_MIN_BRI        = 2;
 static int      DPX_MAX_BRI        = 180;
 static float    DPX_LDR_FACTOR     = 1.0f;
@@ -35,6 +36,7 @@ static float    DPX_LDR_GAMMA      = 3.0f;
 static bool     DPX_ROTATE_SCREEN  = false;
 static bool     DPX_MIRROR_SCREEN  = false;
 static bool     DPX_SENSOR_READING = true;
+static bool     DPX_SOUND_ENABLED  = true;    // buzzer on/off
 static int      DPX_ATIME          = 7;       // app display seconds
 static bool     DPX_ATRANS         = true;    // auto-advance apps
 static int      DPX_SSPEED         = 100;     // global scroll speed %
@@ -59,6 +61,7 @@ static void dpxLoadDev() {
     if (doc.containsKey("tc_dwell"))       DPX_TC_DWELL_MS    = (uint32_t)(doc["tc_dwell"].as<int>() * 1000);
     if (doc.containsKey("tc_hold"))        DPX_TC_HOLD        = doc["tc_hold"].as<bool>();
     if (doc.containsKey("tc_show_frames")) DPX_TC_SHOW_FRAMES = doc["tc_show_frames"].as<bool>();
+    if (doc.containsKey("tc_stop_beep"))   DPX_TC_STOP_BEEP   = doc["tc_stop_beep"].as<bool>();
     if (doc.containsKey("min_brightness")) DPX_MIN_BRI        = doc["min_brightness"].as<int>();
     if (doc.containsKey("max_brightness")) DPX_MAX_BRI        = doc["max_brightness"].as<int>();
     if (doc.containsKey("ldr_factor"))     DPX_LDR_FACTOR     = doc["ldr_factor"].as<float>();
@@ -66,6 +69,7 @@ static void dpxLoadDev() {
     if (doc.containsKey("rotate_screen"))  DPX_ROTATE_SCREEN  = doc["rotate_screen"].as<bool>();
     if (doc.containsKey("mirror_screen"))  DPX_MIRROR_SCREEN  = doc["mirror_screen"].as<bool>();
     if (doc.containsKey("sensor_reading")) DPX_SENSOR_READING = doc["sensor_reading"].as<bool>();
+    if (doc.containsKey("sound_enabled"))  DPX_SOUND_ENABLED  = doc["sound_enabled"].as<bool>();
     if (doc.containsKey("timezone_posix")) {
         DPX_TIMEZONE = doc["timezone_posix"].as<String>();
         setenv("TZ", DPX_TIMEZONE.c_str(), 1);
@@ -98,6 +102,7 @@ static bool dpxMergeDev(const char* json) {
     if (incoming.containsKey("tc_dwell"))       DPX_TC_DWELL_MS    = (uint32_t)(incoming["tc_dwell"].as<int>() * 1000);
     if (incoming.containsKey("tc_hold"))        DPX_TC_HOLD        = incoming["tc_hold"].as<bool>();
     if (incoming.containsKey("tc_show_frames")) DPX_TC_SHOW_FRAMES = incoming["tc_show_frames"].as<bool>();
+    if (incoming.containsKey("tc_stop_beep"))   DPX_TC_STOP_BEEP   = incoming["tc_stop_beep"].as<bool>();
     if (incoming.containsKey("min_brightness")) DPX_MIN_BRI        = incoming["min_brightness"].as<int>();
     if (incoming.containsKey("max_brightness")) DPX_MAX_BRI        = incoming["max_brightness"].as<int>();
     if (incoming.containsKey("ldr_factor"))     DPX_LDR_FACTOR     = incoming["ldr_factor"].as<float>();

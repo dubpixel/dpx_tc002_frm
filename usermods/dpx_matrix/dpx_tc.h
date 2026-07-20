@@ -108,5 +108,6 @@ static void dpxTcDwellTick() {
         dpxAutoTrans = true;
         dpxTcLocked  = false;
         dpxNextApp();
+        if (DPX_TC_STOP_BEEP) dpxBuzzerPlay("TC:d=32,o=5,b=200:c,p,c");
     }
 }

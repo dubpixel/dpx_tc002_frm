@@ -81,7 +81,12 @@ static bool dpxNotifTick() {
     return true;
 }
 
-// Render the current notification (call from handleOverlayDraw() when notifTick() = true)
+// Render the current notification frame.
+// Also ends the notification early when finite-repeat scroll completes,
+// so the display doesn't wait for the full duration after text has scrolled off.
 static void dpxRenderNotification() {
-    dpxRenderApp(dpxCurrentNotif.data);
+    bool done = !dpxRenderApp(dpxCurrentNotif.data);
+    if (done && dpxCurrentNotif.data.repeat >= 0 && !dpxCurrentNotif.hold) {
+        dpxNotifActive = false;  // scroll cycle complete — end early
+    }
 }

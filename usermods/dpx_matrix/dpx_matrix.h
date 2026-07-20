@@ -26,10 +26,10 @@
 
 // Include all module headers in dependency order
 #include "dpx_firstboot.h"
-#include "dpx_buzzer.h"
 #include "dpx_font.h"
 #include "dpx_text.h"
 #include "dpx_persist.h"
+#include "dpx_buzzer.h"    // after dpx_persist.h so DPX_SOUND_ENABLED is in scope
 #include "dpx_apps.h"
 #include "dpx_notifications.h"
 #include "dpx_tc.h"
@@ -52,10 +52,31 @@ static void mode_dpx_matrix() {
     }
     // Text overlay + pixel effects on top
     dpxRenderOverlays();
-    // Corner indicator dots (topmost layer)
-    if (dpxIndicator[0]) SEGMENT.setPixelColorXY(0,  0, dpxIndicator[0]);
-    if (dpxIndicator[1]) SEGMENT.setPixelColorXY(31, 0, dpxIndicator[1]);
-    if (dpxIndicator[2]) SEGMENT.setPixelColorXY(0,  7, dpxIndicator[2]);
+    // Corner indicator pixels (topmost layer) — L-shape at each corner, AWTRIX3 style
+    // ind[0]=top-left (0,0)(1,0)(0,1)  ind[1]=top-right (31,0)(30,0)(31,1)  ind[2]=bottom-left (0,7)(1,7)(0,6)
+    {
+        static const int8_t IND_PX[3][3] = {{0,1,0}, {31,30,31}, {0,1,0}};
+        static const int8_t IND_PY[3][3] = {{0,0,1}, { 0, 0, 1}, {7,7,6}};
+        extern uint32_t dpxIndicatorBlink[3];
+        extern uint32_t dpxIndicatorFade[3];
+        unsigned long now = millis();
+        for (int i = 0; i < 3; i++) {
+            if (!dpxIndicator[i]) continue;
+            if (dpxIndicatorBlink[i] > 0 && (now / dpxIndicatorBlink[i]) % 2) continue;
+            uint32_t col = dpxIndicator[i];
+            if (dpxIndicatorFade[i] > 0) {
+                // Triangle wave: ramp up 0→1 then down 1→0 over fade period
+                float t = (float)(now % dpxIndicatorFade[i]) / (float)dpxIndicatorFade[i];
+                float bright = (t < 0.5f) ? (2.0f * t) : (2.0f - 2.0f * t);
+                uint8_t r = ((col >> 16) & 0xFF) * bright;
+                uint8_t g = ((col >>  8) & 0xFF) * bright;
+                uint8_t b = ( col        & 0xFF) * bright;
+                col = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+            }
+            for (int j = 0; j < 3; j++)
+                SEGMENT.setPixelColorXY(IND_PX[i][j], IND_PY[i][j], col);
+        }
+    }
 }
 
 class DpxMatrix : public Usermod {

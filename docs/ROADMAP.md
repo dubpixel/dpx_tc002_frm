@@ -30,13 +30,80 @@ See Part 2 of this file.
 - [x] **1.6** `/api/transitions` stub — was returning `[]`; now returns `["fade","slide"]`
 - [x] **1.7** `/api/sleep` not implemented — added ESP32 deep sleep with optional timer wakeup (`{"sleep":N}`)
 - [x] **1.8** `save` flag — `save: true` in custom app JSON now persists to `/CUSTOMAPPS/<name>.json` on LittleFS; delete also removes the file
-- [x] **1.9** Per-app overlay activation — added hook in `handleOverlayDraw()` in `dpx_matrix.h`; overlay activates automatically when app/notification is shown, clears on transition
+- [x] **1.9** Per-app overlay activation — originally added to `handleOverlayDraw()`; **see 1.11 below — needs re-port to `mode_dpx_matrix()`**
 - [ ] **1.10** Serial config dump `dpx_matrix.h`
   - Add `c` command to the serial debug handler that dumps key LittleFS config files to serial
   - Print `/dev.json`, `/cfg.json` (WLED wifi/mqtt config), `/osc_listeners.json` — pretty-printed with section headers
   - Format: `─── /dev.json ───` header, then indented JSON, then a separator line
   - Also print active runtime globals (DPX_TIMEZONE, DPX_ATIME, DPX_SHOW_TIME, etc.) below the raw file
   - Update help string: `s=status  c=config dump  r=reboot  h=help`
+
+- [ ] **1.11** Port per-app overlay activation to `mode_dpx_matrix()` `dpx_matrix.h`
+  - **Context:** the 1.9 activation hook was written for the old `handleOverlayDraw()` which no longer exists.
+    dpx_matrix is now a proper WLED effect — the effect function `mode_dpx_matrix()` is the only render path.
+  - Add a static `_prevAppEffect` tracker inside `mode_dpx_matrix()` (same logic as the old hook):
+    check `dpxCurrentNotif.data.overlay` or `dpxApps[dpxCurrentApp].data.overlay`, and call
+    `dpxSetPixelEffect()` / `dpxClearPixelEffect()` when the app changes.
+
+- [ ] **1.12** Fix overlay effects using `strip.setPixelColor()` → `SEGMENT` `dpx_overlay.h`
+  - **Context:** dpx_matrix is now a WLED effect. All pixel writes must go through `SEGMENT.setPixelColorXY()`
+    so brightness, power-fade, and transitions work correctly. `dpx_text.h` already does this.
+    `dpx_overlay.h` was not updated — sparkle, twinkle, strobe, blink, storm, thunder, frost all call
+    `strip.setPixelColor()` / `strip.getPixelColor()` directly, bypassing the brightness pipeline.
+  - Replace all `strip.setPixelColor(i, ...)` → `SEGMENT.setPixelColorXY(i % 32, i / 32, ...)`
+  - Replace all `strip.getPixelColor(i)` → `SEGMENT.getPixelColorXY(i % 32, i / 32)`
+  - Full-matrix blends (strobe, storm flash, frost, thunder) must iterate via XY coordinates.
+
+- [ ] **1.13** Audit `DPX_SHOW_TIME` / `DPX_SHOW_DATE` vs `dpxHiddenApps` `dpx_persist.h` + `dpx_api.h`
+
+- [ ] **1.14** TC mute toggle `dpx_tc.h` + `dpx_persist.h` + `/ctrl`
+  - Add `DPX_TC_MUTE` bool (default false) — when true, incoming TC signal is ignored entirely (no display takeover)
+  - Add `TC_MUTE` key to `dpxApplySettings()` and `dpxSettingsJson()`
+  - Persist in `dev.json`
+  - Add mute checkbox to TC Settings card in `/ctrl` (alongside existing tc_hold, tc_dwell, etc.)
+  - Distinct from `tc_stop_beep` — this silences the whole TC display layer, not just the beep
+
+- [ ] **1.15** TC takeover forces dpx_matrix effect `dpx_tc.h` + `dpx_matrix.h`
+  - When a TC signal arrives and `DPX_TC_MUTE` is false, call `dpxActivateEffect()` to switch the
+    active WLED segment back to the dpx_matrix effect if the user has changed to something else
+  - On TC dwell timeout (signal gone), restore the previously active effect
+  - Globals needed: `static uint8_t _tcSavedEffect` — save `strip.getMainSegment().mode` before takeover
+  - Mirrors the existing `dpxActivateEffect()` call pattern in `dpx_api.h`
+
+- [ ] **1.16** WLED pattern slots in app rotation `dpx_apps.h` + `dpx_html.h`
+  - Allow a WLED effect (by effect ID or name) to be added as a channel in the dpx_matrix app loop
+  - When the loop advances to a pattern slot: call `strip.getMainSegment().setMode(effectId)` +
+    `stateUpdated()` — display hands off to the WLED FX engine for the slot's dwell duration
+  - When dwell expires: restore dpx_matrix effect via `dpxActivateEffect()`, advance to next channel
+  - JSON schema for a pattern slot: `{"type":"wled_fx","effect":53,"palette":0,"speed":128,"intensity":128,"dur":10}`
+  - `GET /api/apps` response includes type field so UI can distinguish channel types
+  - Add "Add Pattern Slot" section to App Channels card in `/ctrl` — effect picker (populated from
+    `GET /json/effects`), palette picker, dwell duration, then Add button
+  - Pattern slots persist in `dpxCustom` map like regular custom apps (same LittleFS storage)
+  - **Context:** 1.5 added `DPX_SHOW_TIME` / `DPX_SHOW_DATE` flags and TIM/DAT settings handling.
+    The architecture now uses `dpxHiddenApps` (a `std::set<String>`) to remove apps from rotation.
+    The two mechanisms may conflict — verify TIM/DAT in `dpxApplySettings()` is calling
+    `dpxHiddenApps.insert/erase` correctly, or remove the old flags and route through `dpxHiddenApps`.
+
+---
+
+### Architecture Note — dpx_matrix as WLED Effect (2026-07-18)
+
+> dpx_matrix is **not** a handleOverlayDraw hack anymore. It is registered as a proper WLED effect
+> via `strip.addEffect(255, &mode_dpx_matrix, "dpx Matrix;!;2")` and the main segment is set to
+> it on startup. This means:
+>
+> - Brightness slider, power-fade, and segment transitions all work natively — no manual BRI mapping
+> - `mode_dpx_matrix()` is the single render entry point (replaces `handleOverlayDraw()`)
+> - All pixel writes must use `SEGMENT.setPixelColorXY(x, y, color)` not `strip.setPixelColor()`
+> - PixelForge (FX #53, FX #122) runs on the same segment when the user switches effects via WLED UI;
+>   `dpxActivateEffect()` re-engages dpx_matrix when an app is pushed via the API
+> - The "WLED passthrough" app slot is gone — not needed since dpx_matrix IS the segment effect
+>
+> **dpx_matrix should remain a full display manager, not a thin wrapper around FX #122 (Scrolling Text).**
+> FX #122 only handles scrolling text; dpx_matrix does the app loop, MQTT dispatch, OSC routing,
+> notification queue, TC display, and icon rendering. The two coexist — FX #122 is available to the
+> user via PixelForge when they want it.
 
 ---
 
@@ -55,6 +122,59 @@ See Part 2 of this file.
 - [ ] **1.5.3** Overlay / effects panel — text overlay fields; pixel effect picker + intensity
 - [ ] **1.5.4** Device status strip — IP, SSID, RSSI, heap, uptime from `GET /dpx`
 - [ ] **1.5.5** API reference — regenerated from actual routes/JSON keys; replaces AWTRIX stub
+
+---
+
+### Phase 1.8 — Hardware Sensor Reads `feature/sensors`
+
+> TC001 hardware that needs firmware support before native Temp / Humidity / Battery / ABRI apps can be enabled.
+> Hardware refs: `SPEC.md` §2 GPIO table.
+
+**Hardware available:**
+- **SHT3x** — I²C addr 0x44, GPIO21 SDA / GPIO22 SCL — temperature + humidity
+  - WLED already ships a `BME280` usermod; SHT3x can follow the same pattern via Wire.h directly or hook the existing usermod
+- **GPIO34** — battery ADC (read-only voltage divider, 3.3 V ref) → map voltage to 0–100%
+- **GPIO35** — GL5516 LDR → auto-brightness (ABRI)
+
+- [ ] **1.8.1** SHT3x sensor read — new `dpx_sensors.h`
+  - Init I²C on GPIO21/22; read SHT3x at addr 0x44 every 10 s
+  - Globals: `float DPX_TEMP`, `float DPX_HUM`; guarded by `#ifdef ARDUINO_ARCH_ESP32`
+  - Expose as `"temp"` and `"hum"` in `dpxStatsJson()` (via `GET /dpx` and `GET /api/stats`)
+  - Apply `DPX_TEMP_OFFSET` / `DPX_HUM_OFFSET` from `dev.json`
+  - Add `CEL` to `dpxApplySettings()` and `dpxSettingsJson()`
+  - Add temp_offset / hum_offset to `/api/dev` handling
+
+- [ ] **1.8.2** Battery ADC — `dpx_sensors.h`
+  - `analogRead(34)` → voltage divider → battery % (map 3.0–4.2 V → 0–100%)
+  - Expose as `"bat"` (int 0–100) in `dpxStatsJson()`
+
+- [ ] **1.8.3** ABRI — auto-brightness via LDR
+  - `analogRead(35)` → lux estimate → `bri` target; ramp smoothly via `stateUpdated()`
+  - Add `ABRI` bool to `dpxApplySettings()` and `dpxSettingsJson()`
+  - Expose raw LDR value as `"lux"` in `dpxStatsJson()`
+
+- [ ] **1.8.4** Wire up native apps
+  - Add `Temperature`, `Humidity`, `Battery` to `natives[]` in `dpx_apps.h`
+  - Render via `dpxRenderNativeTemp()`, `dpxRenderNativeHum()`, `dpxRenderNativeBat()`
+  - Toggle via `TEMP`, `HUM`, `BAT` settings keys in `dpxApplySettings()`
+
+- [ ] **1.8.5** UI — restore Sensors card in `/ctrl`
+  - Re-add Sensors card (C/F toggle, temp offset slider, humidity offset slider)
+  - Enable Temp / Humidity / Battery native app toggles (remove disabled state)
+  - Show `temp`, `hum`, `bat`, `lux` in the status strip from `GET /dpx`
+  - Add `ABRI` checkbox to Display card
+
+---
+
+### Phase 1.9 — WLED Pattern Slots in App Rotation
+
+- [ ] Allow a WLED effect (by effect ID or name) to be added as a channel in the dpx_matrix app loop
+- [ ] When the loop advances to a pattern slot: `strip.getMainSegment().setMode(effectId)` + `stateUpdated()` — display hands off to WLED FX engine for the slot's dwell duration
+- [ ] When dwell expires: restore dpx_matrix via `dpxActivateEffect()`, advance to next channel
+- [ ] JSON schema: `{"type":"wled_fx","effect":53,"palette":0,"speed":128,"intensity":128,"dur":10}`
+- [ ] `GET /api/apps` includes `type` field so UI can distinguish channel types
+- [ ] `/ctrl` App Channels card: "Add Pattern Slot" section — effect picker (from `GET /json/effects`), palette, dwell, Add button
+- [ ] Pattern slots persist in `dpxCustom` map alongside regular apps
 
 ---
 

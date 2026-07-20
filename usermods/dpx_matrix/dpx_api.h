@@ -49,14 +49,18 @@
 
 // dpxIndicator is declared extern in dpx_osc.h; defined in dpx_matrix.cpp.
 extern uint32_t dpxIndicator[3];
+extern uint32_t dpxIndicatorBlink[3];
+extern uint32_t dpxIndicatorFade[3];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Get plain-text POST body from AsyncWebServerRequest.
 static inline String dpxBody(AsyncWebServerRequest* req) {
-    if (req->hasParam("plain", true))
-        return req->getParam("plain", true)->value();
-    return "";
+    // req->arg("plain") is the ESPAsyncWebServer convention for raw POST body
+    // when Content-Type is not multipart/form-data (e.g. application/json).
+    // Using arg() instead of getParam("plain", true) matches how WLED itself
+    // reads POST bodies in wled/ui.cpp and avoids param-type mismatch.
+    return req->arg("plain");
 }
 
 // 256-pixel screen dump as JSON array.
@@ -72,6 +76,7 @@ static String dpxScreenJson() {
 static String dpxStatsJson() {
     DynamicJsonDocument doc(512);
     doc[F("version")]   = F("dpx_tc002");
+    doc[F("build")]     = F(__DATE__ " " __TIME__);  // unique per compile
     doc[F("uptime")]    = millis() / 1000;
     doc[F("ram")]       = ESP.getFreeHeap();
     doc[F("ip")]        = WiFi.localIP().toString();
@@ -96,8 +101,8 @@ static String dpxSettingsJson() {
     doc[F("UPPERCASE")]  = DPX_UPPERCASE;
     doc[F("Timezone")]   = DPX_TIMEZONE;
     doc[F("MQTT_PREFIX")] = String(mqttDeviceTopic);
-    doc[F("SOUND")]      = true;   // TC001 piezo always available
-    doc[F("VOL")]        = 0;      // passive piezo — no volume control
+    doc[F("SOUND")]      = DPX_SOUND_ENABLED;
+    // VOL omitted — passive piezo has no volume control
     doc[F("TIM")]        = DPX_SHOW_TIME;
     doc[F("DAT")]        = DPX_SHOW_DATE;
     String s; serializeJson(doc, s); return s;
@@ -123,8 +128,23 @@ static void dpxApplySettings(const String& body) {
         tzset();
         dpxMergeDev(("{\"timezone_posix\":\"" + DPX_TIMEZONE + "\"}").c_str());
     }
-    if (doc.containsKey("TIM")) { DPX_SHOW_TIME = doc["TIM"].as<bool>(); dpxRebuildLoop(); }
-    if (doc.containsKey("DAT")) { DPX_SHOW_DATE = doc["DAT"].as<bool>(); dpxRebuildLoop(); }
+    if (doc.containsKey("TIM")) {
+        DPX_SHOW_TIME = doc["TIM"].as<bool>();
+        // Keep dpxHiddenApps in sync — dpxRebuildLoop() checks hidden set, not DPX_SHOW_* flags
+        if (DPX_SHOW_TIME) dpxHiddenApps.erase(String(F("Time")));
+        else               dpxHiddenApps.insert(String(F("Time")));
+        dpxRebuildLoop();
+    }
+    if (doc.containsKey("DAT")) {
+        DPX_SHOW_DATE = doc["DAT"].as<bool>();
+        if (DPX_SHOW_DATE) dpxHiddenApps.erase(String(F("Date")));
+        else               dpxHiddenApps.insert(String(F("Date")));
+        dpxRebuildLoop();
+    }
+    if (doc.containsKey("SOUND")) {
+        DPX_SOUND_ENABLED = doc["SOUND"].as<bool>();
+        dpxMergeDev(((String)F("{\"sound_enabled\":") + (DPX_SOUND_ENABLED ? F("true}") : F("false}"))).c_str());
+    }
 }
 
 // ── Route registration ────────────────────────────────────────────────────────
@@ -192,7 +212,16 @@ static void dpxRegisterRoutes() {
         }
         // POST: push or delete (empty body = delete)
         String body = dpxBody(r);
+        bool isDelete = (body.length() <= 2);
         dpxSetCustomApp(name, body.c_str());
+        if (isDelete) {
+            // Remove any OSC listeners for this channel so D3 doesn't recreate it
+            dpxOscListeners.erase(
+                std::remove_if(dpxOscListeners.begin(), dpxOscListeners.end(),
+                    [&name](const DpxOscListener& l){ return l.channel == name; }),
+                dpxOscListeners.end());
+            dpxSaveOscListeners();
+        }
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
 
@@ -230,7 +259,7 @@ static void dpxRegisterRoutes() {
     });
 
     // ── Indicators ────────────────────────────────────────────────────────────
-    // {"color":[r,g,b],"blink":ms}  — blink is ignored (no HW PWM), color stored
+    // {"color":[r,g,b],"blink":ms}  blink=0 → solid, blink>0 → on/off interval ms
     auto handleIndicator = [](AsyncWebServerRequest* r, int idx) {
         String body = dpxBody(r);
         DynamicJsonDocument doc(128);
@@ -244,6 +273,10 @@ static void dpxRegisterRoutes() {
                 else
                     dpxIndicator[idx] = 0;
             }
+            if (doc.containsKey("blink"))
+                dpxIndicatorBlink[idx] = (uint32_t)max(0, doc["blink"].as<int>());
+            if (doc.containsKey("fade"))
+                dpxIndicatorFade[idx] = (uint32_t)max(0, doc["fade"].as<int>());
         }
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     };
@@ -264,12 +297,15 @@ static void dpxRegisterRoutes() {
             r->send(200, F("application/json"), F("{\"ok\":true}"));
             return;
         }
-        // GET: return local time string + UTC epoch
-        time_t now; struct tm ti;
-        time(&now); localtime_r(&now, &ti);
-        char buf[24];
-        strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%S", &ti);
+        // GET: use WLED's localTime (has WLED timezone offset applied) for display.
+        // localtime_r uses POSIX TZ env which may not be set, causing UTC display.
+        time_t now;
+        time(&now);
         DynamicJsonDocument doc(128);
+        char buf[24];
+        snprintf(buf, sizeof(buf), "%04d-%02d-%02dT%02d:%02d:%02d",
+            year(localTime), month(localTime), day(localTime),
+            hour(localTime), minute(localTime), second(localTime));
         doc[F("local")] = buf;
         doc[F("utc")]   = (uint32_t)now;
         String s; serializeJson(doc, s);
@@ -332,12 +368,9 @@ static void dpxRegisterRoutes() {
             r->send(200, F("application/json"), dpxOscListenersJson());
             return;
         }
-        String body = dpxBody(r);
-        DynamicJsonDocument doc(256);
-        if (deserializeJson(doc, body)) { r->send(400, F("text/plain"), F("bad JSON")); return; }
-
         if (r->method() == HTTP_DELETE) {
-            String path = doc["path"] | String();
+            // Path passed as ?path=<encoded> query param — DELETE body not reliably parsed
+            String path = r->arg("path");
             if (path.length()) {
                 dpxOscListeners.erase(
                     std::remove_if(dpxOscListeners.begin(), dpxOscListeners.end(),
@@ -348,7 +381,10 @@ static void dpxRegisterRoutes() {
             r->send(200, F("application/json"), F("{\"ok\":true}"));
             return;
         }
-        // POST: add listener
+        // POST: parse URL-encoded body — plain=<json> (ESPAsyncWebServer form field)
+        String body = dpxBody(r);
+        DynamicJsonDocument doc(256);
+        if (deserializeJson(doc, body)) { r->send(400, F("text/plain"), F("bad JSON")); return; }
         DpxOscListener lsr;
         lsr.path    = doc["path"]    | String();
         lsr.channel = doc["channel"] | String();
@@ -394,18 +430,88 @@ static void dpxRegisterRoutes() {
         r->send(200, F("application/json"), F("{\"ok\":true,\"enabled\":false}"));
     });
 
-    // ── RTTTL / Sound — TC001 piezo buzzer on GPIO 15 ────────────────────────
-    // POST /api/rtttl  body: raw RTTTL string or "stop" to silence
-    server.on("/api/rtttl", HTTP_POST, [](AsyncWebServerRequest* r) {
-        String body = dpxBody(r);
-        body.trim();
-        if (!body.length()) { r->send(400, F("text/plain"), F("RTTTL string or 'stop' required")); return; }
-        if (body.equalsIgnoreCase("stop")) {
-            dpxBuzzerStop();
-        } else {
+    // ── RTTTL — 3-callback form guarantees body collection into _tempObject ───────────
+    // POST body: raw RTTTL string (text/plain) or "stop" to silence.
+    // Same mechanism as AsyncCallbackJsonWebHandler — works regardless of Content-Type.
+    server.on("/api/rtttl", HTTP_POST,
+        [](AsyncWebServerRequest* r) {
+            String body = r->_tempObject ? String((char*)r->_tempObject) : String();
+            body.trim();
+            if (body.isEmpty()) {
+                r->send(400, F("application/json"), F("{\"error\":\"empty body\"}"));
+                return;
+            }
+            if (body.equalsIgnoreCase("stop")) {
+                dpxBuzzerStop();
+                r->send(200, F("application/json"), F("{\"ok\":true,\"action\":\"stop\"}"));
+                return;
+            }
             dpxBuzzerPlay(body.c_str());
+            DynamicJsonDocument doc(128);
+            doc[F("ok")]      = true;
+            doc[F("sound")]   = DPX_SOUND_ENABLED;
+            doc[F("notes")]   = (int)_bzCount;
+            doc[F("playing")] = _bzActive;
+            String s; serializeJson(doc, s);
+            r->send(200, F("application/json"), s);
+        },
+        nullptr,
+        [](AsyncWebServerRequest* r, uint8_t* data, size_t len, size_t index, size_t total) {
+            if (index == 0) { free(r->_tempObject); r->_tempObject = malloc(total + 1); }
+            if (r->_tempObject) {
+                memcpy((uint8_t*)r->_tempObject + index, data, len);
+                if (index + len == total) ((uint8_t*)r->_tempObject)[total] = '\0';
+            }
         }
-        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    );
+
+    // ── RTTTL parse debug — GET /api/buzzer/parse?q=<rtttl> ─────────────
+    // Returns JSON array of {freq, ms} for each parsed note (no playback).
+    server.on("/api/buzzer/parse", HTTP_GET, [](AsyncWebServerRequest* r) {
+        String q = r->hasParam("q") ? r->arg("q") : "";
+        _bzParse(q.c_str());
+        String out = "[";
+        for (uint8_t i = 0; i < _bzCount; i++) {
+            if (i) out += ",";
+            out += "{\"f\":" + String(_bzNotes[i].freq) + ",\"ms\":" + String(_bzNotes[i].ms) + "}";
+        }
+        out += "]";
+        _bzCount = 0; // reset so it doesn't accidentally play
+        r->send(200, F("application/json"), out);
+    });
+
+    // ── Direct beep test ─────────────────────────────────────────────────
+    // Bypasses RTTTL parser and DPX_SOUND_ENABLED — hardware-only test.
+    // Add ?active=1 to test active-buzzer theory: DC pulse instead of PWM.
+    server.on("/api/beeptest", HTTP_POST, [](AsyncWebServerRequest* r) {
+        bool testActive = r->hasParam("active") && r->arg("active") == "1";
+        if (testActive) {
+            // Active buzzer test: simple DC on/off, no PWM
+            ledcDetachPin(DPX_BUZZER_PIN);
+            pinMode(DPX_BUZZER_PIN, OUTPUT);
+            digitalWrite(DPX_BUZZER_PIN, HIGH);
+            delay(200); digitalWrite(DPX_BUZZER_PIN, LOW);
+            delay(80);  digitalWrite(DPX_BUZZER_PIN, HIGH);
+            delay(200); digitalWrite(DPX_BUZZER_PIN, LOW);
+            // Re-attach LEDC after test
+            ledcAttachPin(DPX_BUZZER_PIN, DPX_BUZZER_LEDC_CH);
+            ledcWrite(DPX_BUZZER_LEDC_CH, 0);
+        } else {
+            _bzNotes[0] = {880, 200};
+            _bzNotes[1] = {  0,  80};
+            _bzNotes[2] = {880, 200};
+            _bzNotes[3] = {  0,   1};
+            _bzCount = 4; _bzIdx = 0; _bzActive = true; _bzStart = millis();
+            ledcWriteTone(DPX_BUZZER_LEDC_CH, 880);
+        }
+        DynamicJsonDocument doc(128);
+        doc[F("ok")]            = true;
+        doc[F("pin")]           = (int)DPX_BUZZER_PIN;
+        doc[F("ledc_ch")]       = (int)DPX_BUZZER_LEDC_CH;
+        doc[F("sound_enabled")] = DPX_SOUND_ENABLED;
+        doc[F("active_test")]   = testActive;
+        String s; serializeJson(doc, s);
+        r->send(200, F("application/json"), s);
     });
     // POST /api/sound  body: JSON {"rtttl":"..."} or {"sound":"filename"} or empty=stop
     // sound files are RTTTL text stored in /MELODIES/<name>.txt on LittleFS
@@ -517,5 +623,21 @@ static void dpxRegisterRoutes() {
         if (secs > 0)
             esp_sleep_enable_timer_wakeup(secs * 1000000ULL);
         esp_deep_sleep_start();
+    });
+
+    // ── Mute / unmute an app in the rotation ─────────────────────────────────
+    // POST body: {"name":"Time","mute":true}   mute=false to un-mute
+    server.on("/api/mute", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        DynamicJsonDocument doc(128);
+        if (!deserializeJson(doc, body) && doc.containsKey("name")) {
+            String name = doc["name"].as<String>();
+            bool mute = doc.containsKey("mute") ? doc["mute"].as<bool>() : true;
+            bool ok = dpxMuteApp(name, mute);
+            r->send(ok ? 200 : 404, F("application/json"),
+                    ok ? F("{\"ok\":true}") : F("{\"error\":\"not found\"}"));
+            return;
+        }
+        r->send(400, F("text/plain"), F("name required"));
     });
 }
