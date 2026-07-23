@@ -106,7 +106,19 @@ echo -e "\n${C}dpx_tc002 — $HOST — $(date '+%H:%M:%S')${RST}"
 suite "connectivity" || { :; } && {
 resp=$(_get /dpx) || { fail "unreachable at $HOST"; exit 1; }
 assert_has "$resp" '"build"' "GET /dpx"
-info "Build: $(_jq "$resp" '.build')"
+    _dev_build=$(_jq "$resp" '.build')
+    info "Device build: $_dev_build"
+    _ts_file="$(cd "$(dirname "$0")/.." && pwd)/build_output/dpx_build.ts"
+    if [[ -f "$_ts_file" ]]; then
+        _local_build=$(cat "$_ts_file")
+        if [[ "$_local_build" == "$_dev_build" ]]; then
+            ok "Device firmware is current ($_dev_build)"
+        else
+            echo -e "  \033[1;33m⚠  STALE FIRMWARE: device=$_dev_build  local=$_local_build — upload before testing\033[0m"
+        fi
+    else
+        info "No build timestamp file — build once to enable firmware version check"
+    fi
 resp=$(_get /api/stats);  assert_has "$resp" '"ram"'       "GET /api/stats"
 resp=$(_get /api/apps);   assert_has "$resp" '"name"'      "GET /api/apps"
 resp=$(_get /api/effects); assert_has "$resp" '"dpx Matrix"' "GET /api/effects"

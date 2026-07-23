@@ -737,7 +737,7 @@ select option{background:#222}
   <div><label style="margin:0;font-size:10px">BG</label><input type="color" id="ca_pbc" value="#333333"></div>
 </div>
 </div><!-- end ch_fields_text -->
-<div class="row">
+<div id="ch_text_actions" class="row">
   <button onclick="sendCustomApp()">&#9654; Push</button>
   <button class="sm" style="margin-top:8px;margin-left:4px;background:#285" onclick="loadCustomApp()">&#8595; Load</button>
   <button class="red sm" style="margin-top:8px;margin-left:4px" onclick="deleteCustomApp()">Remove</button>
@@ -958,10 +958,6 @@ function loadLoop(){
     }
   }).catch(function(){el.textContent="Could not load.";});
 }
-  var text=document.getElementById("new_ch_text").value||name;
-  fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify({text:text,scrollSpeed:80}))}).then(function(r){r.ok?toast("Channel '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
-  document.getElementById("new_ch_name").value="";document.getElementById("new_ch_text").value="";
-}
 loadLoop();
 document.getElementById("bri").addEventListener("input",function(){document.getElementById("bri_v").textContent=this.value;});
 function sendNotify(){
@@ -1053,10 +1049,11 @@ var _CH_NATIVE_HINTS={
   osc:"Create a named channel driven by OSC. Use the channel name when adding an OSC Listener."
 };
 function updateChType(t){
-  var tf=document.getElementById("ch_fields_text"),nf=document.getElementById("ch_fields_native");
+  var tf=document.getElementById("ch_fields_text"),nf=document.getElementById("ch_fields_native"),ta=document.getElementById("ch_text_actions");
   var textTypes=t==="text"||t==="osc";
   if(tf)tf.style.display=textTypes?"":"none";
   if(nf)nf.style.display=textTypes?"none":"";
+  if(ta)ta.style.display=textTypes?"":"none";
   var h=document.getElementById("ch_native_hint");
   if(h)h.textContent=_CH_NATIVE_HINTS[t]||"";
 }
@@ -1071,34 +1068,8 @@ function addChannel(){
   var text=document.getElementById("ca_text").value||name;
   fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify({text:text,scrollSpeed:80}))}).then(function(r){r.ok?toast("Channel '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
 }
-function addChannel(){
-  var t=document.getElementById("ch_type").value;
-  if(t==="time"){apiPost("/api/settings",{TIM:true}).then(function(){setTimeout(loadLoop,400);});return;}
-  if(t==="date"){apiPost("/api/settings",{DAT:true}).then(function(){setTimeout(loadLoop,400);});return;}
-  if(t==="timecode"){toast("TC channel activates automatically on incoming timecode signal");return;}
-  var name=document.getElementById("new_ch_name").value.trim().replace(/\s+/g,"_");
-  if(!name){toast("Enter a channel name",false);return;}
-  var text=document.getElementById("new_ch_text").value||name;
-  fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify({text:text,scrollSpeed:80}))}).then(function(r){r.ok?toast("Channel '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
-  document.getElementById("new_ch_name").value="";document.getElementById("new_ch_text").value="";
-}
-;data[key]=next;
-  apiPost("/api/settings",data).then(function(){
-    btn.textContent=(next?'\u25cf ':'\u25cb ')+name;
-    btn.style.opacity=next?"1":"0.5";
-    setTimeout(loadLoop,400);
-  });
-}
-fetch("/api/settings").then(function(r){return r.json();}).then(function(s){
-  if(s.MQTT_PREFIX){mqttPrefix=s.MQTT_PREFIX;var note=document.getElementById("mqtt_prefix_note");if(note)note.innerHTML='MQTT prefix: <code style="color:#4af">'+s.MQTT_PREFIX+'</code> &nbsp;&nbsp; OSC namespace: <code style="color:#4af">/dpx_tc002</code>';}
-var en=document.getElementById("snd_en");var st=document.getElementById("snd_status");
-  if(s.SOUND!==undefined){en.checked=s.SOUND;}else{en.checked=true;}
-  if(st){st.textContent=en.checked?"(on)":"(DISABLED \u2014 check this box and Save)";st.style.color=en.checked?"#2a5":"#f66";}
-  en.onchange=function(){if(st){st.textContent=en.checked?"(on)":"(DISABLED)";st.style.color=en.checked?"#2a5":"#f66";}};
-}).catch(function(){});
-  var v=document.getElementById("rtttl").value;if(!v){toast("Enter RTTTL string",false);return;}
-  apiPost("/api/sound",{rtttl:v});
-}
+
+function sendRtttl(){var v=document.getElementById("rtttl").value.trim();if(!v){toast("Enter RTTTL string",false);return;}apiPost("/api/sound",{rtttl:v});}
 function sendSound(){var v=document.getElementById("snd_file").value;if(!v){toast("Enter filename",false);return;}apiPost("/api/sound",{sound:v});}
 fetch("/api/settings").then(function(r){return r.json();}).then(function(s){
   if(s.MQTT_PREFIX){mqttPrefix=s.MQTT_PREFIX;var note=document.getElementById("mqtt_prefix_note");if(note)note.innerHTML='MQTT prefix: <code style="color:#4af">'+s.MQTT_PREFIX+'</code> &nbsp;&nbsp; OSC namespace: <code style="color:#4af">/dpx_tc002</code>';}

@@ -64,3 +64,4 @@ fp-info-cache
 */fp-info-cache
 # kicad local profile
 *.kicad_prl
+build_output/dpx_build.ts
