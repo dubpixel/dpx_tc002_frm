@@ -1,3 +1,16 @@
+## dpx_tc002_frm changelog
+
+### [0.1.1](https://github.com/dubpixel/dpx_tc002_frm/compare/0.1.0...0.1.1) (2026-07-23)
+
+> ctrl UI bug fixes and roadmap housekeeping.
+
+#### Bug Fixes
+* **ctrl:** `sendRtttl()` was accidentally deleted during Configure Channel restructure — restored (#28)
+* **ctrl:** Push / Load / Remove buttons no longer shown for Time/Date/Timecode channel types (#28)
+* **docs:** ROADMAP.md checkboxes for 1.11, 1.12, 1.13 corrected to `[x]` — these were already implemented
+
+---
+
 ## WLED changelog
 
 #### Build 2410270

@@ -1,6 +1,6 @@
 # dpx_tc002_frm — Master Roadmap & TODO
 
-Last updated: 2026-07-18
+Last updated: 2026-07-23
 
 Reference files (read before working on this project):
 - `⊘ dpx_reference/SPEC.md` — full behavioral spec, API contract, all JSON keys
@@ -38,14 +38,14 @@ See Part 2 of this file.
   - Also print active runtime globals (DPX_TIMEZONE, DPX_ATIME, DPX_SHOW_TIME, etc.) below the raw file
   - Update help string: `s=status  c=config dump  r=reboot  h=help`
 
-- [ ] **1.11** Port per-app overlay activation to `mode_dpx_matrix()` `dpx_matrix.h`
+- [x] **1.11** Port per-app overlay activation to `mode_dpx_matrix()` `dpx_matrix.h`
   - **Context:** the 1.9 activation hook was written for the old `handleOverlayDraw()` which no longer exists.
     dpx_matrix is now a proper WLED effect — the effect function `mode_dpx_matrix()` is the only render path.
   - Add a static `_prevAppEffect` tracker inside `mode_dpx_matrix()` (same logic as the old hook):
     check `dpxCurrentNotif.data.overlay` or `dpxApps[dpxCurrentApp].data.overlay`, and call
     `dpxSetPixelEffect()` / `dpxClearPixelEffect()` when the app changes.
 
-- [ ] **1.12** Fix overlay effects using `strip.setPixelColor()` → `SEGMENT` `dpx_overlay.h`
+- [x] **1.12** Fix overlay effects using `strip.setPixelColor()` → `SEGMENT` `dpx_overlay.h`
   - **Context:** dpx_matrix is now a WLED effect. All pixel writes must go through `SEGMENT.setPixelColorXY()`
     so brightness, power-fade, and transitions work correctly. `dpx_text.h` already does this.
     `dpx_overlay.h` was not updated — sparkle, twinkle, strobe, blink, storm, thunder, frost all call
@@ -54,7 +54,7 @@ See Part 2 of this file.
   - Replace all `strip.getPixelColor(i)` → `SEGMENT.getPixelColorXY(i % 32, i / 32)`
   - Full-matrix blends (strobe, storm flash, frost, thunder) must iterate via XY coordinates.
 
-- [ ] **1.13** Audit `DPX_SHOW_TIME` / `DPX_SHOW_DATE` vs `dpxHiddenApps` `dpx_persist.h` + `dpx_api.h`
+- [x] **1.13** Audit `DPX_SHOW_TIME` / `DPX_SHOW_DATE` vs `dpxHiddenApps` `dpx_persist.h` + `dpx_api.h`
 
 - [ ] **1.14** TC mute toggle ✅ *implemented in feature/overlay-tc-fixes*
 
