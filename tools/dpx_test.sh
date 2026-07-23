@@ -113,7 +113,11 @@ assert_has "$resp" '"build"' "GET /dpx"
     _ts_file="$(cd "$(dirname "$0")/.." && pwd)/build_output/dpx_build.ts"
     if [[ -f "$_ts_file" ]]; then
         _local_build=$(cat "$_ts_file")
-        if [[ "$_local_build" == "$_dev_build" ]]; then
+        # Compare at minute precision — __DATE__/__TIME__ stamped during compile,
+        # dpx_build.ts written at script import (pre-compile). Allow ±59s drift.
+        _dev_min="${_dev_build%:*}"
+        _local_min="${_local_build%:*}"
+        if [[ "$_local_min" == "$_dev_min" ]]; then
             ok "Device firmware is current ($_dev_build)"
         else
             echo -e "  \033[1;33m⚠  STALE FIRMWARE: device=$_dev_build  local=$_local_build — upload before testing\033[0m"
