@@ -114,6 +114,21 @@ SAVED_TIM=$(_jq "$resp" '.TIM // "true"')
 SAVED_DAT=$(_jq "$resp" '.DAT // "false"')
 _post /api/settings '{"TIM":false,"DAT":false}' > /dev/null
 info "Natives muted (restored on exit)"
+# Sweep ALL custom apps off the device — it could be in any state
+_sweeping=$(curl -sf --compressed --max-time 8 "$BASE/api/apps" | jq -r '.[] | select(.native==false) | .name' 2>/dev/null)
+if [[ -n "$_sweeping" ]]; then
+    while IFS= read -r _n; do _del "$_n"; done <<< "$_sweeping"
+    info "Swept custom apps: $(echo "$_sweeping" | tr '\n' ' ')"
+fi
+# Dismiss any active notification and stop sound
+_post /api/notify/dismiss '{}' > /dev/null
+_post /api/sound '{}' > /dev/null
+for _i in 1 2 3; do _post /api/indicator$_i '{"color":"#000000"}' > /dev/null; done
+# Force dpx_matrix effect active by setting BRI (triggers dpxActivateEffect internally)
+SAVED_BRI=$(_jq "$resp" '.BRI // "128"')
+_post /api/settings "{\"BRI\":$SAVED_BRI}" > /dev/null
+sleep 1
+info "Device state cleared"
 }
 
 # ── apps ──────────────────────────────────────────────────────────────────────
