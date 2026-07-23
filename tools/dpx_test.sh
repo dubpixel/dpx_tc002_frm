@@ -75,15 +75,16 @@ assert_key() {
 
 # Human check: show ONE thing, ask Y/n, then optionally run cleanup cmd
 vis() {
-    $AUTO && return
-    echo -e "\n  ${Y}👁  $1${RST}"
+    if $AUTO; then [[ -n "$2" ]] && eval "$2" > /dev/null 2>&1; return; fi
+    _blank
+    echo -e "\n  ${Y}\xF0\x9F\x91\x81  $1${RST}"
     echo -en "  ${Y}    Looks correct? [Y/n/s] ${RST}"
     read -r _a; _a=$(echo "$_a" | tr '[:upper:]' '[:lower:]')
-    [[ -n "$2" ]] && eval "$2" > /dev/null 2>&1   # cleanup after answer
+    [[ -n "$2" ]] && eval "$2" > /dev/null 2>&1
     case "$_a" in n|no) fail "VISUAL: $1" ;; s) skip "VISUAL: $1" ;; *) ok "VISUAL: $1" ;; esac
 }
 snd() {
-    $AUTO && return
+    if $AUTO; then return; fi
     echo -e "\n  ${C}🔊 $1${RST}"
     echo -en "  ${C}    Did you hear it? [Y/n/s] ${RST}"
     read -r _a; _a=$(echo "$_a" | tr '[:upper:]' '[:lower:]')
@@ -135,9 +136,9 @@ info "Device state cleared"
 suite "apps" || { :; } && {
 # Create + show green HELLO — delete immediately after confirm
 _app "_t" '{"text":"HELLO","color":"#00FF00","dur":999}'
+assert_has "$(_get /api/apps)" '"_t"' "App appears in loop"
 _post /api/switch '{"name":"_t"}' > /dev/null
 vis "GREEN text 'HELLO' on display" '_del _t'
-assert_has "$(_get /api/apps)" '"_t"' "App appears in loop"
 # Create + show rainbow — delete after confirm
 _app "_t" '{"text":"RAINBOW","rainbow":true,"dur":999}'
 _post /api/switch '{"name":"_t"}' > /dev/null
