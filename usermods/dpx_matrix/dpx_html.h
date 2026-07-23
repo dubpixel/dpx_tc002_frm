@@ -838,6 +838,9 @@ select option{background:#222}
 <div class="row" style="margin-bottom:10px;align-items:center">
   <div class="chk"><input type="checkbox" id="tc_stop_beep"><label for="tc_stop_beep">2&times; beep when TC stops</label></div>
 </div>
+<div class="row" style="margin-bottom:10px;align-items:center">
+  <div class="chk"><input type="checkbox" id="tc_mute"><label for="tc_mute">Mute TC &mdash; ignore timecode signal entirely</label></div>
+</div>
 <button onclick="saveTCSettings()">Save TC Settings</button>
 </div>
 
@@ -1002,13 +1005,16 @@ function saveTCSettings(){
   var dwell=parseInt(document.getElementById("tc_dwell").value);
   var frames=document.getElementById("tc_show_frames").checked;
   var beep=document.getElementById("tc_stop_beep").checked;
-  apiPost("/api/dev",{tc_hold:hold,tc_dwell:dwell,tc_show_frames:frames,tc_stop_beep:beep});
+  var mute=document.getElementById("tc_mute").checked;
+  apiPost("/api/dev",{tc_hold:hold,tc_dwell:dwell,tc_show_frames:frames,tc_stop_beep:beep,tc_mute:mute});
+  apiPost("/api/settings",{TC_MUTE:mute});
 }
 fetch("/api/dev").then(function(r){return r.json();}).then(function(d){
   if(d.tc_hold!==undefined)document.getElementById("tc_hold").checked=d.tc_hold;
   if(d.tc_dwell!==undefined){document.getElementById("tc_dwell").value=d.tc_dwell;document.getElementById("tc_dwell_v").textContent=d.tc_dwell+" s";}
   if(d.tc_show_frames!==undefined)document.getElementById("tc_show_frames").checked=d.tc_show_frames;
   if(d.tc_stop_beep!==undefined)document.getElementById("tc_stop_beep").checked=d.tc_stop_beep;
+  if(d.tc_mute!==undefined)document.getElementById("tc_mute").checked=d.tc_mute;
 }).catch(function(){});
 function saveSndSettings(){apiPost("/api/settings",{SOUND:document.getElementById("snd_en").checked});}
 function sendRtttl(){

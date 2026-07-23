@@ -147,6 +147,10 @@ See Part 2 of this file.
 - [ ] **1.8.2** Battery ADC — `dpx_sensors.h`
   - `analogRead(34)` → voltage divider → battery % (map 3.0–4.2 V → 0–100%)
   - Expose as `"bat"` (int 0–100) in `dpxStatsJson()`
+  - **Alt: use upstream `Battery` usermod** — add `Battery` to `custom_usermods` and set
+    `-D USERMOD_BATTERY_MEASUREMENT_PIN=34` in build_flags (default is GPIO35 = LDR, must override).
+    Gives auto-off threshold, low-power indicator, and WLED info page integration for free.
+    Trade-off: less control over `"bat"` JSON key in `dpxStatsJson()` without extra glue code.
 
 - [ ] **1.8.3** ABRI — auto-brightness via LDR
   - `analogRead(35)` → lux estimate → `bri` target; ramp smoothly via `stateUpdated()`

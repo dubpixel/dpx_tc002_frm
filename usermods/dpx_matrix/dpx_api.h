@@ -105,6 +105,7 @@ static String dpxSettingsJson() {
     // VOL omitted — passive piezo has no volume control
     doc[F("TIM")]        = DPX_SHOW_TIME;
     doc[F("DAT")]        = DPX_SHOW_DATE;
+    doc[F("TC_MUTE")]    = DPX_TC_MUTE;
     String s; serializeJson(doc, s); return s;
 }
 
@@ -130,20 +131,25 @@ static void dpxApplySettings(const String& body) {
     }
     if (doc.containsKey("TIM")) {
         DPX_SHOW_TIME = doc["TIM"].as<bool>();
-        // Keep dpxHiddenApps in sync — dpxRebuildLoop() checks hidden set, not DPX_SHOW_* flags
         if (DPX_SHOW_TIME) dpxHiddenApps.erase(String(F("Time")));
         else               dpxHiddenApps.insert(String(F("Time")));
         dpxRebuildLoop();
+        dpxMergeDev(((String)F("{\"show_time\":") + (DPX_SHOW_TIME ? F("true}") : F("false}"))).c_str());
     }
     if (doc.containsKey("DAT")) {
         DPX_SHOW_DATE = doc["DAT"].as<bool>();
         if (DPX_SHOW_DATE) dpxHiddenApps.erase(String(F("Date")));
         else               dpxHiddenApps.insert(String(F("Date")));
         dpxRebuildLoop();
+        dpxMergeDev(((String)F("{\"show_date\":") + (DPX_SHOW_DATE ? F("true}") : F("false}"))).c_str());
     }
     if (doc.containsKey("SOUND")) {
         DPX_SOUND_ENABLED = doc["SOUND"].as<bool>();
         dpxMergeDev(((String)F("{\"sound_enabled\":") + (DPX_SOUND_ENABLED ? F("true}") : F("false}"))).c_str());
+    }
+    if (doc.containsKey("TC_MUTE")) {
+        DPX_TC_MUTE = doc["TC_MUTE"].as<bool>();
+        dpxMergeDev(((String)F("{\"tc_mute\":") + (DPX_TC_MUTE ? F("true}") : F("false}"))).c_str());
     }
 }
 

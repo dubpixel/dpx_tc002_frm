@@ -29,6 +29,7 @@ static uint32_t DPX_TC_DWELL_MS    = 2000;   // ms before TC app auto-dismiss
 static bool     DPX_TC_HOLD        = false;   // if true, TC never auto-dismisses
 static bool     DPX_TC_SHOW_FRAMES = false;   // false=HH:MM:SS+bar, true=MM:SS.FF
 static bool     DPX_TC_STOP_BEEP   = false;   // 2x beep when TC signal stops
+static bool     DPX_TC_MUTE        = false;   // if true, TC signal is ignored entirely
 static int      DPX_MIN_BRI        = 2;
 static int      DPX_MAX_BRI        = 180;
 static float    DPX_LDR_FACTOR     = 1.0f;
@@ -70,6 +71,9 @@ static void dpxLoadDev() {
     if (doc.containsKey("mirror_screen"))  DPX_MIRROR_SCREEN  = doc["mirror_screen"].as<bool>();
     if (doc.containsKey("sensor_reading")) DPX_SENSOR_READING = doc["sensor_reading"].as<bool>();
     if (doc.containsKey("sound_enabled"))  DPX_SOUND_ENABLED  = doc["sound_enabled"].as<bool>();
+    // Native app visibility — flags only; dpxHiddenApps sync happens in setup() after dpx_apps.h is loaded
+    if (doc.containsKey("show_time")) DPX_SHOW_TIME = doc["show_time"].as<bool>();
+    if (doc.containsKey("show_date")) DPX_SHOW_DATE = doc["show_date"].as<bool>();
     if (doc.containsKey("timezone_posix")) {
         DPX_TIMEZONE = doc["timezone_posix"].as<String>();
         setenv("TZ", DPX_TIMEZONE.c_str(), 1);
@@ -103,6 +107,10 @@ static bool dpxMergeDev(const char* json) {
     if (incoming.containsKey("tc_hold"))        DPX_TC_HOLD        = incoming["tc_hold"].as<bool>();
     if (incoming.containsKey("tc_show_frames")) DPX_TC_SHOW_FRAMES = incoming["tc_show_frames"].as<bool>();
     if (incoming.containsKey("tc_stop_beep"))   DPX_TC_STOP_BEEP   = incoming["tc_stop_beep"].as<bool>();
+    if (incoming.containsKey("tc_mute"))        DPX_TC_MUTE        = incoming["tc_mute"].as<bool>();
+    // show_time/show_date: flags only here; callers (dpxApplySettings) handle dpxHiddenApps sync
+    if (incoming.containsKey("show_time")) DPX_SHOW_TIME = incoming["show_time"].as<bool>();
+    if (incoming.containsKey("show_date")) DPX_SHOW_DATE = incoming["show_date"].as<bool>();
     if (incoming.containsKey("min_brightness")) DPX_MIN_BRI        = incoming["min_brightness"].as<int>();
     if (incoming.containsKey("max_brightness")) DPX_MAX_BRI        = incoming["max_brightness"].as<int>();
     if (incoming.containsKey("ldr_factor"))     DPX_LDR_FACTOR     = incoming["ldr_factor"].as<float>();

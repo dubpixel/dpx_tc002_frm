@@ -174,7 +174,7 @@ static void dpxRenderPixelEffect() {
         int count = max(1, (int)(iv / 4));
         for (int i = 0; i < count; i++) {
             int px = (int)(random(256));
-            strip.setPixelColor(px, col);
+            SEGMENT.setPixelColorXY(px % DPX_MATRIX_W, px / DPX_MATRIX_W, col);
         }
     }
 
@@ -183,9 +183,8 @@ static void dpxRenderPixelEffect() {
         int count = max(1, (int)(iv / 8));
         for (int i = 0; i < count; i++) {
             int px = (int)(random(256));
-            // Blend with existing pixel
-            uint32_t existing = strip.getPixelColor(px);
-            strip.setPixelColor(px, color_blend(existing, col, 180));
+            uint32_t existing = SEGMENT.getPixelColorXY(px % DPX_MATRIX_W, px / DPX_MATRIX_W);
+            SEGMENT.setPixelColorXY(px % DPX_MATRIX_W, px / DPX_MATRIX_W, color_blend(existing, col, 180));
         }
     }
 
@@ -198,8 +197,9 @@ static void dpxRenderPixelEffect() {
             dpxPixelEffect.strobeOn = !dpxPixelEffect.strobeOn;
         }
         if (dpxPixelEffect.strobeOn) {
-            for (int i = 0; i < 256; i++)
-                strip.setPixelColor(i, color_blend(strip.getPixelColor(i), col, 200));
+            for (int y = 0; y < DPX_MATRIX_H; y++)
+                for (int x = 0; x < DPX_MATRIX_W; x++)
+                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), col, 200));
         }
     }
 
@@ -211,7 +211,9 @@ static void dpxRenderPixelEffect() {
             dpxPixelEffect.strobeOn = !dpxPixelEffect.strobeOn;
         }
         if (!dpxPixelEffect.strobeOn) {
-            for (int i = 0; i < 256; i++) strip.setPixelColor(i, 0);
+            for (int y = 0; y < DPX_MATRIX_H; y++)
+                for (int x = 0; x < DPX_MATRIX_W; x++)
+                    SEGMENT.setPixelColorXY(x, y, 0);
         }
     }
 
@@ -283,8 +285,9 @@ static void dpxRenderPixelEffect() {
         static unsigned long _stormFlashMs = 0;
         static int _stormFlashFrames = 0;
         if (_stormFlashFrames > 0) {
-            for (int i = 0; i < 256; i++)
-                strip.setPixelColor(i, color_blend(strip.getPixelColor(i), 0xFFFFFF, 180));
+            for (int y = 0; y < DPX_MATRIX_H; y++)
+                for (int x = 0; x < DPX_MATRIX_W; x++)
+                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), 0xFFFFFF, 180));
             _stormFlashFrames--;
         } else if (now - _stormFlashMs > 2000 && random(200) < 5) {
             _stormFlashMs = now;
@@ -301,8 +304,9 @@ static void dpxRenderPixelEffect() {
             dpxPixelEffect.strobeOn = true;
         }
         if (dpxPixelEffect.strobeOn) {
-            for (int i = 0; i < 256; i++)
-                strip.setPixelColor(i, color_blend(strip.getPixelColor(i), 0xFFFFFF, 220));
+            for (int y = 0; y < DPX_MATRIX_H; y++)
+                for (int x = 0; x < DPX_MATRIX_W; x++)
+                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), 0xFFFFFF, 220));
             dpxPixelEffect.strobeOn = false; // single frame flash
         }
     }
@@ -353,7 +357,8 @@ static void dpxRenderPixelEffect() {
         }
         for (int i = 0; i < 256; i++) {
             if (dpxPixelEffect.frost[i])
-                strip.setPixelColor(i, color_blend(strip.getPixelColor(i), 0xAADDFF, 160));
+                SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
+                    color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), 0xAADDFF, 160));
         }
     }
 }

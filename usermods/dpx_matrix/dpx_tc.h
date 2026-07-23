@@ -25,8 +25,9 @@
 #pragma once
 #include "dpx_apps.h"
 
-static unsigned long dpxTcLastMs  = 0;    // millis() of last TC packet
-static bool          dpxTcLocked  = false; // display locked to TC app
+static unsigned long dpxTcLastMs   = 0;    // millis() of last TC packet
+static bool          dpxTcLocked   = false; // display locked to TC app
+static uint8_t       _tcSavedEffect = 255;  // WLED effect mode before TC takeover (1.15)
 
 // Parse "HH:MM:SS:FF" or "HH:MM:SS,FF" into components.
 // Returns false if parse failed.
@@ -37,6 +38,7 @@ static bool dpxParseTc(const String& tc, int& h, int& m, int& s, int& f) {
 
 // Push a timecode packet — builds a custom app JSON and sets "tc" app.
 static void dpxPushTC(const String& tc, int fps = 30) {
+    if (DPX_TC_MUTE) return;  // 1.14: mute suppresses all TC display
     int h, m, s, f;
     if (!dpxParseTc(tc, h, m, s, f)) return;
     if (f >= fps) f = fps - 1;
@@ -93,6 +95,8 @@ static void dpxPushTC(const String& tc, int fps = 30) {
         }
         dpxAutoTrans = false;
         dpxTcLocked  = true;
+        // 1.15: save current effect and force dpx_matrix
+        _tcSavedEffect = strip.getMainSegment().mode;
         dpxActivateEffect();  // ensure dpx Matrix effect is showing
     }
 }
@@ -108,6 +112,12 @@ static void dpxTcDwellTick() {
         dpxAutoTrans = true;
         dpxTcLocked  = false;
         dpxNextApp();
+        // 1.15: restore the effect that was active before TC took over
+        if (_tcSavedEffect != 255 && _tcSavedEffect != strip.getMainSegment().mode) {
+            strip.getMainSegment().setMode(_tcSavedEffect);
+            stateUpdated(CALL_MODE_DIRECT_CHANGE);
+            _tcSavedEffect = 255;
+        }
         if (DPX_TC_STOP_BEEP) dpxBuzzerPlay("TC:d=32,o=5,b=200:c,p,c");
     }
 }

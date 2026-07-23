@@ -44,6 +44,30 @@
 // _dpxEffectId is declared in dpx_apps.h and assigned in DpxMatrix::setup().
 
 static void mode_dpx_matrix() {
+    // ── Per-app pixel effect activation ──────────────────────────────────
+    // When the active app changes, push or clear its overlay field.
+    // Tracks last app name so we only act on transitions, not every frame.
+    // MQTT/API-driven global effects are unaffected (different code path).
+    {
+        static String _prevAppName;
+        const String curName = (!dpxNotifTick() && dpxCurrentApp < (int)dpxApps.size())
+                               ? dpxApps[dpxCurrentApp].name : String();
+        if (curName != _prevAppName) {
+            _prevAppName = curName;
+            // Find overlay for current app
+            String ov;
+            if (!dpxApps.empty() && dpxCurrentApp < (int)dpxApps.size()) {
+                const DpxApp& a = dpxApps[dpxCurrentApp];
+                if (!a.isNative) ov = a.data.overlay;
+            }
+            if (ov.length() && ov != "none") {
+                String json = String(F("{\"name\":\"")) + ov + F("\"}");
+                dpxSetPixelEffect(json.c_str());
+            } else {
+                dpxClearPixelEffect();
+            }
+        }
+    }
     // Notifications take priority
     if (dpxNotifTick()) {
         dpxRenderNotification();
@@ -96,6 +120,10 @@ public:
         // Load persistent settings
         dpxLoadDev();
         dpxLoadOscListeners();
+
+        // Sync native app visibility flags → dpxHiddenApps before building loop
+        if (!DPX_SHOW_TIME) dpxHiddenApps.insert(String(F("Time")));
+        if (!DPX_SHOW_DATE) dpxHiddenApps.insert(String(F("Date")));
 
         // Build the initial app loop (Time, Date only to start)
         dpxRebuildLoop();
@@ -393,7 +421,17 @@ public:
 
     void addToJsonInfo(JsonObject& root) override {
         JsonObject user = root["u"].isNull() ? root.createNestedObject("u") : root["u"];
-        user[FPSTR(_name)] = F("dpx_tc002 matrix active");
+        JsonArray ctrl = user.createNestedArray(F("DPX Matrix"));
+        ctrl.add(F("<a href=\"/ctrl\" target=\"_blank\" style=\"color:#4af\">&#9654; Control Panel</a>"));
+    }
+
+    void appendConfigData() override {
+        // Inject a "Control Panel" link button on the WLED usermod settings page (/settings/um)
+        oappend(F("addInfo('DpxMatrix:enabled',1,'<br>"
+                  "<a href=\"/ctrl\" target=\"_blank\" style=\"display:inline-block;"
+                  "margin-top:8px;padding:5px 14px;background:#111;color:#4af;"
+                  "border:1px solid #4af;border-radius:4px;text-decoration:none;font-size:13px\">"
+                  "&#9654; Open DPX Control Panel /ctrl</a>');"));
     }
 
     // ── Usermod settings persist (WLED /cfg.json) ─────────────────────────
