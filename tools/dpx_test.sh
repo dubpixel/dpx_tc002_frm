@@ -59,6 +59,7 @@ ok()   { echo -e "  ${G}✓${RST} $1"; PASS=$((PASS+1)); }
 fail() { echo -e "  ${R}✗${RST} $1"; FAIL=$((FAIL+1)); }
 skip() { echo -e "  ${DIM}⊘${RST} $1"; SKIP=$((SKIP+1)); }
 info() { echo -e "  ${DIM}  $1${RST}"; }
+_blank() { echo ""; }
 
 assert_ok() {
     local got; got=$(echo "$1" | jq -r '.ok' 2>/dev/null)
