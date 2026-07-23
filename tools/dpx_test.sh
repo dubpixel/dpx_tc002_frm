@@ -209,17 +209,20 @@ suite "overlay" || { :; } && {
 for effect in sparkle twinkle rain drizzle snow storm thunder strobe blink frost; do
     _app "_t_ov" "{\"text\":\"$effect\",\"color\":\"#FFFFFF\",\"overlay\":\"$effect\",\"dur\":999}"
     _post /api/switch '{"name":"_t_ov"}' > /dev/null
+    _wait 1
     vis "$effect — text visible WITH $effect effect on top" '_del _t_ov'
 done
 # 1.11 regression: effect must clear when app has no overlay
 _app "_t_clean" '{"text":"CLEAN","color":"#FF8800","dur":999}'
 _post /api/switch '{"name":"_t_clean"}' > /dev/null
+_wait 1
 vis "1.11 REGRESSION: 'CLEAN' with NO effects — display must be plain text only" '_del _t_clean'
 # 1.12 regression: brightness respected
 orig_bri=$(_jq "$(_get /api/settings)" '.BRI')
 _post /api/settings '{"BRI":20}' > /dev/null
 _app "_t_dim" '{"text":"DIM","overlay":"rain","dur":999}'
 _post /api/switch '{"name":"_t_dim"}' > /dev/null
+_wait 1
 vis "1.12 REGRESSION: BRI=20 — text AND rain drops both dim, not full brightness" '_del _t_dim'
 _post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
 }
@@ -227,10 +230,13 @@ _post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
 # ── indicators ────────────────────────────────────────────────────────────────
 suite "indicators" || { :; } && {
 _post /api/indicator1 '{"color":"#FF0000"}' > /dev/null
+_wait 1
 vis "TOP-LEFT corner: solid RED 3px L-shape" '_clr_ind 1'
 _post /api/indicator2 '{"color":"#00FF00","blink":400}' > /dev/null
+_wait 1
 vis "TOP-RIGHT corner: GREEN blinking ~400ms" '_clr_ind 2'
 _post /api/indicator3 '{"color":"#0088FF","fade":1500}' > /dev/null
+_wait 1
 vis "BOTTOM-LEFT corner: BLUE pulsing slowly" '_clr_ind 3'
 for i in 1 2 3; do resp=$(_post /api/indicator$i '{"color":"#000000"}'); assert_ok "$resp" "Clear indicator $i"; done
 }
