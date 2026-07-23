@@ -44,13 +44,18 @@
 // _dpxEffectId is declared in dpx_apps.h and assigned in DpxMatrix::setup().
 
 static void mode_dpx_matrix() {
+    // Cache notif tick result once — dpxNotifTick() has side effects (dequeue,
+    // timer start) so calling it twice per frame caused overlay state flicker
+    // and could affect notification timing. Fix: call once, reuse. (#45)
+    const bool notifActive = dpxNotifTick();
+
     // ── Per-app pixel effect activation ──────────────────────────────────
     // When the active app changes, push or clear its overlay field.
     // Tracks last app name so we only act on transitions, not every frame.
     // MQTT/API-driven global effects are unaffected (different code path).
     {
         static String _prevAppName;
-        const String curName = (!dpxNotifTick() && dpxCurrentApp < (int)dpxApps.size())
+        const String curName = (!notifActive && dpxCurrentApp < (int)dpxApps.size())
                                ? dpxApps[dpxCurrentApp].name : String();
         if (curName != _prevAppName) {
             _prevAppName = curName;
@@ -69,7 +74,7 @@ static void mode_dpx_matrix() {
         }
     }
     // Notifications take priority
-    if (dpxNotifTick()) {
+    if (notifActive) {
         dpxRenderNotification();
     } else {
         dpxRenderCurrentApp();
@@ -197,13 +202,14 @@ public:
         // Send a character to get status info. Commands:
         //   ? / h  — help
         //   s      — status (IP, app, time, RSSI, heap)
+        //   c      — config dump (/dev.json, /cfg.json, /osc_listeners.json + runtime globals)
         //   r      — reboot
         if (Serial.available()) {
             char cmd = Serial.read();
             while (Serial.available()) Serial.read();  // flush
             switch (cmd) {
                 case '?': case 'h':
-                    Serial.println(F("[dpx] commands: s=status  r=reboot  h=help"));
+                    Serial.println(F("[dpx] commands: s=status  c=config dump  r=reboot  h=help"));
                     break;
                 case 's': {
                     Serial.printf("[dpx] IP      : %s\n", WiFi.localIP().toString().c_str());
@@ -224,6 +230,33 @@ public:
                     Serial.printf("[dpx] Uptime  : %lus\n", millis() / 1000);
                     Serial.printf("[dpx] MQTT    : %s\n", WLED_MQTT_CONNECTED ? "connected" : "disconnected");
                     Serial.printf("[dpx] OSC UDP : %s port %d\n", dpxUdpStarted ? "started" : "stopped", DPX_OSC_PORT);
+                    break;
+                }
+                case 'c': {
+                    // Dump key config files and runtime globals to serial (#10)
+                    auto dumpFile = [](const char* path) {
+                        Serial.printf("\n─── %s ───\n", path);
+                        File f = LittleFS.open(path, "r");
+                        if (!f) { Serial.println(F("  (not found)")); return; }
+                        DynamicJsonDocument doc(2048);
+                        if (!deserializeJson(doc, f)) {
+                            serializeJsonPretty(doc, Serial);
+                            Serial.println();
+                        } else {
+                            Serial.println(F("  (parse error)"));
+                        }
+                        f.close();
+                    };
+                    dumpFile("/dev.json");
+                    dumpFile("/cfg.json");
+                    dumpFile("/osc_listeners.json");
+                    Serial.println(F("\n─── runtime globals ───"));
+                    Serial.printf("  DPX_TIMEZONE    : %d\n", DPX_TIMEZONE);
+                    Serial.printf("  DPX_ATIME       : %d s\n", DPX_ATIME);
+                    Serial.printf("  DPX_SHOW_TIME   : %s\n", DPX_SHOW_TIME ? "true" : "false");
+                    Serial.printf("  DPX_SHOW_DATE   : %s\n", DPX_SHOW_DATE ? "true" : "false");
+                    Serial.printf("  dpxEnabled      : %s\n", dpxEnabled ? "true" : "false");
+                    Serial.println(F("─────────────────────────────────────────"));
                     break;
                 }
                 case 'r':

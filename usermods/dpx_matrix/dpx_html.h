@@ -798,7 +798,7 @@ select option{background:#222}
 <div class="card">
 <h2>Display &amp; Indicators</h2>
 <label>Brightness</label>
-<div class="row"><input type="range" id="bri" min="0" max="255" value="128"><span id="bri_v" style="min-width:28px;text-align:right">128</span></div>
+<div class="row"><input type="range" id="bri" min="0" max="255" value="128" oninput="document.getElementById('bri_v').textContent=this.value"><span id="bri_v" style="min-width:28px;text-align:right">128</span></div>
 <button onclick="sendBri()" style="margin-top:6px">Set Brightness</button>
 <hr>
 <div class="row" style="margin-top:4px">
