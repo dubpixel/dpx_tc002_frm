@@ -733,12 +733,8 @@ select option{background:#222}
 <h2>App Channels <button class="sm" style="margin-top:0;margin-left:6px" onclick="loadLoop()">&#8635;</button></h2>
 <p style="color:#666;font-size:11px;margin-bottom:6px">Each channel is pushed via OSC or MQTT using its name.</p>
 <div id="mqtt_prefix_note" style="background:#111;border:1px solid #2a2a4a;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:11px;color:#888">MQTT prefix loading...</div>
-<div style="margin-bottom:8px">
-  <span style="font-size:11px;color:#888;margin-right:8px">Native channels:</span>
-  <button class="sm" id="btn_tim" style="margin-top:0" onclick="toggleNative('TIM','Time',this)">&#9679; Time</button>
-  <button class="sm" id="btn_dat" style="margin-top:0;margin-left:4px" onclick="toggleNative('DAT','Date',this)">&#9711; Date</button>
-</div>
 <div id="loop_list" style="color:#555">Loading...</div>
+<div id="native_add_area" style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap"></div>
 <hr>
 <h3>Go to App</h3>
 <div class="row"><select id="sw_app_sel" style="flex:1" onchange="document.getElementById('sw_app').value=this.value"><option value="">&#8212; from loop &#8212;</option></select><input type="text" id="sw_app" placeholder="or type name" style="flex:1"><button class="sm" style="margin-top:0;margin-left:4px" onclick="switchApp()">Go</button></div>
@@ -923,7 +919,13 @@ function loadLoop(){
       if(!app.native){
         var bDel=document.createElement("button");bDel.textContent="Remove";bDel.className="red sm";bDel.style.marginTop="0";
         bDel.onclick=(function(n){return function(){fetch("/api/custom?name="+encodeURIComponent(n),{method:"POST"}).then(function(){toast("Removed "+n);setTimeout(loadLoop,600);});};})(app.name);
-        btns.appendChild(bDel);}
+        btns.appendChild(bDel);
+      } else {
+        var bDel=document.createElement("button");bDel.textContent="Remove";bDel.className="red sm";bDel.style.marginTop="0";
+        var key=app.name==="Time"?"TIM":"DAT";
+        bDel.onclick=(function(k,n){return function(){apiPost("/api/settings",function(){var d={};d[k]=false;return d;}()).then(function(){toast(n+" removed");setTimeout(loadLoop,400);});};})(key,app.name);
+        btns.appendChild(bDel);
+      }
       hdr.appendChild(nameEl);hdr.appendChild(btns);row.appendChild(hdr);
       if(!app.native){
         var info=document.createElement("div");info.style.cssText="font-size:10px;color:#555;margin-top:3px;line-height:1.7";
@@ -932,6 +934,20 @@ function loadLoop(){
       el.appendChild(row);
     });
     if(!apps.length)el.textContent="No apps.";
+    // Show "Add back" buttons for hidden native channels
+    var names=apps.map(function(a){return a.name;});
+    var addArea=document.getElementById("native_add_area");
+    if(addArea){
+      addArea.innerHTML="";
+      [["Time","TIM"],["Date","DAT"]].forEach(function(pair){
+        if(names.indexOf(pair[0])<0){
+          var b=document.createElement("button");b.className="sm";b.style.marginTop="0";
+          b.textContent="+ "+pair[0];
+          b.onclick=(function(k,n){return function(){apiPost("/api/settings",(function(){var d={};d[k]=true;return d;})()).then(function(){setTimeout(loadLoop,400);});};})(pair[1],pair[0]);
+          addArea.appendChild(b);
+        }
+      });
+    }
   }).catch(function(){el.textContent="Could not load.";});
 }
 function createChannel(){
@@ -1025,10 +1041,7 @@ fetch("/api/dev").then(function(r){return r.json();}).then(function(d){
   if(d.tc_mute!==undefined)document.getElementById("tc_mute").checked=d.tc_mute;
 }).catch(function(){});
 function saveSndSettings(){apiPost("/api/settings",{SOUND:document.getElementById("snd_en").checked});}
-function toggleNative(key,name,btn){
-  var cur=btn.textContent.trim().startsWith('\u25cf'); // ● = on
-  var next=!cur;
-  var data={};data[key]=next;
+;data[key]=next;
   apiPost("/api/settings",data).then(function(){
     btn.textContent=(next?'\u25cf ':'\u25cb ')+name;
     btn.style.opacity=next?"1":"0.5";
@@ -1037,11 +1050,7 @@ function toggleNative(key,name,btn){
 }
 fetch("/api/settings").then(function(r){return r.json();}).then(function(s){
   if(s.MQTT_PREFIX){mqttPrefix=s.MQTT_PREFIX;var note=document.getElementById("mqtt_prefix_note");if(note)note.innerHTML='MQTT prefix: <code style="color:#4af">'+s.MQTT_PREFIX+'</code> &nbsp;&nbsp; OSC namespace: <code style="color:#4af">/dpx_tc002</code>';}
-  // TIM/DAT native channel buttons
-  var bt=document.getElementById("btn_tim"),bd=document.getElementById("btn_dat");
-  if(bt){var on=s.TIM!==false;bt.textContent=(on?'\u25cf ':'\u25cb ')+'Time';bt.style.opacity=on?"1":"0.5";}
-  if(bd){var on=s.DAT===true; bd.textContent=(on?'\u25cf ':'\u25cb ')+'Date';bd.style.opacity=on?"1":"0.5";}
-  var en=document.getElementById("snd_en");var st=document.getElementById("snd_status");
+var en=document.getElementById("snd_en");var st=document.getElementById("snd_status");
   if(s.SOUND!==undefined){en.checked=s.SOUND;}else{en.checked=true;}
   if(st){st.textContent=en.checked?"(on)":"(DISABLED \u2014 check this box and Save)";st.style.color=en.checked?"#2a5":"#f66";}
   en.onchange=function(){if(st){st.textContent=en.checked?"(on)":"(DISABLED)";st.style.color=en.checked?"#2a5":"#f66";}};
