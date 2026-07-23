@@ -733,6 +733,11 @@ select option{background:#222}
 <h2>App Channels <button class="sm" style="margin-top:0;margin-left:6px" onclick="loadLoop()">&#8635;</button></h2>
 <p style="color:#666;font-size:11px;margin-bottom:6px">Each channel is pushed via OSC or MQTT using its name.</p>
 <div id="mqtt_prefix_note" style="background:#111;border:1px solid #2a2a4a;border-radius:4px;padding:6px 10px;margin-bottom:8px;font-size:11px;color:#888">MQTT prefix loading...</div>
+<div style="margin-bottom:8px">
+  <span style="font-size:11px;color:#888;margin-right:8px">Native channels:</span>
+  <button class="sm" id="btn_tim" style="margin-top:0" onclick="toggleNative('TIM','Time',this)">&#9679; Time</button>
+  <button class="sm" id="btn_dat" style="margin-top:0;margin-left:4px" onclick="toggleNative('DAT','Date',this)">&#9711; Date</button>
+</div>
 <div id="loop_list" style="color:#555">Loading...</div>
 <hr>
 <h3>Go to App</h3>
@@ -1020,7 +1025,27 @@ fetch("/api/dev").then(function(r){return r.json();}).then(function(d){
   if(d.tc_mute!==undefined)document.getElementById("tc_mute").checked=d.tc_mute;
 }).catch(function(){});
 function saveSndSettings(){apiPost("/api/settings",{SOUND:document.getElementById("snd_en").checked});}
-function sendRtttl(){
+function toggleNative(key,name,btn){
+  var cur=btn.textContent.trim().startsWith('\u25cf'); // ● = on
+  var next=!cur;
+  var data={};data[key]=next;
+  apiPost("/api/settings",data).then(function(){
+    btn.textContent=(next?'\u25cf ':'\u25cb ')+name;
+    btn.style.opacity=next?"1":"0.5";
+    setTimeout(loadLoop,400);
+  });
+}
+fetch("/api/settings").then(function(r){return r.json();}).then(function(s){
+  if(s.MQTT_PREFIX){mqttPrefix=s.MQTT_PREFIX;var note=document.getElementById("mqtt_prefix_note");if(note)note.innerHTML='MQTT prefix: <code style="color:#4af">'+s.MQTT_PREFIX+'</code> &nbsp;&nbsp; OSC namespace: <code style="color:#4af">/dpx_tc002</code>';}
+  // TIM/DAT native channel buttons
+  var bt=document.getElementById("btn_tim"),bd=document.getElementById("btn_dat");
+  if(bt){var on=s.TIM!==false;bt.textContent=(on?'\u25cf ':'\u25cb ')+'Time';bt.style.opacity=on?"1":"0.5";}
+  if(bd){var on=s.DAT===true; bd.textContent=(on?'\u25cf ':'\u25cb ')+'Date';bd.style.opacity=on?"1":"0.5";}
+  var en=document.getElementById("snd_en");var st=document.getElementById("snd_status");
+  if(s.SOUND!==undefined){en.checked=s.SOUND;}else{en.checked=true;}
+  if(st){st.textContent=en.checked?"(on)":"(DISABLED \u2014 check this box and Save)";st.style.color=en.checked?"#2a5":"#f66";}
+  en.onchange=function(){if(st){st.textContent=en.checked?"(on)":"(DISABLED)";st.style.color=en.checked?"#2a5":"#f66";}};
+}).catch(function(){});
   var v=document.getElementById("rtttl").value;if(!v){toast("Enter RTTTL string",false);return;}
   apiPost("/api/sound",{rtttl:v});
 }

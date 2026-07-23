@@ -320,12 +320,14 @@ if [[ $FAIL -eq 0 ]]; then
     echo -e "${G}  All checks passed.${RST}"
     _post /api/notify "{\"text\":\"PASS ${PASS}\",\"color\":\"#00FF00\",\"duration\":8,\"stack\":false}" > /dev/null
     echo -e "${DIM}  Showing result on display for 4s...${RST}"
-    sleep 4   # let the PASS notification be visible before restore() clears it
+    sleep 4
+    _post /api/notify/clear '{}' > /dev/null
     exit 0
 else
     echo -e "${R}  $FAIL check(s) failed.${RST}"
     _post /api/notify "{\"text\":\"FAIL ${FAIL}\",\"color\":\"#FF0000\",\"duration\":10,\"stack\":false}" > /dev/null
     echo -e "${DIM}  Showing result on display for 5s...${RST}"
     sleep 5
+    _post /api/notify/clear '{}' > /dev/null
     exit 1
 fi
