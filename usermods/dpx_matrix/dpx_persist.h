@@ -46,7 +46,7 @@ static bool     dpxEnabled         = true;    // false = pass-through to WLED ef
 static String   DPX_TIMEZONE;                 // POSIX TZ string (e.g. PST8PDT,...)
 // Native app visibility (toggled via POST /api/settings TIM/DAT keys)
 static bool     DPX_SHOW_TIME      = true;
-static bool     DPX_SHOW_DATE      = false;
+static bool     DPX_SHOW_DATE      = true;
 
 // ── Load dev.json from LittleFS ───────────────────────────────────────────────
 static void dpxLoadDev() {

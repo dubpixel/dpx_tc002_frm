@@ -313,6 +313,41 @@ _post /api/settings '{"TIM":true}' > /dev/null; ok "Time restored"
 }
 }
 
+# ── lint — fetch /ctrl and verify required element IDs exist ─────────────────
+# Catches broken HTML restructures before the user discovers them in a browser.
+suite "lint" || { :; } && {
+    _ctrl=$(curl -sf --compressed --max-time 10 "$BASE/ctrl" 2>/dev/null)
+    if [[ -z "$_ctrl" ]]; then
+        fail "GET /ctrl — no response"
+    else
+        ok "GET /ctrl — page loads"
+        # Required element IDs — if any are missing the page will malfunction
+        for _id in \
+            loop_list sw_app_sel \
+            ch_type ch_fields_text ch_fields_native \
+            ca_name ca_text ca_color ca_rainbow ca_dur \
+            n_text n_dur \
+            bri i1c i1b i1f i2c i2b i2f i3c i3b i3f \
+            tc_hold tc_dwell tc_mute \
+            snd_en rtttl \
+            osc_path_txt listener_list \
+            status_bar toast; do
+            if echo "$_ctrl" | grep -q "id=\"$_id\""; then ok "ctrl#$_id exists"
+            else fail "ctrl#$_id MISSING — page will malfunction"; fi
+        done
+        # Check required JS functions are defined
+        for _fn in loadLoop apiPost sendNotify sendCustomApp sendInd switchApp addChannel updateChType addListener loadListeners; do
+            if echo "$_ctrl" | grep -q "function $_fn"; then ok "ctrl.$_fn() defined"
+            else fail "ctrl.$_fn() MISSING — UI broken"; fi
+        done
+        # Basic div balance
+        _opens=$(echo "$_ctrl" | grep -o '<div' | wc -l | tr -d ' ')
+        _closes=$(echo "$_ctrl" | grep -o '</div>' | wc -l | tr -d ' ')
+        if [[ "$_opens" == "$_closes" ]]; then ok "HTML div balance ($_opens opens = $_closes closes)"
+        else fail "HTML div IMBALANCE: $_opens opens vs $_closes closes"; fi
+    fi
+}
+
 # ── summary ─────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${B}━━ PASS ${G}${PASS}${RST}${B}  FAIL ${R}${FAIL}${RST}${B}  SKIP ${DIM}${SKIP}${RST}${B} ━━${RST}"

@@ -678,7 +678,21 @@ select option{background:#222}
 </div>
 
 <div class="card">
-<h2>Custom App</h2>
+<h2>Configure Channel</h2>
+<div class="row" style="margin-bottom:8px">
+  <select id="ch_type" style="flex:0.6" onchange="updateChType(this.value)">
+    <option value="text">Text</option>
+    <option value="time">Time</option>
+    <option value="date">Date</option>
+    <option value="timecode">Timecode</option>
+    <option value="osc">OSC</option>
+  </select>
+</div>
+<div id="ch_fields_native" style="display:none">
+  <p id="ch_native_hint" style="color:#8cf;font-size:12px;margin:8px 0 12px">Select a type above.</p>
+  <button onclick="addChannel()">+ Add to Rotation</button>
+</div>
+<div id="ch_fields_text">
 <div class="row">
   <div style="flex:1"><label>Channel name</label>
     <div class="row" style="margin-top:0">
@@ -722,6 +736,7 @@ select option{background:#222}
   <div><label style="margin:0;font-size:10px">Bar</label><input type="color" id="ca_pc" value="#00ff00"></div>
   <div><label style="margin:0;font-size:10px">BG</label><input type="color" id="ca_pbc" value="#333333"></div>
 </div>
+</div><!-- end ch_fields_text -->
 <div class="row">
   <button onclick="sendCustomApp()">&#9654; Push</button>
   <button class="sm" style="margin-top:8px;margin-left:4px;background:#285" onclick="loadCustomApp()">&#8595; Load</button>
@@ -732,7 +747,6 @@ select option{background:#222}
 <div class="card">
 <h2>D3 / OSC Channels</h2>
 <p style="color:#666;font-size:11px;margin-bottom:8px">Map OSC paths to display channels. Each path auto-pushes its value as text to the named channel.</p>
-<p style="color:#666;font-size:11px;margin-bottom:8px">Map OSC paths to display channels. Incoming packets auto-push text to that channel.</p>
 <div class="row" style="flex-wrap:wrap;gap:6px;margin-bottom:8px">
   <div style="flex:2;min-width:160px">
     <label>OSC Path</label>
@@ -778,28 +792,6 @@ select option{background:#222}
 <div class="row" style="margin-top:6px">
   <button onclick="apiPost('/api/previousapp',{})">&#9664; Prev</button>
   <button style="margin-left:4px" onclick="apiPost('/api/nextapp',{})">Next &#9654;</button>
-</div>
-<hr>
-<h3>Add Channel</h3>
-<div class="row" style="margin-bottom:6px">
-  <select id="ch_type" style="flex:0.7" onchange="updateChType(this.value)">
-    <option value="text">Text</option>
-    <option value="time">Time</option>
-    <option value="date">Date</option>
-    <option value="timecode">Timecode</option>
-    <option value="osc">OSC</option>
-  </select>
-</div>
-<div id="ch_fields_text">
-  <div class="row">
-    <input type="text" id="new_ch_name" placeholder="channel name (e.g. cam1, score)" style="flex:1">
-    <input type="text" id="new_ch_text" placeholder="initial text" style="width:120px">
-    <button class="sm" style="margin-top:0;margin-left:4px" onclick="addChannel()">+ Add</button>
-  </div>
-</div>
-<div id="ch_fields_native" style="display:none">
-  <p id="ch_native_hint" style="color:#888;font-size:11px;margin:4px 0 6px">Adds the Time native channel to the rotation.</p>
-  <button onclick="addChannel()">+ Add</button>
 </div>
 </div>
 
@@ -966,9 +958,6 @@ function loadLoop(){
     }
   }).catch(function(){el.textContent="Could not load.";});
 }
-function createChannel(){
-  var name=document.getElementById("new_ch_name").value.trim().replace(/\s+/g,"_");
-  if(!name){toast("Enter a channel name",false);return;}
   var text=document.getElementById("new_ch_text").value||name;
   fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify({text:text,scrollSpeed:80}))}).then(function(r){r.ok?toast("Channel '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
   document.getElementById("new_ch_name").value="";document.getElementById("new_ch_text").value="";
@@ -1057,11 +1046,30 @@ fetch("/api/dev").then(function(r){return r.json();}).then(function(d){
   if(d.tc_mute!==undefined)document.getElementById("tc_mute").checked=d.tc_mute;
 }).catch(function(){});
 function saveSndSettings(){apiPost("/api/settings",{SOUND:document.getElementById("snd_en").checked});}
-var _CH_NATIVE_HINTS={time:"Adds the Time clock to the channel rotation.",date:"Adds the Date display to the channel rotation.",timecode:"Adds the Timecode display channel (activated by incoming LTC/OSC TC signals)."};
+var _CH_NATIVE_HINTS={
+  time:"Adds the Time clock to the channel rotation.",
+  date:"Adds the Date display to the channel rotation.",
+  timecode:"The Timecode channel activates automatically when LTC/OSC TC signals arrive — no manual add needed.",
+  osc:"Create a named channel driven by OSC. Use the channel name when adding an OSC Listener."
+};
 function updateChType(t){
   var tf=document.getElementById("ch_fields_text"),nf=document.getElementById("ch_fields_native");
-  if(t==="text"||t==="osc"){tf.style.display="";nf.style.display="none";}
-  else{tf.style.display="none";nf.style.display="";var h=document.getElementById("ch_native_hint");if(h)h.textContent=_CH_NATIVE_HINTS[t]||"";}
+  var textTypes=t==="text"||t==="osc";
+  if(tf)tf.style.display=textTypes?"":"none";
+  if(nf)nf.style.display=textTypes?"none":"";
+  var h=document.getElementById("ch_native_hint");
+  if(h)h.textContent=_CH_NATIVE_HINTS[t]||"";
+}
+function addChannel(){
+  var t=document.getElementById("ch_type").value;
+  if(t==="time"){apiPost("/api/settings",{TIM:true}).then(function(){setTimeout(loadLoop,400);});return;}
+  if(t==="date"){apiPost("/api/settings",{DAT:true}).then(function(){setTimeout(loadLoop,400);});return;}
+  if(t==="timecode"){toast("TC activates on incoming signal — no action needed");return;}
+  // text or osc — use the Configure Channel form fields
+  var name=document.getElementById("ca_name").value.trim().replace(/\s+/g,"_");
+  if(!name){toast("Enter a channel name",false);return;}
+  var text=document.getElementById("ca_text").value||name;
+  fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify({text:text,scrollSpeed:80}))}).then(function(r){r.ok?toast("Channel '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
 }
 function addChannel(){
   var t=document.getElementById("ch_type").value;
