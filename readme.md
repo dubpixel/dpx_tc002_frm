@@ -178,6 +178,28 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
   3. Hit **Upload** (PlatformIO sidebar → `ulanzi_tc001`) or run `pio run -t upload -e ulanzi_tc001`
   4. On first boot the device writes its own config — see [First Boot Defaults](#first-boot-defaults) below
 
+### Testing
+
+A regression test suite lives in `tools/dpx_test.sh`. It runs API checks against a live device over HTTP and reports pass/fail. Visual display checks require a human watching the device.
+
+```bash
+# Fast automated-only (CI-safe, ~10s, no display pauses)
+bash tools/dpx_test.sh --auto --fast 192.168.2.33
+
+# Full suite with display checks (~2 min, watch the device)
+bash tools/dpx_test.sh 192.168.2.33
+
+# Single suite (iterate while working on a feature)
+bash tools/dpx_test.sh --auto --fast --suite=overlay 192.168.2.33
+
+# With reboot persistence test (~12 min)
+bash tools/dpx_test.sh --reboot 192.168.2.33
+```
+
+Available suites: `connectivity` · `apps` · `notify` · `overlay` · `indicators` · `tc` · `sound` · `settings` · `persist`
+
+Requires: `curl`, `jq`, a device on the network.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 <!-- FIRST BOOT DEFAULTS -->

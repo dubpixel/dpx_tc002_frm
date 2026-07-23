@@ -19,6 +19,8 @@ Always reference these instructions - including coding guidelines in `docs/` - f
 | `npm run dev` | Watch mode — auto-rebuilds web UI on changes | continuous |
 | `pio run -e esp32dev` | Build firmware (ESP32, most common target) | 5 min |
 | `pio run -e nodemcuv2` | Build firmware (ESP8266) | 5 min |
+| `bash tools/dpx_test.sh --auto --fast <IP>` | Run regression suite against live device (automated only) | ~10s |
+| `bash tools/dpx_test.sh <IP>` | Full regression suite with display checks | ~2 min |
 
 **Always run `npm ci && npm run build` before `pio run`.** The web UI build generates
 required C headers for firmware compilation.
@@ -33,8 +35,26 @@ npm test                   # runs all tests via `node --test`
 node --test tools/cdata-test.js  # run just that file directly
 ```
 
-There are no C++ unit tests. Firmware is validated by successful compilation across
-target environments. Always build after code changes: `pio run -e esp32dev`.
+### Device Regression Tests
+
+`tools/dpx_test.sh` runs API assertions against a live device over HTTP. Requires
+`curl` and `jq`. Device IP defaults to `192.168.2.33`.
+
+```bash
+# Fast automated checks only (CI-safe)
+bash tools/dpx_test.sh --auto --fast [IP]
+
+# Full suite including display checks (watch the device)
+bash tools/dpx_test.sh [IP]
+
+# Single suite
+bash tools/dpx_test.sh --auto --fast --suite=<name> [IP]
+```
+
+Suites: `connectivity` · `apps` · `notify` · `overlay` · `indicators` · `tc` · `sound` · `settings` · `persist`
+
+**When to run:** before opening a PR, after flashing new firmware, after any API change.
+Exit code 0 = all automated checks passed.
 
 ### Common Firmware Environments
 
