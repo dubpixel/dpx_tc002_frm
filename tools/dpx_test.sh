@@ -60,6 +60,7 @@ fail() { echo -e "  ${R}✗${RST} $1"; FAIL=$((FAIL+1)); }
 skip() { echo -e "  ${DIM}⊘${RST} $1"; SKIP=$((SKIP+1)); }
 info() { echo -e "  ${DIM}  $1${RST}"; }
 _blank() { echo ""; }
+_clr_ind() { _post "/api/indicator$1" '{"color":"#000000"}' > /dev/null; }
 
 assert_ok() {
     local got; got=$(echo "$1" | jq -r '.ok' 2>/dev/null)
@@ -226,11 +227,11 @@ _post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
 # ── indicators ────────────────────────────────────────────────────────────────
 suite "indicators" || { :; } && {
 _post /api/indicator1 '{"color":"#FF0000"}' > /dev/null
-vis "TOP-LEFT corner: solid RED (3px L-shape)" '_post /api/indicator1 {"color":"#000000"}'
+vis "TOP-LEFT corner: solid RED 3px L-shape" '_clr_ind 1'
 _post /api/indicator2 '{"color":"#00FF00","blink":400}' > /dev/null
-vis "TOP-RIGHT corner: GREEN blinking ~400ms" '_post /api/indicator2 {"color":"#000000"}'
+vis "TOP-RIGHT corner: GREEN blinking ~400ms" '_clr_ind 2'
 _post /api/indicator3 '{"color":"#0088FF","fade":1500}' > /dev/null
-vis "BOTTOM-LEFT corner: BLUE pulsing slowly" '_post /api/indicator3 {"color":"#000000"}'
+vis "BOTTOM-LEFT corner: BLUE pulsing slowly" '_clr_ind 3'
 for i in 1 2 3; do resp=$(_post /api/indicator$i '{"color":"#000000"}'); assert_ok "$resp" "Clear indicator $i"; done
 }
 
