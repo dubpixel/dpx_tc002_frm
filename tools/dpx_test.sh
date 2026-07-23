@@ -202,7 +202,7 @@ vis "Rainbow notification — per-letter colors" '_post /api/notify/dismiss {}'
 
 # ── overlay ───────────────────────────────────────────────────────────────────
 suite "overlay" || { :; } && {
-for effect in sparkle twinkle rain drizzle snow storm strobe blink frost; do
+for effect in sparkle twinkle rain drizzle snow storm thunder strobe blink frost; do
     _app "_t_ov" "{\"text\":\"$effect\",\"color\":\"#FFFFFF\",\"overlay\":\"$effect\",\"dur\":999}"
     _post /api/switch '{"name":"_t_ov"}' > /dev/null
     vis "$effect — text visible WITH $effect effect on top" '_del _t_ov'
@@ -341,14 +341,14 @@ suite "lint" || { :; } && {
             n_text n_dur \
             bri i1c i1b i1f i2c i2b i2f i3c i3b i3f \
             tc_hold tc_dwell tc_mute \
-            snd_en rtttl \
+            snd_en rtttl ch_text_actions \
             osc_path_txt listener_list \
             status_bar toast; do
             if echo "$_ctrl" | grep -q "id=\"$_id\""; then ok "ctrl#$_id exists"
             else fail "ctrl#$_id MISSING — page will malfunction"; fi
         done
         # Check required JS functions are defined
-        for _fn in loadLoop apiPost sendNotify sendCustomApp sendInd switchApp addChannel updateChType addListener loadListeners; do
+        for _fn in loadLoop apiPost sendNotify sendCustomApp sendRtttl sendInd switchApp addChannel updateChType addListener loadListeners; do
             if echo "$_ctrl" | grep -q "function $_fn"; then ok "ctrl.$_fn() defined"
             else fail "ctrl.$_fn() MISSING — UI broken"; fi
         done
