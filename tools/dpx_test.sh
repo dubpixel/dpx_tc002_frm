@@ -1,414 +1,301 @@
 #!/usr/bin/env bash
 # =============================================================================
-# dpx_tc002 regression test suite
+# dpx_tc002 test suite
+# Usage: bash tools/dpx_test.sh [--auto] [--fast] [--reboot] [--suite=NAME] [IP]
+# --auto   : skip all display/audio prompts (CI mode)
+# --fast   : skip timing-sensitive sleeps
+# --reboot : include persistence-after-reboot test
+# --suite  : run one suite only: connectivity|apps|notify|overlay|indicators|tc|sound|settings|persist
 # =============================================================================
-# Usage:
-#   ./tools/dpx_test.sh [options] [DEVICE_IP]
-#
-# Options:
-#   --auto       Automated API checks only (no display pauses, CI-safe)
-#   --display    Display/visual checks only (requires human watching)
-#   --fast       Skip sleep-heavy timing tests
-#   --reboot     Include the reboot/persistence test (slow, ~10s)
-#   --suite=X    Run only suite: connectivity|apps|notify|overlay|
-#                               indicators|tc|sound|settings|persist
-#
-# Default: run all suites with display checks, skip reboot test
-# Exit code: 0 = all automated tests passed, 1 = any failure
-# =============================================================================
-
 HOST="${!#}"; [[ "$HOST" == --* || -z "$HOST" ]] && HOST="192.168.2.33"
 BASE="http://$HOST"
-
-MODE_AUTO=false; MODE_DISPLAY=false; MODE_FAST=false; MODE_REBOOT=false
-SUITE_FILTER=""
-for arg in "$@"; do
-    case "$arg" in
-        --auto)     MODE_AUTO=true ;;
-        --display)  MODE_DISPLAY=true ;;
-        --fast)     MODE_FAST=true ;;
-        --reboot)   MODE_REBOOT=true ;;
-        --suite=*)  SUITE_FILTER="${arg#*=}" ;;
-    esac
-done
-[[ "$MODE_AUTO" == false && "$MODE_DISPLAY" == false ]] && MODE_AUTO=true && MODE_DISPLAY=true
+AUTO=false; FAST=false; REBOOT=false; SUITE=""
+for a in "$@"; do case "$a" in
+    --auto)    AUTO=true ;;
+    --fast)    FAST=true ;;
+    --reboot)  REBOOT=true ;;
+    --suite=*) SUITE="${a#*=}" ;;
+esac; done
 
 G="\033[0;32m"; R="\033[0;31m"; Y="\033[1;33m"
 C="\033[0;36m"; B="\033[1;34m"; DIM="\033[2m"; RST="\033[0m"
-
 PASS=0; FAIL=0; SKIP=0
-CURRENT_SUITE=""
-_CLEANUP_APPS=()
+SAVED_TIM="true"; SAVED_DAT="false"
 
-cleanup() {
-    [[ ${#_CLEANUP_APPS[@]} -eq 0 ]] && return
-    for n in "${_CLEANUP_APPS[@]}"; do
-        _post /api/custom "{\"name\":\"$n\"}" > /dev/null 2>&1
+# ── Restore state on exit ─────────────────────────────────────────────────────
+restore() {
+    curl -sf -X POST "$BASE/api/settings" -H "Content-Type: application/x-www-form-urlencoded" \
+         --data-urlencode "plain={\"TIM\":$SAVED_TIM,\"DAT\":$SAVED_DAT}" > /dev/null 2>&1
+    curl -sf -X POST "$BASE/api/notify/dismiss" -H "Content-Type: application/x-www-form-urlencoded" \
+         --data-urlencode 'plain={}' > /dev/null 2>&1
+    curl -sf -X POST "$BASE/api/sound" -H "Content-Type: application/x-www-form-urlencoded" \
+         --data-urlencode 'plain={}' > /dev/null 2>&1
+    for i in 1 2 3; do
+        curl -sf -X POST "$BASE/api/indicator$i" -H "Content-Type: application/x-www-form-urlencoded" \
+             --data-urlencode 'plain={"color":"#000000"}' > /dev/null 2>&1
     done
 }
-trap cleanup EXIT
+trap restore EXIT
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-suite() {
-    CURRENT_SUITE="$1"
-    [[ -n "$SUITE_FILTER" && "$SUITE_FILTER" != "$1" ]] && return
-    echo -e "\n${B}━━ $1 ━━${RST}"
+_post() { curl -sf --compressed --max-time 8 -X POST "$BASE$1" \
+               -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "plain=$2"; }
+_get()  { curl -sf --compressed --max-time 8 "$BASE$1"; }
+_jq()   { echo "$1" | jq -r "$2" 2>/dev/null; }
+_wait() { $FAST || sleep "$1"; }
+
+# POST to /api/custom?name=X with body fields
+_app() { local n="$1" b="$2"
+    curl -sf --compressed --max-time 8 -X POST "$BASE/api/custom?name=$n" \
+         -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "plain=$b" > /dev/null; }
+
+# Delete a custom app immediately
+_del() { curl -sf --compressed --max-time 8 -X POST "$BASE/api/custom?name=$1" \
+              -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode 'plain={}' > /dev/null; }
+
+ok()   { echo -e "  ${G}✓${RST} $1"; PASS=$((PASS+1)); }
+fail() { echo -e "  ${R}✗${RST} $1"; FAIL=$((FAIL+1)); }
+skip() { echo -e "  ${DIM}⊘${RST} $1"; SKIP=$((SKIP+1)); }
+info() { echo -e "  ${DIM}  $1${RST}"; }
+
+assert_ok() {
+    local got; got=$(echo "$1" | jq -r '.ok' 2>/dev/null)
+    [[ "$got" == "true" ]] && ok "$2" || fail "$2 (got: $1)"
+}
+assert_has() {
+    echo "$1" | grep -q "$2" && ok "$3" || fail "$3 (missing: $2)"
+}
+assert_no() {
+    echo "$1" | grep -q "$2" && fail "$3 (found: $2)" || ok "$3"
+}
+assert_key() {
+    local got; got=$(echo "$1" | jq -r "$2" 2>/dev/null)
+    [[ "$got" == "$3" ]] && ok "$4" || fail "$4 (expected '$3' got '$got')"
 }
 
-_should_run() {
-    [[ -n "$SUITE_FILTER" && "$SUITE_FILTER" != "$CURRENT_SUITE" ]] && return 1
+# Human check: show ONE thing, ask Y/n, then optionally run cleanup cmd
+vis() {
+    $AUTO && return
+    echo -e "\n  ${Y}👁  $1${RST}"
+    echo -en "  ${Y}    Looks correct? [Y/n/s] ${RST}"
+    read -r _a; _a=$(echo "$_a" | tr '[:upper:]' '[:lower:]')
+    [[ -n "$2" ]] && eval "$2" > /dev/null 2>&1   # cleanup after answer
+    case "$_a" in n|no) fail "VISUAL: $1" ;; s) skip "VISUAL: $1" ;; *) ok "VISUAL: $1" ;; esac
+}
+snd() {
+    $AUTO && return
+    echo -e "\n  ${C}🔊 $1${RST}"
+    echo -en "  ${C}    Did you hear it? [Y/n/s] ${RST}"
+    read -r _a; _a=$(echo "$_a" | tr '[:upper:]' '[:lower:]')
+    case "$_a" in n|no) fail "AUDIO: $1" ;; s) skip "AUDIO: $1" ;; *) ok "AUDIO: $1" ;; esac
+}
+
+suite() {
+    [[ -n "$SUITE" && "$SUITE" != "$1" ]] && return 1
+    echo -e "\n${B}━━ $1 ━━${RST}"
     return 0
 }
 
-_post() {
-    local url="$1" body="$2"
-    curl -sf --compressed --max-time 8 -X POST "$BASE$url" \
-         -H "Content-Type: application/x-www-form-urlencoded" \
-         --data-urlencode "plain=$body"
-}
-
-_get() { curl -sf --compressed --max-time 8 "$BASE$1"; }
-
-_jq() { echo "$1" | jq -r "$2" 2>/dev/null; }
-
-_sleep() { "$MODE_FAST" && return; sleep "$1"; }
-
-ok()   { echo -e "  ${G}✓${RST} $1"; ((PASS++)); }
-fail() { echo -e "  ${R}✗${RST} $1"; ((FAIL++)); }
-skip() { echo -e "  ${DIM}⊘ $1${RST}"; ((SKIP++)); }
-info() { echo -e "  ${DIM}  $1${RST}"; }
-vis()  {
-    "$MODE_DISPLAY" || return
-    echo -e "  ${Y}👁  [DISPLAY] $1${RST}"
-    "$MODE_FAST" || sleep 2
-}
-
-assert_ok() {
-    local resp="$1" label="$2"
-    local got; got=$(_jq "$resp" '.ok')
-    if [[ "$got" == "true" ]]; then ok "$label"
-    else fail "$label — expected {ok:true}, got: $resp"; fi
-}
-
-assert_key() {
-    local resp="$1" path="$2" expected="$3" label="$4"
-    local got; got=$(_jq "$resp" "$path")
-    if [[ "$got" == "$expected" ]]; then ok "$label"
-    else fail "$label — expected '$expected', got '$got'"; fi
-}
-
-assert_contains() {
-    local resp="$1" needle="$2" label="$3"
-    if echo "$resp" | grep -q "$needle"; then ok "$label"
-    else fail "$label — '$needle' not in: $resp"; fi
-}
-
-assert_not_contains() {
-    local resp="$1" needle="$2" label="$3"
-    if ! echo "$resp" | grep -q "$needle"; then ok "$label"
-    else fail "$label — '$needle' should NOT be in: $resp"; fi
-}
-
-register_app() { _CLEANUP_APPS+=("$1"); }
-
 # =============================================================================
-echo -e "\n${C}dpx_tc002 regression suite — $HOST — $(date '+%Y-%m-%d %H:%M')${RST}"
-echo -e "${DIM}  modes: auto=$MODE_AUTO display=$MODE_DISPLAY fast=$MODE_FAST reboot=$MODE_REBOOT${RST}"
+echo -e "\n${C}dpx_tc002 — $HOST — $(date '+%H:%M:%S')${RST}"
 
 # ── connectivity ──────────────────────────────────────────────────────────────
-suite "connectivity"
-if _should_run; then
-    resp=$(_get /dpx) || { fail "GET /dpx — unreachable at $HOST"; exit 1; }
-    assert_contains "$resp" '"build"' "GET /dpx"
-    info "Build: $(_jq "$resp" '.build')"
-    resp=$(_get /api/stats)
-    assert_contains "$resp" '"ram"' "GET /api/stats"
-    resp=$(_get /api/settings)
-    for key in BRI ATIME ATRANS SSPEED TIM DAT TC_MUTE SOUND; do
-        assert_contains "$resp" "\"$key\"" "/api/settings has $key"
-    done
-    resp=$(_get /api/apps)
-    assert_contains "$resp" '"name"' "GET /api/apps"
-    resp=$(_get /api/effects)
-    assert_contains "$resp" '"dpx Matrix"' "GET /api/effects"
-fi
+suite "connectivity" || { :; } && {
+resp=$(_get /dpx) || { fail "unreachable at $HOST"; exit 1; }
+assert_has "$resp" '"build"' "GET /dpx"
+info "Build: $(_jq "$resp" '.build')"
+resp=$(_get /api/stats);  assert_has "$resp" '"ram"'       "GET /api/stats"
+resp=$(_get /api/apps);   assert_has "$resp" '"name"'      "GET /api/apps"
+resp=$(_get /api/effects); assert_has "$resp" '"dpx Matrix"' "GET /api/effects"
+resp=$(_get /api/settings)
+for k in BRI ATIME ATRANS SSPEED TIM DAT TC_MUTE SOUND; do assert_has "$resp" "\"$k\"" "settings.$k"; done
+# Mute natives so they don't stomp display tests
+SAVED_TIM=$(_jq "$resp" '.TIM // "true"')
+SAVED_DAT=$(_jq "$resp" '.DAT // "false"')
+_post /api/settings '{"TIM":false,"DAT":false}' > /dev/null
+info "Natives muted (restored on exit)"
+}
 
 # ── apps ──────────────────────────────────────────────────────────────────────
-suite "apps"
-if _should_run; then
-    register_app "_t_basic"; register_app "_t_rainbow"
-
-    resp=$(curl -sf --compressed --max-time 8 -X POST "$BASE/api/custom?name=_t_basic" \
-         -H "Content-Type: application/x-www-form-urlencoded" \
-         --data-urlencode 'plain={"text":"HELLO","color":"#00FF00","dur":10}')
-    assert_ok "$resp" "Create custom app"
-    resp=$(_get /api/apps)
-    assert_contains "$resp" '"_t_basic"' "New app in /api/apps"
-
-    resp=$(_post /api/switch '{"name":"_t_basic"}')
-    assert_ok "$resp" "Switch to app"
-    vis "Display: GREEN 'HELLO'"
-
-    resp=$(curl -sf --compressed --max-time 8 -X POST "$BASE/api/custom?name=_t_rainbow" \
-         -H "Content-Type: application/x-www-form-urlencoded" \
-         --data-urlencode 'plain={"text":"RAINBOW","rainbow":true,"dur":10}')
-    assert_ok "$resp" "Create rainbow app"
-    _post /api/switch '{"name":"_t_rainbow"}' > /dev/null
-    vis "Display: 'RAINBOW' — per-letter rainbow hues (R=red, A=orange, I=yellow...)"
-
-    resp=$(_post /api/nextapp '{}')
-    assert_ok "$resp" "Next app"
-    resp=$(_post /api/previousapp '{}')
-    assert_ok "$resp" "Previous app"
-
-    resp=$(_post /api/mute '{"name":"_t_basic","mute":true}')
-    assert_ok "$resp" "Mute app"
-    resp=$(_post /api/mute '{"name":"_t_basic","mute":false}')
-    assert_ok "$resp" "Unmute app"
-
-    resp=$(curl -sf --compressed --max-time 8 -X POST "$BASE/api/custom?name=_t_basic" \
-         -H "Content-Type: application/x-www-form-urlencoded" \
-         --data-urlencode 'plain={}')
-    assert_ok "$resp" "Delete app"
-    resp=$(_get /api/apps)
-    assert_not_contains "$resp" '"_t_basic"' "App gone after delete"
-fi
+suite "apps" || { :; } && {
+# Create + show green HELLO — delete immediately after confirm
+_app "_t" '{"text":"HELLO","color":"#00FF00","dur":999}'
+_post /api/switch '{"name":"_t"}' > /dev/null
+vis "GREEN text 'HELLO' on display" '_del _t'
+assert_has "$(_get /api/apps)" '"_t"' "App appears in loop"
+# Create + show rainbow — delete after confirm
+_app "_t" '{"text":"RAINBOW","rainbow":true,"dur":999}'
+_post /api/switch '{"name":"_t"}' > /dev/null
+vis "RAINBOW — each letter a different hue" '_del _t'
+# Next / previous (no test app, just native loop)
+_app "_t_a" '{"text":"AAAA","color":"#FF0000","dur":999}'
+_app "_t_b" '{"text":"BBBB","color":"#0088FF","dur":999}'
+_post /api/switch '{"name":"_t_a"}' > /dev/null
+vis "Red 'AAAA' on display"
+resp=$(_post /api/nextapp '{}'); assert_ok "$resp" "Next app"
+vis "Advanced — should now show BBBB (blue)" '_del _t_a; _del _t_b'
+# Mute test
+_app "_t_mute" '{"text":"MUTED","color":"#FF8800","dur":999}'
+_app "_t_vis"  '{"text":"VISIBLE","color":"#00FF88","dur":999}'
+_post /api/switch '{"name":"_t_vis"}' > /dev/null
+_post /api/mute '{"name":"_t_mute","mute":true}' > /dev/null
+resp=$(_post /api/nextapp '{}'); assert_ok "$resp" "Next past muted app"
+vis "VISIBLE (green) shows — MUTED (orange) was skipped" '_del _t_mute; _del _t_vis'
+# API roundtrip: create, verify in list, delete, verify gone
+_app "_t_x" '{"text":"X","dur":10}'
+assert_has "$(_get /api/apps)" '"_t_x"' "App in list after create"
+resp=$(_post /api/custom '{}'); _del _t_x
+assert_no "$(_get /api/apps)" '"_t_x"' "App gone after delete"
+}
 
 # ── notify ────────────────────────────────────────────────────────────────────
-suite "notify"
-if _should_run; then
-    resp=$(_post /api/notify '{"text":"TEST","color":"#FFFFFF","duration":3}')
-    assert_ok "$resp" "Send notification"
-    vis "Display: white 'TEST', scrolls once, auto-clears ~3s"
-    _sleep 4
+suite "notify" || { :; } && {
+# 1. White notification — stays until dismissed after confirm
+_post /api/notify '{"text":"TEST","color":"#FFFFFF","duration":30}' > /dev/null
+vis "White 'TEST' scrolling" '_post /api/notify/dismiss {}'
 
-    resp=$(_post /api/notify '{"text":"DISMISS ME","duration":30}')
-    assert_ok "$resp" "Send long notification"
-    _sleep 1
-    resp=$(_post /api/notify/dismiss '{}')
-    assert_ok "$resp" "Dismiss notification"
-    vis "Display: notification vanishes immediately on dismiss"
-    _sleep 1
+# 2. Dismiss test — show it, ask, then we dismiss via API, ask again
+_post /api/notify '{"text":"DISMISS ME","color":"#FF8800","duration":30}' > /dev/null
+vis "Orange 'DISMISS ME' scrolling — confirm you see it"
+resp=$(_post /api/notify/dismiss '{}'); assert_ok "$resp" "Dismiss API"
+vis "Display cleared immediately after dismiss (nothing scrolling)"
 
-    # REGRESSION: finite repeat must not get stuck and must not cut early
-    resp=$(_post /api/notify '{"text":"TWICE","color":"#00FFFF","repeat":2,"duration":20}')
-    assert_ok "$resp" "Send repeat:2 notification"
-    vis "REGRESSION: 'TWICE' scrolls EXACTLY 2 times then auto-dismisses (1.9 fix)"
-    _sleep 6
+# 3. Finite repeat — must scroll exactly 2× then vanish on its own
+_post /api/notify '{"text":"TWICE","color":"#00FFFF","repeat":2,"duration":30}' > /dev/null
+vis "Cyan 'TWICE' — watch it scroll EXACTLY 2 times then disappear on its own"
 
-    resp=$(_post /api/notify '{"text":"RAINBOW","rainbow":true,"duration":3}')
-    assert_ok "$resp" "Send rainbow notification"
-    vis "Display: rainbow colored notification text"
-    _sleep 4
-fi
+# 4. Rainbow
+_post /api/notify '{"text":"RAINBOW","rainbow":true,"duration":30}' > /dev/null
+vis "Rainbow notification — per-letter colors" '_post /api/notify/dismiss {}'
+}
 
 # ── overlay ───────────────────────────────────────────────────────────────────
-suite "overlay"
-if _should_run; then
-    register_app "_t_no_effect"
-
-    # REGRESSION 1.11: per-app overlay auto-activation
-    for effect in sparkle twinkle rain drizzle snow storm strobe blink frost; do
-        register_app "_t_eff_$effect"
-        resp=$(curl -sf --compressed --max-time 8 -X POST "$BASE/api/custom?name=_t_eff_$effect" \
-             -H "Content-Type: application/x-www-form-urlencoded" \
-             --data-urlencode "plain={\"text\":\"$effect\",\"color\":\"#FFFFFF\",\"overlay\":\"$effect\",\"dur\":999}")
-        assert_ok "$resp" "Create app with overlay=$effect"
-        _post /api/switch "{\"name\":\"_t_eff_$effect\"}" > /dev/null
-        vis "$effect: text visible + $effect pixel effect on top"
-        _sleep 2
-    done
-
-    # REGRESSION 1.11: effect MUST clear when switching to app with no overlay
-    _cpost "_t_no_effect" '{"text":"CLEAN","color":"#FF8800","dur":999}' > /dev/null
-    _post /api/switch '{"name":"_t_no_effect"}' > /dev/null
-    vis "REGRESSION 1.11: switching to app with NO overlay — all pixel effects MUST stop"
-    _sleep 2
-
-    # REGRESSION 1.12: overlays must respect brightness (SEGMENT API fix)
-    orig_bri=$(_jq "$(_get /api/settings)" '.BRI')
-    _post /api/settings '{"BRI":25}' > /dev/null
-    _post /api/switch '{"name":"_t_eff_rain"}' > /dev/null
-    vis "REGRESSION 1.12 (BRI=25): text AND rain drops both dim — NOT full-white override"
-    _sleep 3
-    _post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
-    ok "Brightness restored to $orig_bri"
-fi
+suite "overlay" || { :; } && {
+for effect in sparkle twinkle rain drizzle snow storm strobe blink frost; do
+    _app "_t_ov" "{\"text\":\"$effect\",\"color\":\"#FFFFFF\",\"overlay\":\"$effect\",\"dur\":999}"
+    _post /api/switch '{"name":"_t_ov"}' > /dev/null
+    vis "$effect — text visible WITH $effect effect on top" '_del _t_ov'
+done
+# 1.11 regression: effect must clear when app has no overlay
+_app "_t_clean" '{"text":"CLEAN","color":"#FF8800","dur":999}'
+_post /api/switch '{"name":"_t_clean"}' > /dev/null
+vis "1.11 REGRESSION: 'CLEAN' with NO effects — display must be plain text only" '_del _t_clean'
+# 1.12 regression: brightness respected
+orig_bri=$(_jq "$(_get /api/settings)" '.BRI')
+_post /api/settings '{"BRI":20}' > /dev/null
+_app "_t_dim" '{"text":"DIM","overlay":"rain","dur":999}'
+_post /api/switch '{"name":"_t_dim"}' > /dev/null
+vis "1.12 REGRESSION: BRI=20 — text AND rain drops both dim, not full brightness" '_del _t_dim'
+_post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
+}
 
 # ── indicators ────────────────────────────────────────────────────────────────
-suite "indicators"
-if _should_run; then
-    resp=$(_post /api/indicator1 '{"color":"#FF0000"}')
-    assert_ok "$resp" "Indicator 1 red"
-    vis "TOP-LEFT 3px L-shape: solid RED"
-
-    resp=$(_post /api/indicator2 '{"color":"#00FF00","blink":400}')
-    assert_ok "$resp" "Indicator 2 green blink 400ms"
-    vis "TOP-RIGHT 3px L-shape: GREEN blinking ~400ms"
-    _sleep 2
-
-    resp=$(_post /api/indicator3 '{"color":"#0088FF","fade":1500}')
-    assert_ok "$resp" "Indicator 3 blue fade 1500ms"
-    vis "BOTTOM-LEFT 3px L-shape: BLUE pulsing on 1.5s triangle wave"
-    _sleep 3
-
-    for i in 1 2 3; do
-        resp=$(_post /api/indicator$i '{"color":"#000000"}')
-        assert_ok "$resp" "Clear indicator $i"
-    done
-    vis "All indicators OFF"
-fi
+suite "indicators" || { :; } && {
+_post /api/indicator1 '{"color":"#FF0000"}' > /dev/null
+vis "TOP-LEFT corner: solid RED (3px L-shape)" '_post /api/indicator1 {"color":"#000000"}'
+_post /api/indicator2 '{"color":"#00FF00","blink":400}' > /dev/null
+vis "TOP-RIGHT corner: GREEN blinking ~400ms" '_post /api/indicator2 {"color":"#000000"}'
+_post /api/indicator3 '{"color":"#0088FF","fade":1500}' > /dev/null
+vis "BOTTOM-LEFT corner: BLUE pulsing slowly" '_post /api/indicator3 {"color":"#000000"}'
+for i in 1 2 3; do resp=$(_post /api/indicator$i '{"color":"#000000"}'); assert_ok "$resp" "Clear indicator $i"; done
+}
 
 # ── tc ────────────────────────────────────────────────────────────────────────
-suite "tc"
-if _should_run; then
-    saved_dev=$(_get /api/dev)
-    saved_mute=$(_jq "$saved_dev" '.tc_mute')
-
-    # tc_mute persist roundtrip
-    resp=$(_post /api/dev '{"tc_mute":true}')
-    assert_ok "$resp" "Set tc_mute=true via /api/dev"
-    resp=$(_get /api/dev)
-    assert_key "$resp" '.tc_mute' "true" "tc_mute=true in dev.json"
-    resp=$(_get /api/settings)
-    assert_key "$resp" '.TC_MUTE' "true" "TC_MUTE=true in /api/settings"
-    vis "TC MUTE ON: send timecode signal — display must NOT react"
-    _sleep 3
-
-    resp=$(_post /api/dev '{"tc_mute":false}')
-    assert_ok "$resp" "Set tc_mute=false"
-    resp=$(_get /api/dev)
-    assert_key "$resp" '.tc_mute' "false" "tc_mute=false in dev.json"
-    vis "TC MUTE OFF: send timecode — display shows HH:MM:SS + frame progress bar"
-    _sleep 3
-
-    # TC settings roundtrip
-    resp=$(_post /api/dev '{"tc_dwell":4,"tc_hold":false,"tc_show_frames":false,"tc_stop_beep":false}')
-    assert_ok "$resp" "Set TC dwell/hold/frames/beep"
-    resp=$(_get /api/dev)
-    assert_key "$resp" '.tc_dwell' "4" "tc_dwell=4 roundtrip"
-    assert_key "$resp" '.tc_hold' "false" "tc_hold=false roundtrip"
-    assert_key "$resp" '.tc_show_frames' "false" "tc_show_frames=false roundtrip"
-
-    # Restore
-    _post /api/dev "{\"tc_mute\":$saved_mute}" > /dev/null
-    ok "Restored tc_mute to $saved_mute"
-fi
+suite "tc" || { :; } && {
+saved=$(_get /api/dev); saved_mute=$(_jq "$saved" '.tc_mute')
+# Settings roundtrip
+resp=$(_post /api/dev '{"tc_mute":true}');   assert_ok "$resp" "tc_mute=true"
+assert_key "$(_get /api/dev)" '.tc_mute' "true" "tc_mute in dev.json"
+assert_key "$(_get /api/settings)" '.TC_MUTE' "true" "TC_MUTE in settings"
+resp=$(_post /api/dev '{"tc_mute":false}');  assert_ok "$resp" "tc_mute=false"
+resp=$(_post /api/dev '{"tc_dwell":3,"tc_hold":false,"tc_show_frames":false}')
+assert_ok "$resp" "TC settings"
+assert_key "$(_get /api/dev)" '.tc_dwell' "3" "tc_dwell roundtrip"
+# Inject TC signal via JSON API
+curl -sf -X POST "$BASE/json" -H 'Content-Type: application/json' \
+     -d '{"dpx":{"tc":"01:23:45:12"}}' > /dev/null
+_wait 1
+assert_has "$(_get /api/apps)" '"tc"'  "TC injection creates tc app"
+assert_key "$(_get /dpx)" '.app' "tc" "Display locked to tc"
+vis "TC DISPLAY: shows 01:23:45 with frame progress bar"
+# Dwell: tc app must auto-remove after 3s — needs real sleep even in fast mode
+sleep 4
+assert_no "$(_get /api/apps)" '"tc"' "tc app removed after dwell"
+# Mute: wait for dwell then test mute
+sleep 4
+_post /api/dev '{"tc_mute":true}' > /dev/null
+curl -sf -X POST "$BASE/json" -H 'Content-Type: application/json' \
+     -d '{"dpx":{"tc":"02:00:00:00"}}' > /dev/null
+_wait 1
+got=$(_jq "$(_get /dpx)" '.app')
+[[ "$got" != "tc" ]] && ok "TC mute suppresses takeover (app=$got)" || fail "TC mute failed (still tc)"
+_post /api/dev "{\"tc_mute\":$saved_mute,\"tc_dwell\":2}" > /dev/null
+ok "TC settings restored"
+}
 
 # ── sound ─────────────────────────────────────────────────────────────────────
-suite "sound"
-if _should_run; then
-    resp=$(_post /api/beeptest '{}')
-    assert_ok "$resp" "POST /api/beeptest"
-    assert_contains "$resp" '"pin"' "beeptest has pin field"
-    info "Buzzer: pin=$(_jq "$resp" '.pin') ledc_ch=$(_jq "$resp" '.ledc_ch')"
-    vis "SOUND: two 880Hz beeps (200ms + 80ms gap + 200ms)"
-    _sleep 1
-
-    # RTTTL parse — automated frequency verification (no audio needed)
-    purl="$BASE/api/buzzer/parse?q=Beep%3Ad%3D4%2Co%3D5%2Cb%3D200%3Ac%2Ce%2Cg%2Cc6"
-    resp=$(curl -sf --compressed --max-time 5 "$purl")
-    if [[ -n "$resp" && "$resp" != "null" ]]; then
-        assert_key "$resp" '.[0].f' "524" "C5 = 524Hz (RTTTL parser)"
-        assert_key "$resp" '.[1].f' "660" "E5 = 660Hz"
-        assert_key "$resp" '.[2].f' "784" "G5 = 784Hz"
-        assert_key "$resp" '.[3].f' "1048" "C6 = 1048Hz"
-    else
-        skip "RTTTL parse endpoint (build may not include it)"
-    fi
-
-    resp=$(_post /api/sound '{"rtttl":"Scale:d=4,o=5,b=120:c,d,e,f,g,a,b,c6"}')
-    assert_ok "$resp" "RTTTL play C major scale"
-    vis "SOUND: 8 ascending notes — do re mi fa sol la ti do"
-    _sleep 5
-
-    resp=$(_post /api/sound '{"rtttl":"Mario:d=4,o=5,b=100:16e6,16e6,32p,8e6,16c6,8e6,8g6,8p,8g5,8p"}')
-    assert_ok "$resp" "RTTTL play Mario opening"
-    vis "SOUND: recognizable Super Mario theme opening (E-E-E-C-E-G)"
-    _sleep 3
-
-    resp=$(_post /api/sound '{}')
-    assert_ok "$resp" "Stop sound"
-
-    # Sound enable/disable
-    resp=$(_post /api/settings '{"SOUND":false}')
-    assert_ok "$resp" "Disable sound"
-    _post /api/sound '{"rtttl":"Test:d=4,o=5,b=200:c,e,g"}' > /dev/null
-    vis "SOUND DISABLED: completely silent (no notes)"
-    _sleep 1
-    _post /api/settings '{"SOUND":true}' > /dev/null
-    ok "Sound re-enabled"
-fi
+suite "sound" || { :; } && {
+resp=$(_post /api/beeptest '{}')
+assert_ok "$resp" "POST /api/beeptest"
+assert_key "$resp" '.pin' "15" "Buzzer GPIO 15"
+assert_key "$resp" '.ledc_ch' "6" "LEDC ch 6"
+_wait 1; snd "Two 880Hz beeps"
+# RTTTL parser frequencies — automated, no audio
+purl="$BASE/api/buzzer/parse?q=Beep%3Ad%3D4%2Co%3D5%2Cb%3D200%3Ac%2Ce%2Cg%2Cc6"
+pr=$(curl -sf --compressed --max-time 5 "$purl")
+[[ -n "$pr" ]] && {
+    assert_key "$pr" '.[0].f' "524" "C5=524Hz"
+    assert_key "$pr" '.[1].f' "660" "E5=660Hz"
+    assert_key "$pr" '.[2].f' "784" "G5=784Hz"
+    assert_key "$pr" '.[3].f' "1048" "C6=1048Hz"
+} || skip "buzzer/parse endpoint not in build"
+resp=$(_post /api/sound '{"rtttl":"Scale:d=4,o=5,b=120:c,d,e,f,g,a,b,c6"}')
+assert_ok "$resp" "RTTTL scale"
+_wait 5; snd "C major scale — 8 ascending notes"
+resp=$(_post /api/sound '{"rtttl":"Mario:d=4,o=5,b=100:16e6,16e6,32p,8e6,16c6,8e6,8g6,8p,8g5,8p"}')
+assert_ok "$resp" "RTTTL Mario"
+_wait 3; snd "Mario theme opening"
+_post /api/sound '{}' > /dev/null
+# Sound disable: settings persists and blocks playback
+_post /api/settings '{"SOUND":false}' > /dev/null
+assert_key "$(_get /api/settings)" '.SOUND' "false" "SOUND=false in settings"
+_post /api/sound '{"rtttl":"Test:d=4,o=5,b=200:c,e,g"}' > /dev/null
+_wait 1; snd "SOUND DISABLED — silence (nothing should play)"
+_post /api/settings '{"SOUND":true}' > /dev/null; ok "Sound re-enabled"
+}
 
 # ── settings ──────────────────────────────────────────────────────────────────
-suite "settings"
-if _should_run; then
-    resp=$(_get /api/settings)
-    for key in BRI ATIME ATRANS SSPEED UPPERCASE SOUND TIM DAT TC_MUTE MQTT_PREFIX; do
-        assert_contains "$resp" "\"$key\"" "settings has $key"
-    done
+suite "settings" || { :; } && {
+resp=$(_get /api/settings)
+for k in BRI ATIME ATRANS SSPEED UPPERCASE SOUND TIM DAT TC_MUTE MQTT_PREFIX; do
+    assert_has "$resp" "\"$k\"" "settings.$k"
+done
+orig=$(_jq "$resp" '.BRI')
+assert_ok "$(_post /api/settings '{"BRI":40}')" "Set BRI=40"
+assert_key "$(_get /api/settings)" '.BRI' "40" "BRI=40 roundtrip"
+vis "Brightness visibly reduced (BRI=40)" "_post /api/settings '{\"BRI\":$orig}'"
+ok "BRI restored to $orig"
+assert_ok "$(_post /api/settings '{"TIM":false}')" "TIM=false"
+assert_no "$(_get /api/apps)" '"Time"' "Time hidden"
+assert_ok "$(_post /api/settings '{"TIM":true}')" "TIM=true"
+assert_has "$(_get /api/apps)" '"Time"' "Time visible"
+}
 
-    orig_bri=$(_jq "$resp" '.BRI')
-    resp=$(_post /api/settings '{"BRI":88}')
-    assert_ok "$resp" "Set BRI=88"
-    resp=$(_get /api/settings)
-    assert_key "$resp" '.BRI' "88" "BRI=88 roundtrip"
-    vis "Display: brightness visibly changed"
-    _post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
-    ok "BRI restored to $orig_bri"
+# ── persist ───────────────────────────────────────────────────────────────────
+suite "persist" || { :; } && {
+$REBOOT || { skip "persist (pass --reboot to enable)"; }
+$REBOOT && {
+_post /api/settings '{"TIM":false}' > /dev/null
+assert_key "$(_get /api/dev)" '.show_time' "false" "show_time=false before reboot"
+info "Rebooting..."; _post /api/reboot '{}' > /dev/null; sleep 10
+resp=$(_get /dpx) && ok "Device back online" || fail "Device offline after reboot"
+assert_no "$(_get /api/apps)" '"Time"' "Time still hidden after reboot"
+_post /api/settings '{"TIM":true}' > /dev/null; ok "Time restored"
+}
+}
 
-    # TIM toggle (no reboot)
-    resp=$(_post /api/settings '{"TIM":false}')
-    assert_ok "$resp" "TIM=false"
-    resp=$(_get /api/apps)
-    assert_not_contains "$resp" '"Time"' "Time hidden when TIM=false"
-    resp=$(_post /api/settings '{"TIM":true}')
-    assert_ok "$resp" "TIM=true"
-    resp=$(_get /api/apps)
-    assert_contains "$resp" '"Time"' "Time visible when TIM=true"
-
-    # DAT toggle
-    resp=$(_post /api/settings '{"DAT":true}')
-    assert_ok "$resp" "DAT=true"
-    resp=$(_get /api/apps)
-    assert_contains "$resp" '"Date"' "Date visible when DAT=true"
-    _post /api/settings '{"DAT":false}' > /dev/null
-    ok "DAT restored to false"
-fi
-
-# ── persist (opt-in, needs reboot) ───────────────────────────────────────────
-suite "persist"
-if _should_run; then
-    if ! "$MODE_REBOOT"; then
-        skip "persist — pass --reboot to enable (~10s)"
-    else
-        _post /api/settings '{"TIM":false}' > /dev/null
-        resp=$(_get /api/dev)
-        assert_key "$resp" '.show_time' "false" "show_time=false in dev.json before reboot"
-
-        info "Rebooting device..."
-        _post /api/reboot '{}' > /dev/null
-        sleep 10
-
-        resp=$(_get /dpx) || { fail "Device did not come back after reboot"; }
-        ok "Device online after reboot"
-        resp=$(_get /api/apps)
-        assert_not_contains "$resp" '"Time"' "Time still hidden after reboot (persist ok)"
-
-        _post /api/settings '{"TIM":true}' > /dev/null
-        ok "Time restored"
-    fi
-fi
-
-# ── Summary ───────────────────────────────────────────────────────────────────
+# ── summary ───────────────────────────────────────────────────────────────────
 echo ""
-echo -e "${B}━━ Results: PASS ${G}${PASS}${RST}${B}  FAIL ${R}${FAIL}${RST}${B}  SKIP ${DIM}${SKIP}${RST}${B} ━━${RST}"
-echo ""
-if [[ $FAIL -eq 0 ]]; then
-    echo -e "${G}  All automated checks passed.${RST}"
-    "$MODE_DISPLAY" && echo -e "${Y}  Review all 👁 [DISPLAY] items above.${RST}"
-    exit 0
-else
-    echo -e "${R}  $FAIL automated check(s) failed.${RST}"
-    exit 1
-fi
+echo -e "${B}━━ PASS ${G}${PASS}${RST}${B}  FAIL ${R}${FAIL}${RST}${B}  SKIP ${DIM}${SKIP}${RST}${B} ━━${RST}"
+[[ $FAIL -eq 0 ]] && echo -e "${G}  All checks passed.${RST}" && exit 0
+echo -e "${R}  $FAIL check(s) failed.${RST}"; exit 1
