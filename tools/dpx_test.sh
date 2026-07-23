@@ -188,12 +188,14 @@ vis "White 'TEST' scrolling" '_post /api/notify/dismiss {}'
 
 # 2. Dismiss test — show it, ask, then we dismiss via API, ask again
 _post /api/notify '{"text":"DISMISS ME","color":"#FF8800","duration":30}' > /dev/null
+_wait 1
 vis "Orange 'DISMISS ME' scrolling — confirm you see it"
 resp=$(_post /api/notify/dismiss '{}'); assert_ok "$resp" "Dismiss API"
 vis "Display cleared immediately after dismiss (nothing scrolling)"
 
 # 3. Finite repeat — must scroll exactly 2× then vanish on its own
 _post /api/notify '{"text":"TWICE","color":"#00FFFF","repeat":2,"duration":30}' > /dev/null
+_wait 1
 vis "Cyan 'TWICE' — watch it scroll EXACTLY 2 times then disappear on its own" '_post /api/notify/dismiss {}'
 
 # 4. Rainbow
