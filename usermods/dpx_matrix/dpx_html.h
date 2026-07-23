@@ -670,7 +670,10 @@ select option{background:#222}
 </div>
 <div class="row">
   <button onclick="sendNotify()">&#9993; Send</button>
-  <button class="red sm" style="margin-top:8px" onclick="apiPost('/api/notify/dismiss',{})">Dismiss</button>
+  <button class="red sm" style="margin-top:8px;margin-left:4px" onclick="apiPost('/api/notify/dismiss',{})">&#10006; Dismiss current</button>
+</div>
+<div class="row" style="margin-top:4px">
+  <button class="red" style="width:100%;background:#3a1a1a" onclick="apiPost('/api/notify/clear',{}).then(loadStatus);toast('Notification queue cleared')">&#10006;&#10006; Clear all queued <span id="n_queue_count" style="font-size:11px;opacity:0.7"></span></button>
 </div>
 </div>
 
@@ -1032,8 +1035,10 @@ fetch("/api/settings").then(function(r){return r.json();}).then(function(s){
 fetch("/list?dir=/MELODIES/").then(function(r){return r.json();}).then(function(files){var s=document.getElementById("snd_file_sel");files.filter(function(f){return f.type==="file";}).forEach(function(f){var n=f.name.replace(/\.txt$/i,"");var o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});}).catch(function(){});
 function loadStatus(){
   fetch("/dpx").then(function(r){return r.json();}).then(function(d){
-    var el=document.getElementById("status_bar");if(!el)return;
-    el.innerHTML='<b style="color:#4af">'+(d.hostname||'dpx_tc002')+'</b> <span style="color:#333">&#9654;</span> <span>'+d.ip+'</span> <span style="color:#2a2a4a">|</span> <span>RSSI: '+d.rssi+' dBm</span> <span style="color:#2a2a4a">|</span> <span>heap: '+Math.round(d.ram/1024)+'KB</span> <span style="color:#2a2a4a">|</span> <span>up '+d.uptime+'s</span> <span style="color:#2a2a4a">|</span> app: <b style="color:#8cf">'+d.app+'</b><span style="color:#333;margin-left:auto;font-size:10px">build: '+d.build+'</span>';
+    var el=document.getElementById("status_bar");if(el)
+      el.innerHTML='<b style="color:#4af">'+(d.hostname||'dpx_tc002')+'</b> <span style="color:#333">&#9654;</span> <span>'+d.ip+'</span> <span style="color:#2a2a4a">|</span> <span>RSSI: '+d.rssi+' dBm</span> <span style="color:#2a2a4a">|</span> <span>heap: '+Math.round(d.ram/1024)+'KB</span> <span style="color:#2a2a4a">|</span> <span>up '+d.uptime+'s</span> <span style="color:#2a2a4a">|</span> app: <b style="color:#8cf">'+d.app+'</b><span style="color:#333;margin-left:auto;font-size:10px">build: '+d.build+'</span>';
+    var qc=document.getElementById("n_queue_count");
+    if(qc){var n=d.notif||0;qc.textContent=n>0?'('+n+' queued)':'';}
   }).catch(function(){});
 }
 loadStatus();

@@ -206,6 +206,11 @@ static void dpxRegisterRoutes() {
         dpxDismissNotification();
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
+    server.on("/api/notify/clear", HTTP_POST, [](AsyncWebServerRequest* r) {
+        // Clear ALL queued notifications at once
+        dpxNotifQueue.clear();
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    });
 
     // ── Custom apps (GET=load, POST=push, name in query) ──────────────────────
     server.on("/api/custom", HTTP_ANY, [](AsyncWebServerRequest* r) {

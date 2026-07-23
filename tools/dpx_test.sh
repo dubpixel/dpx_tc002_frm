@@ -20,13 +20,12 @@ esac; done
 G="\033[0;32m"; R="\033[0;31m"; Y="\033[1;33m"
 C="\033[0;36m"; B="\033[1;34m"; DIM="\033[2m"; RST="\033[0m"
 PASS=0; FAIL=0; SKIP=0
-SAVED_TIM="true"; SAVED_DAT="false"
+SAVED_TIM="true"; SAVED_DAT="false"; SAVED_BRI="128"
 
 # ── Restore state on exit ─────────────────────────────────────────────────────
 restore() {
-    curl -sf -X POST "$BASE/api/settings" -H "Content-Type: application/x-www-form-urlencoded" \
-         --data-urlencode "plain={\"TIM\":$SAVED_TIM,\"DAT\":$SAVED_DAT}" > /dev/null 2>&1
-    curl -sf -X POST "$BASE/api/notify/dismiss" -H "Content-Type: application/x-www-form-urlencoded" \
+    # Dismiss ALL queued notifications in one call
+    curl -sf -X POST "$BASE/api/notify/clear" -H "Content-Type: application/x-www-form-urlencoded" \
          --data-urlencode 'plain={}' > /dev/null 2>&1
     curl -sf -X POST "$BASE/api/sound" -H "Content-Type: application/x-www-form-urlencoded" \
          --data-urlencode 'plain={}' > /dev/null 2>&1
@@ -34,6 +33,9 @@ restore() {
         curl -sf -X POST "$BASE/api/indicator$i" -H "Content-Type: application/x-www-form-urlencoded" \
              --data-urlencode 'plain={"color":"#000000"}' > /dev/null 2>&1
     done
+    # Restore BRI, TIM, DAT
+    curl -sf -X POST "$BASE/api/settings" -H "Content-Type: application/x-www-form-urlencoded" \
+         --data-urlencode "plain={\"TIM\":$SAVED_TIM,\"DAT\":$SAVED_DAT,\"BRI\":$SAVED_BRI}" > /dev/null 2>&1
 }
 trap restore EXIT
 
@@ -113,6 +115,7 @@ for k in BRI ATIME ATRANS SSPEED TIM DAT TC_MUTE SOUND; do assert_has "$resp" "\
 # Mute natives so they don't stomp display tests
 SAVED_TIM=$(_jq "$resp" '.TIM // "true"')
 SAVED_DAT=$(_jq "$resp" '.DAT // "false"')
+SAVED_BRI=$(_jq "$resp" '.BRI // "128"')
 _post /api/settings '{"TIM":false,"DAT":false}' > /dev/null
 info "Natives muted (restored on exit)"
 # Sweep ALL custom apps off the device — it could be in any state
@@ -122,7 +125,7 @@ if [[ -n "$_sweeping" ]]; then
     info "Swept custom apps: $(echo "$_sweeping" | tr '\n' ' ')"
 fi
 # Dismiss any active notification and stop sound
-_post /api/notify/dismiss '{}' > /dev/null
+_post /api/notify/clear '{}' > /dev/null
 _post /api/sound '{}' > /dev/null
 for _i in 1 2 3; do _post /api/indicator$_i '{"color":"#000000"}' > /dev/null; done
 # Force dpx_matrix effect active by setting BRI (triggers dpxActivateEffect internally)
@@ -178,7 +181,7 @@ vis "Display cleared immediately after dismiss (nothing scrolling)"
 
 # 3. Finite repeat — must scroll exactly 2× then vanish on its own
 _post /api/notify '{"text":"TWICE","color":"#00FFFF","repeat":2,"duration":30}' > /dev/null
-vis "Cyan 'TWICE' — watch it scroll EXACTLY 2 times then disappear on its own"
+vis "Cyan 'TWICE' — watch it scroll EXACTLY 2 times then disappear on its own" '_post /api/notify/dismiss {}'
 
 # 4. Rainbow
 _post /api/notify '{"text":"RAINBOW","rainbow":true,"duration":30}' > /dev/null
@@ -310,8 +313,19 @@ _post /api/settings '{"TIM":true}' > /dev/null; ok "Time restored"
 }
 }
 
-# ── summary ───────────────────────────────────────────────────────────────────
+# ── summary ─────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${B}━━ PASS ${G}${PASS}${RST}${B}  FAIL ${R}${FAIL}${RST}${B}  SKIP ${DIM}${SKIP}${RST}${B} ━━${RST}"
-[[ $FAIL -eq 0 ]] && echo -e "${G}  All checks passed.${RST}" && exit 0
-echo -e "${R}  $FAIL check(s) failed.${RST}"; exit 1
+if [[ $FAIL -eq 0 ]]; then
+    echo -e "${G}  All checks passed.${RST}"
+    _post /api/notify "{\"text\":\"PASS ${PASS}\",\"color\":\"#00FF00\",\"duration\":8,\"stack\":false}" > /dev/null
+    echo -e "${DIM}  Showing result on display for 4s...${RST}"
+    sleep 4   # let the PASS notification be visible before restore() clears it
+    exit 0
+else
+    echo -e "${R}  $FAIL check(s) failed.${RST}"
+    _post /api/notify "{\"text\":\"FAIL ${FAIL}\",\"color\":\"#FF0000\",\"duration\":10,\"stack\":false}" > /dev/null
+    echo -e "${DIM}  Showing result on display for 5s...${RST}"
+    sleep 5
+    exit 1
+fi
