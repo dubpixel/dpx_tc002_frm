@@ -251,6 +251,22 @@ CI runs on every push/PR via GitHub Actions (`.github/workflows/wled-ci.yml`):
 
 No automated linting is configured. Match existing code style in files you edit.
 
+## Triage Rule — Fix Now vs Log It
+
+**Default behaviour when something broken or wanted is mentioned: log it as a GitHub issue and move on.**
+
+Only fix immediately if the user explicitly says *"fix this"* or *"fix it now"*.
+
+```bash
+# Start of session — check open issues
+gh issue list --repo dubpixel/dpx_tc002_frm
+
+# End of session — file anything mentioned but not yet tracked
+gh issue create --repo dubpixel/dpx_tc002_frm --title "..." --body "..."
+```
+
+This prevents mid-session context-switching that breaks working code.
+
 ## General Rules
 
 - Important: Repository language is **English**. This applies to source code (including comments), commit messages and any kind of documentation for developer or users.
