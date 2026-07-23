@@ -122,7 +122,7 @@ if _should_run; then
     assert_contains "$resp" '"build"' "GET /dpx"
     info "Build: $(_jq "$resp" '.build')"
     resp=$(_get /api/stats)
-    assert_contains "$resp" '"heap"' "GET /api/stats"
+    assert_contains "$resp" '"ram"' "GET /api/stats"
     resp=$(_get /api/settings)
     for key in BRI ATIME ATRANS SSPEED TIM DAT TC_MUTE SOUND; do
         assert_contains "$resp" "\"$key\"" "/api/settings has $key"
@@ -130,7 +130,7 @@ if _should_run; then
     resp=$(_get /api/apps)
     assert_contains "$resp" '"name"' "GET /api/apps"
     resp=$(_get /api/effects)
-    assert_contains "$resp" '"effects"' "GET /api/effects"
+    assert_contains "$resp" '"dpx Matrix"' "GET /api/effects"
 fi
 
 # ── apps ──────────────────────────────────────────────────────────────────────
@@ -138,7 +138,9 @@ suite "apps"
 if _should_run; then
     register_app "_t_basic"; register_app "_t_rainbow"
 
-    resp=$(_post /api/custom '{"name":"_t_basic","text":"HELLO","color":"#00FF00","dur":10}')
+    resp=$(curl -sf --compressed --max-time 8 -X POST "$BASE/api/custom?name=_t_basic" \
+         -H "Content-Type: application/x-www-form-urlencoded" \
+         --data-urlencode 'plain={"text":"HELLO","color":"#00FF00","dur":10}')
     assert_ok "$resp" "Create custom app"
     resp=$(_get /api/apps)
     assert_contains "$resp" '"_t_basic"' "New app in /api/apps"
@@ -147,7 +149,9 @@ if _should_run; then
     assert_ok "$resp" "Switch to app"
     vis "Display: GREEN 'HELLO'"
 
-    resp=$(_post /api/custom '{"name":"_t_rainbow","text":"RAINBOW","rainbow":true,"dur":10}')
+    resp=$(curl -sf --compressed --max-time 8 -X POST "$BASE/api/custom?name=_t_rainbow" \
+         -H "Content-Type: application/x-www-form-urlencoded" \
+         --data-urlencode 'plain={"text":"RAINBOW","rainbow":true,"dur":10}')
     assert_ok "$resp" "Create rainbow app"
     _post /api/switch '{"name":"_t_rainbow"}' > /dev/null
     vis "Display: 'RAINBOW' — per-letter rainbow hues (R=red, A=orange, I=yellow...)"
@@ -162,8 +166,9 @@ if _should_run; then
     resp=$(_post /api/mute '{"name":"_t_basic","mute":false}')
     assert_ok "$resp" "Unmute app"
 
-    # Delete via empty-body POST
-    resp=$(_post /api/custom '{"name":"_t_basic"}')
+    resp=$(curl -sf --compressed --max-time 8 -X POST "$BASE/api/custom?name=_t_basic" \
+         -H "Content-Type: application/x-www-form-urlencoded" \
+         --data-urlencode 'plain={}')
     assert_ok "$resp" "Delete app"
     resp=$(_get /api/apps)
     assert_not_contains "$resp" '"_t_basic"' "App gone after delete"
@@ -205,7 +210,9 @@ if _should_run; then
     # REGRESSION 1.11: per-app overlay auto-activation
     for effect in sparkle twinkle rain drizzle snow storm strobe blink frost; do
         register_app "_t_eff_$effect"
-        resp=$(_post /api/custom "{\"name\":\"_t_eff_$effect\",\"text\":\"$effect\",\"color\":\"#FFFFFF\",\"overlay\":\"$effect\",\"dur\":999}")
+        resp=$(curl -sf --compressed --max-time 8 -X POST "$BASE/api/custom?name=_t_eff_$effect" \
+             -H "Content-Type: application/x-www-form-urlencoded" \
+             --data-urlencode "plain={\"text\":\"$effect\",\"color\":\"#FFFFFF\",\"overlay\":\"$effect\",\"dur\":999}")
         assert_ok "$resp" "Create app with overlay=$effect"
         _post /api/switch "{\"name\":\"_t_eff_$effect\"}" > /dev/null
         vis "$effect: text visible + $effect pixel effect on top"
@@ -213,7 +220,7 @@ if _should_run; then
     done
 
     # REGRESSION 1.11: effect MUST clear when switching to app with no overlay
-    _post /api/custom '{"name":"_t_no_effect","text":"CLEAN","color":"#FF8800","dur":999}' > /dev/null
+    _cpost "_t_no_effect" '{"text":"CLEAN","color":"#FF8800","dur":999}' > /dev/null
     _post /api/switch '{"name":"_t_no_effect"}' > /dev/null
     vis "REGRESSION 1.11: switching to app with NO overlay — all pixel effects MUST stop"
     _sleep 2
