@@ -187,29 +187,32 @@ assert_no "$(_get /api/apps)" '"_t_x"' "App gone after delete"
 
 # ── notify ────────────────────────────────────────────────────────────────────
 suite "notify" || { :; } && {
-# 1. White notification — stays until dismissed after confirm
-_post /api/notify '{"text":"TEST","color":"#FFFFFF","duration":30}' > /dev/null
-vis "White 'TEST' scrolling" '_post /api/notify/dismiss {}'
+# 1. White notification — short duration so it doesn't block if dismiss fails
+_post /api/notify '{"text":"WHITE SCROLL TEST","color":"#FFFFFF","duration":5}' > /dev/null
+_wait 1
+vis "White text scrolling (WHITE SCROLL TEST)" '_post /api/notify/dismiss {}'
 _wait 2  # let dismiss fully process before sending next notify
 
 # 2. Dismiss test — show it, ask, then we dismiss via API, ask again
-_post /api/notify '{"text":"DISMISS ME","color":"#FF8800","duration":30}' > /dev/null
+_post /api/notify '{"text":"DISMISS ME NOW","color":"#FF8800","duration":5}' > /dev/null
 _wait 1
-vis "Orange 'DISMISS ME' scrolling — confirm you see it"
+vis "Orange 'DISMISS ME NOW' scrolling — confirm you see it"
 resp=$(_post /api/notify/dismiss '{}'); assert_ok "$resp" "Dismiss API"
+_wait 1
 vis "Display cleared immediately after dismiss (nothing scrolling)"
 _wait 2  # let dismiss settle before next notify
 
 # 3. Finite repeat — must scroll exactly 2× then vanish on its own
-_post /api/notify '{"text":"TWICE","color":"#00FFFF","repeat":2,"duration":30}' > /dev/null
+_post /api/notify '{"text":"TWICE","color":"#00FFFF","repeat":2,"duration":5}' > /dev/null
 _wait 1
 vis "Cyan 'TWICE' — watch it scroll EXACTLY 2 times then disappear on its own" '_post /api/notify/dismiss {}'
 _wait 2  # let dismiss settle before next notify
 
 # 4. Rainbow
-_post /api/notify '{"text":"RAINBOW","rainbow":true,"duration":30}' > /dev/null
+_post /api/notify '{"text":"RAINBOW COLORS","rainbow":true,"duration":5}' > /dev/null
 _wait 1
-vis "Rainbow notification — per-letter colors" '_post /api/notify/dismiss {}'
+vis "Rainbow text scrolling — each letter different hue" '_post /api/notify/dismiss {}'
+_wait 2
 }
 
 # ── overlay ───────────────────────────────────────────────────────────────────
