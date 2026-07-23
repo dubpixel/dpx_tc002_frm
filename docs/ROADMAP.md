@@ -56,19 +56,9 @@ See Part 2 of this file.
 
 - [ ] **1.13** Audit `DPX_SHOW_TIME` / `DPX_SHOW_DATE` vs `dpxHiddenApps` `dpx_persist.h` + `dpx_api.h`
 
-- [ ] **1.14** TC mute toggle `dpx_tc.h` + `dpx_persist.h` + `/ctrl`
-  - Add `DPX_TC_MUTE` bool (default false) — when true, incoming TC signal is ignored entirely (no display takeover)
-  - Add `TC_MUTE` key to `dpxApplySettings()` and `dpxSettingsJson()`
-  - Persist in `dev.json`
-  - Add mute checkbox to TC Settings card in `/ctrl` (alongside existing tc_hold, tc_dwell, etc.)
-  - Distinct from `tc_stop_beep` — this silences the whole TC display layer, not just the beep
+- [ ] **1.14** TC mute toggle ✅ *implemented in feature/overlay-tc-fixes*
 
-- [ ] **1.15** TC takeover forces dpx_matrix effect `dpx_tc.h` + `dpx_matrix.h`
-  - When a TC signal arrives and `DPX_TC_MUTE` is false, call `dpxActivateEffect()` to switch the
-    active WLED segment back to the dpx_matrix effect if the user has changed to something else
-  - On TC dwell timeout (signal gone), restore the previously active effect
-  - Globals needed: `static uint8_t _tcSavedEffect` — save `strip.getMainSegment().mode` before takeover
-  - Mirrors the existing `dpxActivateEffect()` call pattern in `dpx_api.h`
+- [ ] **1.15** TC takeover forces dpx_matrix effect ✅ *implemented in feature/overlay-tc-fixes*
 
 - [ ] **1.16** WLED pattern slots in app rotation `dpx_apps.h` + `dpx_html.h`
   - Allow a WLED effect (by effect ID or name) to be added as a channel in the dpx_matrix app loop
@@ -80,10 +70,51 @@ See Part 2 of this file.
   - Add "Add Pattern Slot" section to App Channels card in `/ctrl` — effect picker (populated from
     `GET /json/effects`), palette picker, dwell duration, then Add button
   - Pattern slots persist in `dpxCustom` map like regular custom apps (same LittleFS storage)
-  - **Context:** 1.5 added `DPX_SHOW_TIME` / `DPX_SHOW_DATE` flags and TIM/DAT settings handling.
-    The architecture now uses `dpxHiddenApps` (a `std::set<String>`) to remove apps from rotation.
-    The two mechanisms may conflict — verify TIM/DAT in `dpxApplySettings()` is calling
-    `dpxHiddenApps.insert/erase` correctly, or remove the old flags and route through `dpxHiddenApps`.
+
+- [ ] **1.17** Overlay additive compositing (text shows through) `dpx_overlay.h`
+  - **Context:** AWTRIX3 only draws an overlay pixel if it is non-black, so rain/snow/effects appear
+    *in front of* text without overwriting it. Currently our overlays overwrite text pixels entirely.
+  - Change `dpxRenderPixelEffect()` to skip writing a pixel if the effect color is black (0x000000).
+    For effects that blend (twinkle/strobe), only write the blend result if the result is non-trivially
+    different from black.
+  - Check WLED's `SEGMENT.getPixelColorXY()` to see if WLED already handles additive compositing
+    natively at the SEGMENT level before adding logic here — avoid duplicating what WLED already does.
+  - Behavior: `overlay=rain` on an app — rain drops fall *over* text, text remains readable.
+  - **This is permanent behavior, not a user toggle** — additive compositing is strictly better for
+    overlay effects and there is no use case for the current full-overwrite behavior.
+
+- [ ] **1.18** Persistent pixel state buffer for rain/snow/storm `dpx_overlay.h`
+  - **Context:** AWTRIX3 uses a `static CRGB leds[32][8]` buffer — the full 32×8 state persists
+    across frames. When rain falls, the *entire buffer* shifts down one row each tick, giving every
+    drop a trailing history. Our code tracks only a Y position per column with no trail/fade.
+  - Replace `dpxPixelEffect.rain[x]` (column Y position) with a full `static uint32_t _ovBuf[DPX_MATRIX_W][DPX_MATRIX_H]` buffer.
+  - Rain: each tick, shift buffer down one row; spawn new drops at row 0; apply `fadeToBlackBy`-style
+    dimming to tail pixels for trail effect.
+  - Snow: same shift logic but slower tick, trail dims to white rather than black.
+  - Storm: shift down + shift *right* (wind) — horizontal drift per tick alongside vertical fall.
+  - Frost: each tick, randomly activate new pixels using `OceanColors_p`-like palette cycling;
+    decay existing pixels — animated, not static.
+  - Buffer is reset when effect changes (`dpxClearPixelEffect()`).
+
+- [ ] **1.19** Storm wind effect `dpx_overlay.h`
+  - Storm should horizontally shift pixels right by 1 column every ~3 ticks in addition to falling.
+  - Simple: after the vertical shift in 1.18's buffer, do `leds[x][y] = leds[x-1][y]` sweep.
+  - Thunder = same as storm but with periodic full-white flash frame instead of rain color.
+
+- [ ] **1.20** Background effects system (full-screen animated canvases) `dpx_overlay.h`
+  - **Context:** AWTRIX3 has a separate `effect` JSON field (distinct from `overlay`) for full-screen
+    animated effects that render *behind* text: Fireworks, TwinklingStars, Matrix code rain, Ripple,
+    Pacifica ocean, PlasmaCloud, PingPong, Radar, ColorWaves, etc.
+  - **Do NOT port AWTRIX3 code** — their license is non-commercial. Write equivalent effects from
+    scratch in `dpx_overlay.h` using the SEGMENT API, using different implementations/algorithms.
+  - First, audit WLED's built-in effects (`GET /json/effects`) — WLED already has Matrix, Fireworks,
+    Ripple, Plasma, Pacifica, and many others as full FX. Consider whether routing through WLED's
+    FX engine (via 1.16 pattern slots) is sufficient before writing parallel implementations.
+  - If WLED FX are used, the `effect` JSON field on a custom app could just trigger a brief WLED FX
+    slot during that app's dwell, then return to dpx_matrix. May make 1.20 mostly free via 1.16.
+  - If custom effects are warranted (e.g., effects that need to composite with text), add a new
+    `DpxBgEffect` struct and `dpxBgEffect` state alongside `dpxPixelEffect`.
+  - Candidate effects to implement if needed: TwinklingStars, Fireworks, ColorWaves, Radar.
 
 ---
 
