@@ -203,9 +203,9 @@ vis "Display cleared immediately after dismiss (nothing scrolling)"
 _wait 2  # let dismiss settle before next notify
 
 # 3. Finite repeat — must scroll exactly 2× then vanish on its own
-_post /api/notify '{"text":"TWICE","color":"#00FFFF","repeat":2,"duration":5}' > /dev/null
+_post /api/notify '{"text":"SCROLL TWICE AND STOP","color":"#00FFFF","repeat":2,"duration":5}' > /dev/null
 _wait 1
-vis "Cyan 'TWICE' — watch it scroll EXACTLY 2 times then disappear on its own" '_post /api/notify/dismiss {}'
+vis "Cyan text scrolling — watch it scroll EXACTLY 2 times then disappear on its own" '_post /api/notify/dismiss {}'
 _wait 2  # let dismiss settle before next notify
 
 # 4. Rainbow
