@@ -126,7 +126,9 @@ assert_has "$resp" '"build"' "GET /dpx"
         info "No build timestamp file — build once to enable firmware version check"
     fi
 resp=$(_get /api/stats);  assert_has "$resp" '"ram"'       "GET /api/stats"
-resp=$(_get /api/apps);   assert_has "$resp" '"name"'      "GET /api/apps"
+# Restore natives before checking loop (previous test run may have muted them)
+_post /api/settings '{"TIM":true,"DAT":true}' > /dev/null
+resp=$(_get /api/apps);   assert_has "$resp" '"native"'    "GET /api/apps"
 resp=$(_get /api/effects); assert_has "$resp" '"dpx Matrix"' "GET /api/effects"
 resp=$(_get /api/settings)
 for k in BRI ATIME ATRANS SSPEED TIM DAT TC_MUTE SOUND; do assert_has "$resp" "\"$k\"" "settings.$k"; done
