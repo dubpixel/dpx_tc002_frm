@@ -280,13 +280,22 @@ static void dpxRegisterRoutes() {
         DynamicJsonDocument doc(128);
         if (!deserializeJson(doc, body)) {
             if (doc.containsKey("color")) {
-                JsonArray a = doc["color"].as<JsonArray>();
-                if (a.size() >= 3)
-                    dpxIndicator[idx] = ((uint32_t)(uint8_t)a[0].as<int>() << 16)
-                                      | ((uint32_t)(uint8_t)a[1].as<int>() <<  8)
-                                      |  (uint32_t)(uint8_t)a[2].as<int>();
-                else
+                JsonVariant cv = doc["color"];
+                if (cv.is<JsonArray>()) {
+                    JsonArray a = cv.as<JsonArray>();
+                    if (a.size() >= 3)
+                        dpxIndicator[idx] = ((uint32_t)(uint8_t)a[0].as<int>() << 16)
+                                          | ((uint32_t)(uint8_t)a[1].as<int>() <<  8)
+                                          |  (uint32_t)(uint8_t)a[2].as<int>();
+                    else
+                        dpxIndicator[idx] = 0;
+                } else if (cv.is<const char*>()) {
+                    // Accept "#RRGGBB" hex string
+                    const char* s = cv.as<const char*>();
+                    dpxIndicator[idx] = (s && s[0]=='#') ? (uint32_t)strtol(s+1, nullptr, 16) : 0;
+                } else {
                     dpxIndicator[idx] = 0;
+                }
             }
             if (doc.containsKey("blink"))
                 dpxIndicatorBlink[idx] = (uint32_t)max(0, doc["blink"].as<int>());
