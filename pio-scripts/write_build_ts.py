@@ -1,20 +1,20 @@
 """
-write_build_ts.py — PlatformIO post-build script for dpx_tc002
-Writes the firmware's compile timestamp to build_output/dpx_build.ts so
-dpx_test.sh can compare it against the device's reported build string.
-The test compares at minute precision to tolerate the few-second gap between
-this post-build timestamp and __DATE__/__TIME__ in the compiled binary.
+write_build_ts.py — pre-build script for dpx_tc002
+Generates a random 8-char hex build ID, injects it as DPX_BUILD_ID build flag,
+and writes it to build_output/dpx_build.ts.
+The test reads dpx_build.ts and compares to the device's reported build_id.
 """
 Import("env")
-import datetime
-import os
+import os, random, string
 
-def write_build_ts(source, target, env):
-    ts = datetime.datetime.now().strftime("%b %d %Y %H:%M:%S")
-    out_dir = os.path.join(env.subst("$PROJECT_DIR"), "build_output")
-    os.makedirs(out_dir, exist_ok=True)
-    with open(os.path.join(out_dir, "dpx_build.ts"), "w") as f:
-        f.write(ts)
-    print(f"[dpx] Build timestamp: {ts}")
+def gen_build_id():
+    return ''.join(random.choices(string.hexdigits[:16], k=8)).lower()
 
-env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", write_build_ts)
+build_id = gen_build_id()
+out_dir = os.path.join(env.subst("$PROJECT_DIR"), "build_output")
+os.makedirs(out_dir, exist_ok=True)
+with open(os.path.join(out_dir, "dpx_build.ts"), "w") as f:
+    f.write(build_id)
+
+env.Append(CPPDEFINES=[("DPX_BUILD_ID", env.StringifyMacro(build_id))])
+print(f"[dpx] Build ID: {build_id}")

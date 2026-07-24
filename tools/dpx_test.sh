@@ -109,21 +109,18 @@ suite "connectivity" || { :; } && {
 resp=$(_get /dpx) || { fail "unreachable at $HOST"; exit 1; }
 assert_has "$resp" '"build"' "GET /dpx"
     _dev_build=$(_jq "$resp" '.build')
-    info "Device build: $_dev_build"
+    _dev_build_id=$(_jq "$resp" '.build_id')
+    info "Device build: $_dev_build  id=$_dev_build_id"
     _ts_file="$(cd "$(dirname "$0")/.." && pwd)/build_output/dpx_build.ts"
     if [[ -f "$_ts_file" ]]; then
-        _local_build=$(cat "$_ts_file")
-        # Compare at minute precision — __DATE__/__TIME__ stamped during compile,
-        # dpx_build.ts written at script import (pre-compile). Allow ±59s drift.
-        _dev_min="${_dev_build%:*}"
-        _local_min="${_local_build%:*}"
-        if [[ "$_local_min" == "$_dev_min" ]]; then
-            ok "Device firmware is current ($_dev_build)"
+        _local_id=$(cat "$_ts_file")
+        if [[ "$_local_id" == "$_dev_build_id" ]]; then
+            ok "Device firmware is current (build_id=$_dev_build_id)"
         else
-            echo -e "  \033[1;33m⚠  STALE FIRMWARE: device=$_dev_build  local=$_local_build — upload before testing\033[0m"
+            echo -e "  \033[1;33m⚠  STALE — device=$_dev_build_id  local=$_local_id — build + upload\033[0m"
         fi
     else
-        info "No build timestamp file — build once to enable firmware version check"
+        info "No dpx_build.ts — run pio build once to enable check"
     fi
 resp=$(_get /api/stats);  assert_has "$resp" '"ram"'       "GET /api/stats"
 # Restore natives before checking loop (previous test run may have muted them)

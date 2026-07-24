@@ -77,6 +77,10 @@ static String dpxStatsJson() {
     DynamicJsonDocument doc(512);
     doc[F("version")]   = F("dpx_tc002");
     doc[F("build")]     = F(__DATE__ " " __TIME__);  // unique per compile
+#ifndef DPX_BUILD_ID
+#define DPX_BUILD_ID "dev"
+#endif
+    doc[F("build_id")]  = F(DPX_BUILD_ID);  // injected by pio-scripts/write_build_ts.py
     doc[F("uptime")]    = millis() / 1000;
     doc[F("ram")]       = ESP.getFreeHeap();
     doc[F("ip")]        = WiFi.localIP().toString();
