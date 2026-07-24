@@ -241,13 +241,13 @@ _post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
 suite "indicators" || { :; } && {
 _post /api/indicator1 '{"color":"#FF0000"}' > /dev/null
 _wait 1
-vis "TOP-LEFT corner: solid RED 3px L-shape" '_clr_ind 1'
+vis "Indicator 1: 3 RED pixels forming an L at the TOP-LEFT corner of the matrix" '_clr_ind 1'
 _post /api/indicator2 '{"color":"#00FF00","blink":400}' > /dev/null
 _wait 1
-vis "TOP-RIGHT corner: GREEN blinking ~400ms" '_clr_ind 2'
+vis "Indicator 2: 3 GREEN pixels at TOP-RIGHT corner, blinking on/off every 400ms" '_clr_ind 2'
 _post /api/indicator3 '{"color":"#0088FF","fade":1500}' > /dev/null
 _wait 1
-vis "BOTTOM-LEFT corner: BLUE pulsing slowly" '_clr_ind 3'
+vis "Indicator 3: 3 BLUE pixels at BOTTOM-LEFT corner, slowly pulsing in/out" '_clr_ind 3'
 for i in 1 2 3; do resp=$(_post /api/indicator$i '{"color":"#000000"}'); assert_ok "$resp" "Clear indicator $i"; done
 }
 
