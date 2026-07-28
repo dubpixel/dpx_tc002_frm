@@ -178,7 +178,7 @@ public:
         Serial.println(F("  │"));
         Serial.println(F("└─────────────────────────────┘"));
         Serial.println();
-        Serial.printf("[dpx] IP: %s\n", ip.c_str());
+        Serial.printf("[dpx] IP: %s  build_id=%s\n", ip.c_str(), DPX_BUILD_ID);
         StaticJsonDocument<128> doc;
         doc["text"]   = ip;
         doc["color"]  = "#00FF88";
@@ -228,6 +228,7 @@ public:
                     Serial.printf("[dpx] Time    : %02d:%02d:%02d (localTime=%lu)\n",
                         hour(localTime), minute(localTime), second(localTime), (unsigned long)localTime);
                     Serial.printf("[dpx] Uptime  : %lus\n", millis() / 1000);
+                    Serial.printf("[dpx] Build   : %s\n", DPX_BUILD_ID);
                     Serial.printf("[dpx] MQTT    : %s\n", WLED_MQTT_CONNECTED ? "connected" : "disconnected");
                     Serial.printf("[dpx] OSC UDP : %s port %d\n", dpxUdpStarted ? "started" : "stopped", DPX_OSC_PORT);
                     break;
@@ -281,8 +282,10 @@ public:
         }
         _serialWasConnected = serialNow;
 
-        // Advance app pointer when duration expires
-        dpxAppLoopTick();
+        // Advance app pointer when duration expires.
+        // Guard: skip while notification is active — dpxNextApp() resets dpxScroll
+        // which would restart a completing notification scroll indefinitely.
+        if (!dpxNotifActive) dpxAppLoopTick();
 
         // TC dwell timeout — restore auto-transition after TC signal stops
         dpxTcDwellTick();
