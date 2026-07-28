@@ -1082,7 +1082,7 @@ fetch("/list?dir=/MELODIES/").then(function(r){return r.json();}).then(function(
 function loadStatus(){
   fetch("/dpx").then(function(r){return r.json();}).then(function(d){
     var el=document.getElementById("status_bar");if(el)
-      el.innerHTML='<b style="color:#4af">'+(d.hostname||'dpx_tc002')+'</b> <span style="color:#333">&#9654;</span> <span>'+d.ip+'</span> <span style="color:#2a2a4a">|</span> <span>RSSI: '+d.rssi+' dBm</span> <span style="color:#2a2a4a">|</span> <span>heap: '+Math.round(d.ram/1024)+'KB</span> <span style="color:#2a2a4a">|</span> <span>up '+d.uptime+'s</span> <span style="color:#2a2a4a">|</span> app: <b style="color:#8cf">'+d.app+'</b><span style="color:#333;margin-left:auto;font-size:10px">build: '+d.build+'</span>';
+      el.innerHTML='<b style="color:#4af">'+(d.hostname||'dpx_tc002')+'</b> <span style="color:#333">&#9654;</span> <span>'+d.ip+'</span> <span style="color:#2a2a4a">|</span> <span>RSSI: '+d.rssi+' dBm</span> <span style="color:#2a2a4a">|</span> <span>heap: '+Math.round(d.ram/1024)+'KB</span> <span style="color:#2a2a4a">|</span> <span>up '+d.uptime+'s</span> <span style="color:#2a2a4a">|</span> app: <b style="color:#8cf">'+d.app+'</b><span style="color:#333;margin-left:auto;font-size:10px">build: <b style="color:#8a8">'+d.build_id+'</b> &middot; '+d.build+'</span>';
     var qc=document.getElementById("n_queue_count");
     if(qc){var n=d.notif||0;qc.textContent=n>0?'('+n+' queued)':'';}
   }).catch(function(){});
