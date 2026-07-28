@@ -150,7 +150,7 @@ static bool dpxSetPixelEffect(const char* json) {
     dpxPixelEffect.color     = dpxParseColor(doc["color"], 0xFFFFFF);
     dpxPixelEffect.intensity = doc["intensity"] | 50;
     dpxPixelEffect.active    = (name != "none" && name.length() > 0);
-    dpxPixelEffect.lastMs    = 0;
+    dpxPixelEffect.lastMs    = millis(); // init to now so first toggle doesn't fire immediately
     dpxPixelEffect.strobeOn  = true;
     memset(dpxPixelEffect.rain,  0, sizeof(dpxPixelEffect.rain));
     memset(dpxPixelEffect.snow,  0, sizeof(dpxPixelEffect.snow));
@@ -170,7 +170,10 @@ static void dpxRenderPixelEffect() {
 
     // ── Sparkle ────────────────────────────────────────────────────────────
     if (dpxPixelEffect.name == "sparkle") {
-        // Each frame, light up ~intensity/4 random pixels white then fade
+        // Rate-limit to ~20Hz to avoid jitter at high FX framerates
+        int intervalMs = map(iv, 0, 100, 120, 30);
+        if (now - dpxPixelEffect.lastMs < (unsigned long)intervalMs) return;
+        dpxPixelEffect.lastMs = now;
         int count = max(1, (int)(iv / 4));
         for (int i = 0; i < count; i++) {
             int px = (int)(random(256));
@@ -180,6 +183,9 @@ static void dpxRenderPixelEffect() {
 
     // ── Twinkle ────────────────────────────────────────────────────────────────
     else if (dpxPixelEffect.name == "twinkle") {
+        int intervalMs = map(iv, 0, 100, 150, 40);
+        if (now - dpxPixelEffect.lastMs < (unsigned long)intervalMs) return;
+        dpxPixelEffect.lastMs = now;
         int count = max(1, (int)(iv / 8));
         for (int i = 0; i < count; i++) {
             int px = (int)(random(256));
@@ -303,11 +309,12 @@ static void dpxRenderPixelEffect() {
             dpxPixelEffect.lastMs = now;
             dpxPixelEffect.strobeOn = true;
         }
+        // Flash persists for 60ms so it's visible at any framerate
         if (dpxPixelEffect.strobeOn) {
             for (int y = 0; y < DPX_MATRIX_H; y++)
                 for (int x = 0; x < DPX_MATRIX_W; x++)
                     SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), 0xFFFFFF, 220));
-            dpxPixelEffect.strobeOn = false; // single frame flash
+            if (now - dpxPixelEffect.lastMs >= 60) dpxPixelEffect.strobeOn = false;
         }
     }
 
