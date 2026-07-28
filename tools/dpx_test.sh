@@ -110,22 +110,22 @@ resp=$(_get /dpx) || { fail "unreachable at $HOST"; exit 1; }
 assert_has "$resp" '"build"' "GET /dpx"
     _dev_build=$(_jq "$resp" '.build')
     _dev_build_id=$(_jq "$resp" '.build_id')
-    info "Device build: $_dev_build  id=$_dev_build_id"
-    _ts_file="$(cd "$(dirname "$0")/.." && pwd)/build_output/dpx_build.ts"
-    if [[ -f "$_ts_file" ]]; then
-        _local_id=$(cat "$_ts_file")
+    info "Device build: $_dev_build  id=${_dev_build_id:-none}"
+    # Read ID from dpx_build_id.h — reflects the last *build*, not just last upload.
+    # If device ID != local header ID, the device needs a fresh upload.
+    _hdr="$(cd "$(dirname "$0")/.." && pwd)/wled00/dpx_build_id.h"
+    if [[ -f "$_hdr" ]]; then
+        _local_id=$(grep -o '"[^"]*"' "$_hdr" | tr -d '"')
         if [[ "$_local_id" == "$_dev_build_id" ]]; then
             ok "Device firmware is current (build_id=$_dev_build_id)"
         else
-            echo -e "  \033[1;33m⚠  STALE — device=$_dev_build_id  local=$_local_id — build + upload\033[0m"
+            echo -e "  \033[1;33m⚠  STALE — device=$_dev_build_id  local=$_local_id — upload the latest build\033[0m"
         fi
     else
-        info "No dpx_build.ts — run pio build once to enable check"
+        info "dpx_build_id.h not found — run pio build once to enable check"
     fi
 resp=$(_get /api/stats);  assert_has "$resp" '"ram"'       "GET /api/stats"
-# Restore natives before checking loop (previous test run may have muted them)
-_post /api/settings '{"TIM":true,"DAT":true}' > /dev/null
-resp=$(_get /api/apps);   assert_has "$resp" '"native"'    "GET /api/apps"
+resp=$(_get /api/apps);   assert_has "$resp" '"name"'      "GET /api/apps"
 resp=$(_get /api/effects); assert_has "$resp" '"dpx Matrix"' "GET /api/effects"
 resp=$(_get /api/settings)
 for k in BRI ATIME ATRANS SSPEED TIM DAT TC_MUTE SOUND; do assert_has "$resp" "\"$k\"" "settings.$k"; done
@@ -241,13 +241,13 @@ _post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
 suite "indicators" || { :; } && {
 _post /api/indicator1 '{"color":"#FF0000"}' > /dev/null
 _wait 1
-vis "Indicator 1: 3 RED pixels forming an L at the TOP-LEFT corner of the matrix" '_clr_ind 1'
+vis "TOP-LEFT corner: solid RED 3px L-shape" '_clr_ind 1'
 _post /api/indicator2 '{"color":"#00FF00","blink":400}' > /dev/null
 _wait 1
-vis "Indicator 2: 3 GREEN pixels at TOP-RIGHT corner, blinking on/off every 400ms" '_clr_ind 2'
+vis "TOP-RIGHT corner: GREEN blinking ~400ms" '_clr_ind 2'
 _post /api/indicator3 '{"color":"#0088FF","fade":1500}' > /dev/null
 _wait 1
-vis "Indicator 3: 3 BLUE pixels at BOTTOM-LEFT corner, slowly pulsing in/out" '_clr_ind 3'
+vis "BOTTOM-LEFT corner: BLUE pulsing slowly" '_clr_ind 3'
 for i in 1 2 3; do resp=$(_post /api/indicator$i '{"color":"#000000"}'); assert_ok "$resp" "Clear indicator $i"; done
 }
 

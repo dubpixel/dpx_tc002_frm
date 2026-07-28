@@ -218,6 +218,8 @@ When you flash this firmware the device is **not stock WLED** — it boots into 
 
 > This AP stays open indefinitely whenever the device is not connected to WiFi — no 5-minute timeout.
 
+> **Note:** After powering on, allow **10–15 seconds** before scanning for the `dpx-tc002` network. The AP comes up after the initial WiFi connection attempt completes. If the network doesn't appear immediately, wait a moment and scan again.
+
 ### Default hardware config (written once on first boot)
 
 | Setting | Value | Notes |

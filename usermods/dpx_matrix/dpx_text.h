@@ -147,8 +147,9 @@ struct DpxScrollState {
         if (now - lastStepMs < (unsigned long)speedMs) return false;
         lastStepMs = now;
         scrollX--;
-        // Complete when text has fully scrolled off left
-        if (scrollX < -(textWidth)) {
+        // Complete when text has fully scrolled off left with a half-screen
+        // trailing gap — gives a clean blank before wrap/end (issue #51)
+        if (scrollX < -(textWidth + DPX_MATRIX_W / 2)) {
             repeatsDone++;
             if (repeat >= 0 && repeatsDone >= repeat) {
                 active = false;
