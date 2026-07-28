@@ -151,6 +151,25 @@ public:
         // Register HTTP routes
         dpxRegisterRoutes();
 
+        // Auto-assign MAC-based mDNS hostname if still at the WLED default ("x"),
+        // not yet configured, or set to our generic default without MAC suffix.
+        // Format: dpx-tc002-XXXXXX where XXXXXX = last 3 bytes of MAC.
+        // Persisted to config so the user can override via WLED UI.
+        {
+            uint8_t mac[6];
+            WiFi.macAddress(mac);
+            char expected[33];
+            snprintf(expected, sizeof(expected), "dpx-tc002-%02x%02x%02x", mac[3], mac[4], mac[5]);
+            bool needsSet = (strcmp(cmDNS, "x") == 0 || strlen(cmDNS) == 0
+                             || strcmp(cmDNS, "dpx-tc002") == 0
+                             || strcmp(cmDNS, expected) != 0 && strncmp(cmDNS, "dpx-tc002-", 10) == 0);
+            if (needsSet) {
+                strlcpy(cmDNS, expected, sizeof(cmDNS));
+                serializeConfigToFS();
+                DEBUG_PRINTF("DpxMatrix: mDNS hostname set to %s\n", cmDNS);
+            }
+        }
+
         _initDone = true;
         DEBUG_PRINTF("DpxMatrix: setup complete, effect id=%d\n", _dpxEffectId);
     }
@@ -169,16 +188,15 @@ public:
 
         DEBUG_PRINTLN(F("DpxMatrix: WiFi connected, OSC UDP started"));
 
-        // Print IP prominently — visible any time serial monitor is open
+        // Print connection info prominently to serial
         String ip = WiFi.localIP().toString();
         Serial.println();
-        Serial.println(F("┌─────────────────────────────┐"));
-        Serial.print  (F("│  dpx_tc002  IP: "));
-        Serial.print  (ip);
-        Serial.println(F("  │"));
-        Serial.println(F("└─────────────────────────────┘"));
+        Serial.println(F("  ┌─ dpx_tc002 connected ──────────────────┐"));
+        Serial.printf (  "  │  IP   : %-30s │\n", ip.c_str());
+        Serial.printf (  "  │  host : %-30s │\n", (String(cmDNS) + ".local").c_str());
+        Serial.printf (  "  │  build: %-30s │\n", DPX_BUILD_ID);
+        Serial.println(F("  └─────────────────────────────────────────┘"));
         Serial.println();
-        Serial.printf("[dpx] IP: %s  build_id=%s\n", ip.c_str(), DPX_BUILD_ID);
         StaticJsonDocument<128> doc;
         doc["text"]   = ip;
         doc["color"]  = "#00FF88";
@@ -213,6 +231,7 @@ public:
                     break;
                 case 's': {
                     Serial.printf("[dpx] IP      : %s\n", WiFi.localIP().toString().c_str());
+                    Serial.printf("[dpx] Hostname : %s.local\n", cmDNS);
                     Serial.printf("[dpx] AP SSID : %s (%s) clients=%d\n",
                         apSSID,
                         WiFi.softAPIP().toString().c_str(),
