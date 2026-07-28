@@ -1,6 +1,6 @@
 {
   "name": "wled",
-  "version": "17.0.0-dev",
+  "version": "17.0.0-dpx_tc002-dev",
   "description": "Tools for WLED project",
   "main": "tools/cdata.js",
   "directories": {
