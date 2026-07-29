@@ -798,8 +798,7 @@ select option{background:#222}
 <div class="card">
 <h2>Display &amp; Indicators</h2>
 <label>Brightness</label>
-<div class="row"><input type="range" id="bri" min="0" max="255" value="128" oninput="document.getElementById('bri_v').textContent=this.value"><span id="bri_v" style="min-width:28px;text-align:right">128</span></div>
-<button onclick="sendBri()" style="margin-top:6px">Set Brightness</button>
+<div class="row"><input type="range" id="bri" min="0" max="255" value="128" oninput="document.getElementById('bri_v').textContent=this.value;sendBri()"><span id="bri_v" style="min-width:28px;text-align:right">128</span></div>
 <hr>
 <div class="row" style="margin-top:4px">
   <button onclick="apiPost('/api/power',{power:true})">&#9675; Power On</button>
@@ -998,7 +997,7 @@ function deleteCustomApp(){
   fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST"}).then(function(){toast("App removed");setTimeout(loadLoop,600);});
 }
 function sendInd(n){apiPost("/api/indicator"+n,{color:h2r(document.getElementById("i"+n+"c").value),blink:+document.getElementById("i"+n+"b").value,fade:+document.getElementById("i"+n+"f").value});}
-function sendBri(){apiPost("/api/settings",{BRI:+document.getElementById("bri").value});}
+var _briT=null;function sendBri(){clearTimeout(_briT);_briT=setTimeout(function(){apiPost("/api/settings",{BRI:+document.getElementById("bri").value});},300);}
 function switchApp(){var n=document.getElementById("sw_app").value;if(!n){toast("Enter app name",false);return;}apiPost("/api/switch",{name:n});}
 function loadListeners(){
   var el=document.getElementById("listener_list");if(!el)return;
