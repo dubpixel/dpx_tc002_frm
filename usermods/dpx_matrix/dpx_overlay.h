@@ -26,7 +26,8 @@
 //   2. PIXEL EFFECT — lightweight per-pixel effect applied on top of everything.
 //      Controlled via MQTT dpx/effect or JSON state {"dpx":{"effect":{...}}}.
 //
-//      Effects: "sparkle", "strobe", "rain", "twinkle", "blink", "none"
+//      Effects: "sparkle", "strobe", "rain", "twinkle", "blink", "pulse", "rainbow",
+//               "fire", "matrix", "scan", "none"
 //
 //      JSON schema:
 //        {"name":"sparkle","color":"#FFFFFF","intensity":50}
@@ -66,6 +67,15 @@ static struct {
     uint8_t  snow[DPX_MATRIX_W] = {}; // snow floor accumulation (rows from bottom)
     bool     frostInit = false;        // frost: static pattern generated?
     uint8_t  frost[256] = {};          // frost: which pixels are frosted (1=yes)
+    // Persistent brightness buffer for sparkle/twinkle — updated at rate-limit
+    // interval, drawn every frame so glow doesn't flicker with FX framerate (#59)
+    uint8_t  pixbuf[256] = {};
+    // New effect state
+    uint8_t  pulsePhase = 0;      // pulse: 0–255, maps to brightness
+    uint8_t  rainbowHue = 0;      // rainbow: current hue (0–255)
+    uint8_t  fireState[256] = {}; // fire: heat per pixel
+    uint8_t  matrix[DPX_MATRIX_W] = {}; // matrix: drop position per column
+    uint8_t  scanPos = 0;         // scan: beam X position
 } dpxPixelEffect;
 
 // ── Text overlay control ──────────────────────────────────────────────────────
@@ -152,15 +162,23 @@ static bool dpxSetPixelEffect(const char* json) {
     dpxPixelEffect.active    = (name != "none" && name.length() > 0);
     dpxPixelEffect.lastMs    = millis(); // init to now so first toggle doesn't fire immediately
     dpxPixelEffect.strobeOn  = true;
-    memset(dpxPixelEffect.rain,  0, sizeof(dpxPixelEffect.rain));
-    memset(dpxPixelEffect.snow,  0, sizeof(dpxPixelEffect.snow));
+    memset(dpxPixelEffect.rain,   0, sizeof(dpxPixelEffect.rain));
+    memset(dpxPixelEffect.snow,   0, sizeof(dpxPixelEffect.snow));
+    memset(dpxPixelEffect.pixbuf, 0, sizeof(dpxPixelEffect.pixbuf));
+    memset(dpxPixelEffect.fireState, 0, sizeof(dpxPixelEffect.fireState));
+    memset(dpxPixelEffect.matrix, 0, sizeof(dpxPixelEffect.matrix));
     dpxPixelEffect.frostInit = false;
+    dpxPixelEffect.pulsePhase = 0;
+    dpxPixelEffect.rainbowHue = 0;
+    dpxPixelEffect.scanPos = 0;
     return true;
 }
 
 static void dpxClearPixelEffect() { dpxPixelEffect.active = false; }
 
 // Render one frame of the active pixel effect on top of current LED content.
+// Effects are split into advance (rate-limited state update) and draw (every
+// frame from persistent state) so effects don't flicker at FX framerate. (#59)
 static void dpxRenderPixelEffect() {
     if (!dpxPixelEffect.active) return;
 
@@ -168,35 +186,55 @@ static void dpxRenderPixelEffect() {
     uint32_t col = dpxPixelEffect.color;
     uint8_t  iv  = dpxPixelEffect.intensity;
 
-    // ── Sparkle ────────────────────────────────────────────────────────────
+    // ── Sparkle ──────────────────────────────────────────────────────────
+    // pixbuf stores per-pixel glow brightness. Advance seeds/decays; draw renders
+    // pixbuf every frame so glow persists between rate-limit intervals.
     if (dpxPixelEffect.name == "sparkle") {
-        // Rate-limit to ~20Hz to avoid jitter at high FX framerates
         int intervalMs = map(iv, 0, 100, 120, 30);
-        if (now - dpxPixelEffect.lastMs < (unsigned long)intervalMs) return;
-        dpxPixelEffect.lastMs = now;
-        int count = max(1, (int)(iv / 4));
-        for (int i = 0; i < count; i++) {
-            int px = (int)(random(256));
-            SEGMENT.setPixelColorXY(px % DPX_MATRIX_W, px / DPX_MATRIX_W, col);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            for (int i = 0; i < 256; i++)
+                dpxPixelEffect.pixbuf[i] = (dpxPixelEffect.pixbuf[i] > 30) ? dpxPixelEffect.pixbuf[i] - 30 : 0;
+            int count = max(1, (int)(iv / 8)); // sparser
+            for (int i = 0; i < count; i++)
+                dpxPixelEffect.pixbuf[(int)random(256)] = 255;
+        }
+        uint8_t r = (col >> 16) & 0xFF, g = (col >> 8) & 0xFF, b = col & 0xFF;
+        for (int i = 0; i < 256; i++) {
+            if (dpxPixelEffect.pixbuf[i] > 0) {
+                uint8_t bri = dpxPixelEffect.pixbuf[i];
+                uint32_t c = ((uint32_t)(r * bri / 255) << 16) | ((uint32_t)(g * bri / 255) << 8) | (b * bri / 255);
+                SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
+                    color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, 180)); // brighter
+            }
         }
     }
 
-    // ── Twinkle ────────────────────────────────────────────────────────────────
+    // ── Twinkle ──────────────────────────────────────────────────────────
+    // Pops pixels bright — random pixels flash above their base color. (#58)
     else if (dpxPixelEffect.name == "twinkle") {
-        int intervalMs = map(iv, 0, 100, 150, 40);
-        if (now - dpxPixelEffect.lastMs < (unsigned long)intervalMs) return;
-        dpxPixelEffect.lastMs = now;
-        int count = max(1, (int)(iv / 8));
-        for (int i = 0; i < count; i++) {
-            int px = (int)(random(256));
-            uint32_t existing = SEGMENT.getPixelColorXY(px % DPX_MATRIX_W, px / DPX_MATRIX_W);
-            SEGMENT.setPixelColorXY(px % DPX_MATRIX_W, px / DPX_MATRIX_W, color_blend(existing, col, 180));
+        int intervalMs = map(iv, 0, 100, 200, 50);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            for (int i = 0; i < 256; i++)
+                dpxPixelEffect.pixbuf[i] = (dpxPixelEffect.pixbuf[i] > 25) ? dpxPixelEffect.pixbuf[i] - 25 : 0;
+            int count = max(1, (int)(iv / 6));
+            for (int i = 0; i < count; i++)
+                dpxPixelEffect.pixbuf[(int)random(256)] = 200 + (int)(random(55));
+        }
+        uint8_t r = (col >> 16) & 0xFF, g = (col >> 8) & 0xFF, b = col & 0xFF;
+        for (int i = 0; i < 256; i++) {
+            if (dpxPixelEffect.pixbuf[i] > 0) {
+                uint8_t bri = dpxPixelEffect.pixbuf[i];
+                uint32_t c = ((uint32_t)(r * bri / 255) << 16) | ((uint32_t)(g * bri / 255) << 8) | (b * bri / 255);
+                SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
+                    color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, 160));
+            }
         }
     }
 
-    // ── Strobe ────────────────────────────────────────────────────────────
+    // ── Strobe — inverts the display on flash frames (#60) ───────────────────
     else if (dpxPixelEffect.name == "strobe") {
-        // Flash on/off at speed derived from intensity
         int intervalMs = map(iv, 0, 100, 400, 40);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs  = now;
@@ -204,12 +242,18 @@ static void dpxRenderPixelEffect() {
         }
         if (dpxPixelEffect.strobeOn) {
             for (int y = 0; y < DPX_MATRIX_H; y++)
-                for (int x = 0; x < DPX_MATRIX_W; x++)
-                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), col, 200));
+                for (int x = 0; x < DPX_MATRIX_W; x++) {
+                    uint32_t p = SEGMENT.getPixelColorXY(x, y);
+                    // Invert: each channel flips around mid-grey
+                    uint32_t inv = (((255 - ((p >> 16) & 0xFF)) << 16)
+                                  | ((255 - ((p >>  8) & 0xFF)) <<  8)
+                                  |  (255 - ( p        & 0xFF)));
+                    SEGMENT.setPixelColorXY(x, y, inv);
+                }
         }
     }
 
-    // ── Blink ─────────────────────────────────────────────────────────────
+    // ── Blink ────────────────────────────────────────────────────────────────
     else if (dpxPixelEffect.name == "blink") {
         int intervalMs = map(iv, 0, 100, 1000, 200);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
@@ -223,71 +267,65 @@ static void dpxRenderPixelEffect() {
         }
     }
 
-    // ── Rain ──────────────────────────────────────────────────────────────
+    // ── Rain — advance rate-limited, draw current state every frame ───────────────
     else if (dpxPixelEffect.name == "rain") {
         int intervalMs = map(iv, 0, 100, 200, 20);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
-            // Advance each column's raindrop
             for (int x = 0; x < DPX_MATRIX_W; x++) {
                 if (dpxPixelEffect.rain[x] > 0) {
-                    // Erase old head, draw new
-                    int y = dpxPixelEffect.rain[x] - 1;
-                    if (y < DPX_MATRIX_H) dpxSetPixel(x, y, 0);
                     dpxPixelEffect.rain[x]++;
-                    if ((int)dpxPixelEffect.rain[x] - 1 < DPX_MATRIX_H)
-                        dpxSetPixel(x, dpxPixelEffect.rain[x] - 1, col);
-                    if ((int)dpxPixelEffect.rain[x] > DPX_MATRIX_H + 1)
-                        dpxPixelEffect.rain[x] = 0; // reset column
+                    if ((int)dpxPixelEffect.rain[x] > DPX_MATRIX_H + 1) dpxPixelEffect.rain[x] = 0;
                 }
-                // Randomly start new drops
-                if (dpxPixelEffect.rain[x] == 0 && (random(256) < (iv * 2)))
-                    dpxPixelEffect.rain[x] = 1;
+                if (dpxPixelEffect.rain[x] == 0 && (random(256) < (iv * 2))) dpxPixelEffect.rain[x] = 1;
             }
         }
+        for (int x = 0; x < DPX_MATRIX_W; x++)
+            if (dpxPixelEffect.rain[x] > 0 && (int)dpxPixelEffect.rain[x] - 1 < DPX_MATRIX_H)
+                dpxSetPixel(x, dpxPixelEffect.rain[x] - 1, 0x4466AA); // blue like drizzle
     }
 
-    // ── Drizzle: lighter rain \u2014 fewer, slower, dimmer drops ──────────────────
+    // ── Drizzle ──────────────────────────────────────────────────────────────
     else if (dpxPixelEffect.name == "drizzle") {
         int intervalMs = map(iv, 0, 100, 400, 80);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
             for (int x = 0; x < DPX_MATRIX_W; x++) {
                 if (dpxPixelEffect.rain[x] > 0) {
-                    int y = dpxPixelEffect.rain[x] - 1;
-                    if (y < DPX_MATRIX_H) dpxSetPixel(x, y, 0);
                     dpxPixelEffect.rain[x]++;
-                    if ((int)dpxPixelEffect.rain[x] - 1 < DPX_MATRIX_H)
-                        dpxSetPixel(x, dpxPixelEffect.rain[x] - 1, 0x4466AA);
-                    if ((int)dpxPixelEffect.rain[x] > DPX_MATRIX_H + 1)
-                        dpxPixelEffect.rain[x] = 0;
+                    if ((int)dpxPixelEffect.rain[x] > DPX_MATRIX_H + 1) dpxPixelEffect.rain[x] = 0;
                 }
-                if (dpxPixelEffect.rain[x] == 0 && (random(512) < (uint32_t)(iv + 5)))
-                    dpxPixelEffect.rain[x] = 1;
+                if (dpxPixelEffect.rain[x] == 0 && (random(512) < (uint32_t)(iv + 5))) dpxPixelEffect.rain[x] = 1;
             }
         }
+        for (int x = 0; x < DPX_MATRIX_W; x++)
+            if (dpxPixelEffect.rain[x] > 0 && (int)dpxPixelEffect.rain[x] - 1 < DPX_MATRIX_H)
+                dpxSetPixel(x, dpxPixelEffect.rain[x] - 1, 0x4466AA);
     }
 
-    // ── Storm: heavy rain + occasional lightning flash ────────────────────
+    // ── Storm — diagonal rain (slants right as it falls) ─────────────────────
     else if (dpxPixelEffect.name == "storm") {
         int intervalMs = map(iv, 0, 100, 100, 10);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
             for (int x = 0; x < DPX_MATRIX_W; x++) {
                 if (dpxPixelEffect.rain[x] > 0) {
-                    int y = dpxPixelEffect.rain[x] - 1;
-                    if (y < DPX_MATRIX_H) dpxSetPixel(x, y, 0);
                     dpxPixelEffect.rain[x]++;
-                    if ((int)dpxPixelEffect.rain[x] - 1 < DPX_MATRIX_H)
-                        dpxSetPixel(x, dpxPixelEffect.rain[x] - 1, 0x4466FF);
-                    if ((int)dpxPixelEffect.rain[x] > DPX_MATRIX_H + 1)
-                        dpxPixelEffect.rain[x] = 0;
+                    if ((int)dpxPixelEffect.rain[x] > DPX_MATRIX_H + 1) dpxPixelEffect.rain[x] = 0;
                 }
-                if (dpxPixelEffect.rain[x] == 0 && (random(128) < (uint32_t)(iv * 3 + 20)))
-                    dpxPixelEffect.rain[x] = 1;
+                if (dpxPixelEffect.rain[x] == 0 && (random(128) < (uint32_t)(iv * 3 + 20))) dpxPixelEffect.rain[x] = 1;
             }
         }
-        // Occasional lightning flash (2 bright frames)
+        // Draw diagonally: x offset = row/2 so drop slants right as it falls
+        for (int x = 0; x < DPX_MATRIX_W; x++) {
+            if (dpxPixelEffect.rain[x] > 0) {
+                int row = (int)dpxPixelEffect.rain[x] - 1;
+                if (row < DPX_MATRIX_H) {
+                    int dx = (x + row / 2) % DPX_MATRIX_W;
+                    dpxSetPixel(dx, row, 0x6688FF);
+                }
+            }
+        }
         static unsigned long _stormFlashMs = 0;
         static int _stormFlashFrames = 0;
         if (_stormFlashFrames > 0) {
@@ -301,71 +339,211 @@ static void dpxRenderPixelEffect() {
         }
     }
 
-    // ── Thunder: periodic full-screen white flash, no rain ───────────────
+    // ── Thunder — bright flash with ~400ms crash-and-decay using pixbuf ─────
     else if (dpxPixelEffect.name == "thunder") {
-        // intervalMs decreases with intensity (more frequent flashes)
-        int intervalMs = map(iv, 0, 100, 4000, 600);
+        int intervalMs = map(iv, 0, 100, 5000, 800);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
+            // Trigger flash: set all pixbuf to 255
+            memset(dpxPixelEffect.pixbuf, 255, sizeof(dpxPixelEffect.pixbuf));
             dpxPixelEffect.strobeOn = true;
         }
-        // Flash persists for 60ms so it's visible at any framerate
+        // Decay pixbuf each frame (~15 per frame at 50fps = 400ms to zero)
         if (dpxPixelEffect.strobeOn) {
-            for (int y = 0; y < DPX_MATRIX_H; y++)
-                for (int x = 0; x < DPX_MATRIX_W; x++)
-                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), 0xFFFFFF, 220));
-            if (now - dpxPixelEffect.lastMs >= 60) dpxPixelEffect.strobeOn = false;
+            bool anyActive = false;
+            for (int i = 0; i < 256; i++) {
+                if (dpxPixelEffect.pixbuf[i] > 0) {
+                    dpxPixelEffect.pixbuf[i] = (dpxPixelEffect.pixbuf[i] > 15) ? dpxPixelEffect.pixbuf[i] - 15 : 0;
+                    anyActive = true;
+                }
+            }
+            if (!anyActive) dpxPixelEffect.strobeOn = false;
+            for (int i = 0; i < 256; i++) {
+                if (dpxPixelEffect.pixbuf[i] > 0) {
+                    SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
+                        color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W),
+                                    0xFFFFFF, dpxPixelEffect.pixbuf[i]));
+                }
+            }
         }
     }
 
-    // ── Snow: slow-falling white flakes, accumulate at the bottom ─────────
+    // ── Snow ────────────────────────────────────────────────────────────────
     else if (dpxPixelEffect.name == "snow") {
         int intervalMs = map(iv, 0, 100, 350, 70);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
             for (int x = 0; x < DPX_MATRIX_W; x++) {
                 if (dpxPixelEffect.rain[x] > 0) {
-                    int y = dpxPixelEffect.rain[x] - 1;
-                    // floor = bottom of free space above snow pile
                     int floorY = DPX_MATRIX_H - 1 - (int)dpxPixelEffect.snow[x];
+                    int y = dpxPixelEffect.rain[x] - 1;
                     if (y >= floorY) {
-                        // Flake landed \u2014 grow pile
-                        if (dpxPixelEffect.snow[x] < DPX_MATRIX_H)
-                            dpxPixelEffect.snow[x]++;
+                        if (dpxPixelEffect.snow[x] < DPX_MATRIX_H) dpxPixelEffect.snow[x]++;
                         dpxPixelEffect.rain[x] = 0;
                     } else {
-                        if (y < DPX_MATRIX_H) dpxSetPixel(x, y, 0);
                         dpxPixelEffect.rain[x]++;
-                        if ((int)dpxPixelEffect.rain[x] - 1 < DPX_MATRIX_H)
-                            dpxSetPixel(x, dpxPixelEffect.rain[x] - 1, 0xDDDDFF);
                     }
                 } else if (random(1024) < (uint32_t)(iv + 5)) {
                     dpxPixelEffect.rain[x] = 1;
                 }
             }
-            // Redraw snow floor every tick
+            // Wind drift: occasionally shift a falling flake left or right
             for (int x = 0; x < DPX_MATRIX_W; x++) {
-                for (uint8_t py = 0; py < dpxPixelEffect.snow[x]; py++) {
-                    dpxSetPixel(x, DPX_MATRIX_H - 1 - py, 0xDDDDFF);
+                if (dpxPixelEffect.rain[x] > 0 && random(8) == 0) {
+                    int nx = x + (random(2) == 0 ? 1 : -1);
+                    if (nx >= 0 && nx < DPX_MATRIX_W && dpxPixelEffect.rain[nx] == 0) {
+                        dpxPixelEffect.rain[nx] = dpxPixelEffect.rain[x];
+                        dpxPixelEffect.rain[x] = 0;
+                    }
                 }
             }
         }
+        for (int x = 0; x < DPX_MATRIX_W; x++)
+            if (dpxPixelEffect.rain[x] > 0 && (int)dpxPixelEffect.rain[x] - 1 < DPX_MATRIX_H)
+                dpxSetPixel(x, dpxPixelEffect.rain[x] - 1, 0xDDDDFF);
+        for (int x = 0; x < DPX_MATRIX_W; x++)
+            for (uint8_t py = 0; py < dpxPixelEffect.snow[x]; py++)
+                dpxSetPixel(x, DPX_MATRIX_H - 1 - py, 0xDDDDFF);
     }
 
-    // ── Frost: static blue-white scatter generated once per activation ────
+    // ── Frost ──────────────────────────────────────────────────────────────
     else if (dpxPixelEffect.name == "frost") {
         if (!dpxPixelEffect.frostInit) {
-            // Generate pattern once: ~(intensity/2)% of pixels frosted
             dpxPixelEffect.frostInit = true;
             int count = (256 * iv) / 200;
             memset(dpxPixelEffect.frost, 0, sizeof(dpxPixelEffect.frost));
             for (int i = 0; i < count; i++)
                 dpxPixelEffect.frost[(int)random(256)] = 1;
         }
-        for (int i = 0; i < 256; i++) {
+        for (int i = 0; i < 256; i++)
             if (dpxPixelEffect.frost[i])
                 SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
                     color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), 0xAADDFF, 160));
+    }
+
+    // ── Pulse — dimming/brightening cycle ──────────────────────────────────
+    else if (dpxPixelEffect.name == "pulse") {
+        int intervalMs = map(iv, 0, 100, 1500, 300);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            dpxPixelEffect.pulsePhase = (dpxPixelEffect.pulsePhase + 1) % 256;
+        }
+        uint8_t bri = 128 + (int8_t)((sin(dpxPixelEffect.pulsePhase * M_PI / 128.0) * 127));
+        for (int i = 0; i < 256; i++) {
+            uint32_t p = SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W);
+            uint8_t r = (p >> 16) & 0xFF, g = (p >> 8) & 0xFF, b = p & 0xFF;
+            uint32_t dimmed = ((uint32_t)(r * bri / 255) << 16) | ((uint32_t)(g * bri / 255) << 8) | (b * bri / 255);
+            SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W, dimmed);
+        }
+    }
+
+    // ── Rainbow — hue cycle across spectrum ────────────────────────────────
+    else if (dpxPixelEffect.name == "rainbow") {
+        int intervalMs = map(iv, 0, 100, 200, 30);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            dpxPixelEffect.rainbowHue = (dpxPixelEffect.rainbowHue + 1) % 256;
+        }
+        for (int i = 0; i < 256; i++) {
+            uint8_t hue = (dpxPixelEffect.rainbowHue + (i * 256 / 256)) % 256;
+            uint32_t c = ColorFromPalette(RainbowColors_p, hue, 255, LINEARBLEND);
+            SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
+                color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, 180));
+        }
+    }
+
+    // ── Fire — flickering flame effect ─────────────────────────────────────
+    else if (dpxPixelEffect.name == "fire") {
+        int intervalMs = map(iv, 0, 100, 100, 20);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            // Heat diffusion: cool pixels, add random hotspots at bottom
+            for (int i = 0; i < 256; i++) {
+                dpxPixelEffect.fireState[i] = (dpxPixelEffect.fireState[i] > 20) ? dpxPixelEffect.fireState[i] - 20 : 0;
+            }
+            // Add random heat at bottom rows
+            for (int y = 6; y < DPX_MATRIX_H; y++) {
+                for (int x = 0; x < DPX_MATRIX_W; x++) {
+                    if (random(256) < (iv * 2)) {
+                        dpxPixelEffect.fireState[y * DPX_MATRIX_W + x] = 255;
+                    }
+                }
+            }
+            // Spread heat upward
+            for (int y = DPX_MATRIX_H - 2; y >= 0; y--) {
+                for (int x = 0; x < DPX_MATRIX_W; x++) {
+                    int idx = y * DPX_MATRIX_W + x;
+                    int idxUp = (y + 1) * DPX_MATRIX_W + x;
+                    if (idxUp < 256) {
+                        dpxPixelEffect.fireState[idx] = max(dpxPixelEffect.fireState[idx],
+                            (uint8_t)(dpxPixelEffect.fireState[idxUp] * 0.7));
+                    }
+                }
+            }
+        }
+        // Render fire gradient: black → red → orange → yellow → white
+        for (int i = 0; i < 256; i++) {
+            uint8_t heat = dpxPixelEffect.fireState[i];
+            uint32_t c;
+            if (heat < 85)
+                c = (heat * 3) << 16; // red channel ramps
+            else if (heat < 170)
+                c = 0xFF0000 | ((heat - 85) * 3) << 8; // orange
+            else
+                c = 0xFFFF00 | (heat - 170) * 3; // yellow to white
+            SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
+                color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, 200));
+        }
+    }
+
+    // ── Matrix — digital rain columns ─────────────────────────────────────
+    else if (dpxPixelEffect.name == "matrix") {
+        int intervalMs = map(iv, 0, 100, 150, 30);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            for (int x = 0; x < DPX_MATRIX_W; x++) {
+                if (dpxPixelEffect.matrix[x] > 0) {
+                    dpxPixelEffect.matrix[x]++;
+                    if ((int)dpxPixelEffect.matrix[x] > DPX_MATRIX_H + 2) dpxPixelEffect.matrix[x] = 0;
+                }
+                if (dpxPixelEffect.matrix[x] == 0 && random(256) < (iv + 10))
+                    dpxPixelEffect.matrix[x] = 1;
+            }
+        }
+        for (int x = 0; x < DPX_MATRIX_W; x++) {
+            if (dpxPixelEffect.matrix[x] > 0) {
+                int y = (int)dpxPixelEffect.matrix[x] - 1;
+                if (y < DPX_MATRIX_H) {
+                    // Bright green trail head, dimming behind
+                    uint8_t tail = max(0, (int)(10 - y));
+                    uint32_t c = (tail << 8); // green
+                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), c, 220));
+                }
+                // Draw trail (lighter green)
+                if (y >= 1 && y < DPX_MATRIX_H) {
+                    SEGMENT.setPixelColorXY(x, y - 1, color_blend(SEGMENT.getPixelColorXY(x, y - 1), 0x00FF00, 100));
+                }
+            }
+        }
+    }
+
+    // ── Scan — horizontal beam ────────────────────────────────────────────
+    else if (dpxPixelEffect.name == "scan") {
+        int intervalMs = map(iv, 0, 100, 300, 50);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            dpxPixelEffect.scanPos = (dpxPixelEffect.scanPos + 1) % DPX_MATRIX_W;
+        }
+        // Draw bright beam at current position, dimmer beams around it
+        for (int x = 0; x < DPX_MATRIX_W; x++) {
+            int dist = abs(x - (int)dpxPixelEffect.scanPos);
+            if (dist > 2) continue; // only draw nearby pixels
+            uint8_t bri = max(0, 200 - (dist * 50));
+            for (int y = 0; y < DPX_MATRIX_H; y++) {
+                uint32_t c = ((col >> 16) & 0xFF) ? col : 0xFF00FF; // use effect color or magenta
+                SEGMENT.setPixelColorXY(x, y,
+                    color_blend(SEGMENT.getPixelColorXY(x, y), c, bri));
+            }
         }
     }
 }
