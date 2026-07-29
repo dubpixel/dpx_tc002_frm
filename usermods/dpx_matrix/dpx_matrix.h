@@ -205,8 +205,10 @@ public:
         Serial.printf (  "  │  build: %-30s │\n", DPX_BUILD_ID);
         Serial.println(F("  └─────────────────────────────────────────┘"));
         Serial.println();
-        StaticJsonDocument<128> doc;
-        doc["text"]   = ip;
+        // Scroll IP then hostname so it's easy to find the device (#56)
+        String connectText = ip + String(F("  ")) + String(cmDNS) + String(F(".local"));
+        StaticJsonDocument<192> doc;
+        doc["text"]   = connectText;
         doc["color"]  = "#00FF88";
         doc["repeat"] = 1;
         String s; serializeJson(doc, s);
