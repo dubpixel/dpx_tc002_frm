@@ -712,6 +712,8 @@ void WLED::initConnection()
   char hostname[64] = {'\0'};
   getWLEDhostname(hostname, sizeof(hostname), true); // create DNS name based on mDNS name if set, or fall back to standard WLED server name
 
+  const bool wasApActive = apActive; // save before WIFI_MODE_NULL may tear the AP down
+
 #ifdef ARDUINO_ARCH_ESP32
   // Reset mode to NULL to force a full STA mode transition, so that WiFi.mode(WIFI_STA) below actually applies the hostname (and TX power, etc.).
   // This is required on reconnects when mode is already WIFI_STA.
@@ -737,6 +739,16 @@ void WLED::initConnection()
     if (apBehavior == AP_BEHAVIOR_ALWAYS) {
       DEBUG_PRINTLN(F("Access point ALWAYS enabled."));
       initAP();
+    } else if (wasApActive && apBehavior != AP_BEHAVIOR_BUTTON_ONLY) {
+      // AP was running before the ESP32 WIFI_MODE_NULL hardware reset tore it down.
+      // Restore it directly without re-initializing server/DNS/UDP interfaces that are
+      // already up from the original initAP() call. Without this, the AP cycles off
+      // for ~6 of every 18 seconds (WIFI_MODE_NULL at t=0, AP restarts at t=12s via
+      // handleConnection, WIFI_MODE_NULL again at t=18s, ...), making it unreliable.
+      DEBUG_PRINTLN(F("Restoring AP after WiFi mode reset."));
+      WiFi.softAPConfig(IPAddress(4, 3, 2, 1), IPAddress(4, 3, 2, 1), IPAddress(255, 255, 255, 0));
+      WiFi.softAP(apSSID, apPass, apChannel, apHide);
+      apActive = true;
     } else {
       DEBUG_PRINTLN(F("Access point disabled (init)."));
       WiFi.softAPdisconnect(true);

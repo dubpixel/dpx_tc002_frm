@@ -44,13 +44,18 @@
 // _dpxEffectId is declared in dpx_apps.h and assigned in DpxMatrix::setup().
 
 static void mode_dpx_matrix() {
+    // Cache notif tick result once — dpxNotifTick() has side effects (dequeue,
+    // timer start) so calling it twice per frame caused overlay state flicker
+    // and could affect notification timing. Fix: call once, reuse. (#45)
+    const bool notifActive = dpxNotifTick();
+
     // ── Per-app pixel effect activation ──────────────────────────────────
     // When the active app changes, push or clear its overlay field.
     // Tracks last app name so we only act on transitions, not every frame.
     // MQTT/API-driven global effects are unaffected (different code path).
     {
         static String _prevAppName;
-        const String curName = (!dpxNotifTick() && dpxCurrentApp < (int)dpxApps.size())
+        const String curName = (!notifActive && dpxCurrentApp < (int)dpxApps.size())
                                ? dpxApps[dpxCurrentApp].name : String();
         if (curName != _prevAppName) {
             _prevAppName = curName;
@@ -69,7 +74,7 @@ static void mode_dpx_matrix() {
         }
     }
     // Notifications take priority
-    if (dpxNotifTick()) {
+    if (notifActive) {
         dpxRenderNotification();
     } else {
         dpxRenderCurrentApp();
@@ -146,6 +151,33 @@ public:
         // Register HTTP routes
         dpxRegisterRoutes();
 
+        // Auto-assign MAC-based mDNS hostname if still at the WLED default ("x"),
+        // not yet configured, or set to our generic default without MAC suffix.
+        // Format: dpx-tc002-XXXXXX where XXXXXX = last 3 bytes of MAC.
+        // Persisted to config so the user can override via WLED UI.
+        {
+            uint8_t mac[6];
+            WiFi.macAddress(mac);
+            char expected[33];
+            snprintf(expected, sizeof(expected), "dpx-tc002-%02x%02x%02x", mac[3], mac[4], mac[5]);
+            bool needsSet = (strcmp(cmDNS, "x") == 0 || strlen(cmDNS) == 0
+                             || strcmp(cmDNS, "dpx-tc002") == 0
+                             || strcmp(cmDNS, expected) != 0 && strncmp(cmDNS, "dpx-tc002-", 10) == 0);
+            if (needsSet) {
+                strlcpy(cmDNS, expected, sizeof(cmDNS));
+                serializeConfigToFS();
+                DEBUG_PRINTF("DpxMatrix: mDNS hostname set to %s\n", cmDNS);
+            }
+        }
+
+        // Force ArduinoOTA enabled and OTA unlocked — cfg.json can persist these
+        // as disabled/locked from a previous save. Always keep OTA accessible on
+        // this development build.
+#ifdef WLED_ENABLE_AOTA
+        aOtaEnabled = true;
+        otaLock     = false;
+#endif
+
         _initDone = true;
         DEBUG_PRINTF("DpxMatrix: setup complete, effect id=%d\n", _dpxEffectId);
     }
@@ -164,16 +196,15 @@ public:
 
         DEBUG_PRINTLN(F("DpxMatrix: WiFi connected, OSC UDP started"));
 
-        // Print IP prominently — visible any time serial monitor is open
+        // Print connection info prominently to serial
         String ip = WiFi.localIP().toString();
         Serial.println();
-        Serial.println(F("┌─────────────────────────────┐"));
-        Serial.print  (F("│  dpx_tc002  IP: "));
-        Serial.print  (ip);
-        Serial.println(F("  │"));
-        Serial.println(F("└─────────────────────────────┘"));
+        Serial.println(F("  ┌─ dpx_tc002 connected ──────────────────┐"));
+        Serial.printf (  "  │  IP   : %-30s │\n", ip.c_str());
+        Serial.printf (  "  │  host : %-30s │\n", (String(cmDNS) + ".local").c_str());
+        Serial.printf (  "  │  build: %-30s │\n", DPX_BUILD_ID);
+        Serial.println(F("  └─────────────────────────────────────────┘"));
         Serial.println();
-        Serial.printf("[dpx] IP: %s\n", ip.c_str());
         StaticJsonDocument<128> doc;
         doc["text"]   = ip;
         doc["color"]  = "#00FF88";
@@ -197,16 +228,18 @@ public:
         // Send a character to get status info. Commands:
         //   ? / h  — help
         //   s      — status (IP, app, time, RSSI, heap)
+        //   c      — config dump (/dev.json, /cfg.json, /osc_listeners.json + runtime globals)
         //   r      — reboot
         if (Serial.available()) {
             char cmd = Serial.read();
             while (Serial.available()) Serial.read();  // flush
             switch (cmd) {
                 case '?': case 'h':
-                    Serial.println(F("[dpx] commands: s=status  r=reboot  h=help"));
+                    Serial.println(F("[dpx] commands: s=status  c=config dump  r=reboot  h=help"));
                     break;
                 case 's': {
                     Serial.printf("[dpx] IP      : %s\n", WiFi.localIP().toString().c_str());
+                    Serial.printf("[dpx] Hostname : %s.local\n", cmDNS);
                     Serial.printf("[dpx] AP SSID : %s (%s) clients=%d\n",
                         apSSID,
                         WiFi.softAPIP().toString().c_str(),
@@ -222,8 +255,36 @@ public:
                     Serial.printf("[dpx] Time    : %02d:%02d:%02d (localTime=%lu)\n",
                         hour(localTime), minute(localTime), second(localTime), (unsigned long)localTime);
                     Serial.printf("[dpx] Uptime  : %lus\n", millis() / 1000);
+                    Serial.printf("[dpx] Build   : %s\n", DPX_BUILD_ID);
                     Serial.printf("[dpx] MQTT    : %s\n", WLED_MQTT_CONNECTED ? "connected" : "disconnected");
                     Serial.printf("[dpx] OSC UDP : %s port %d\n", dpxUdpStarted ? "started" : "stopped", DPX_OSC_PORT);
+                    break;
+                }
+                case 'c': {
+                    // Dump key config files and runtime globals to serial (#10)
+                    auto dumpFile = [](const char* path) {
+                        Serial.printf("\n─── %s ───\n", path);
+                        File f = LittleFS.open(path, "r");
+                        if (!f) { Serial.println(F("  (not found)")); return; }
+                        DynamicJsonDocument doc(2048);
+                        if (!deserializeJson(doc, f)) {
+                            serializeJsonPretty(doc, Serial);
+                            Serial.println();
+                        } else {
+                            Serial.println(F("  (parse error)"));
+                        }
+                        f.close();
+                    };
+                    dumpFile("/dev.json");
+                    dumpFile("/cfg.json");
+                    dumpFile("/osc_listeners.json");
+                    Serial.println(F("\n─── runtime globals ───"));
+                    Serial.printf("  DPX_TIMEZONE    : %d\n", DPX_TIMEZONE);
+                    Serial.printf("  DPX_ATIME       : %d s\n", DPX_ATIME);
+                    Serial.printf("  DPX_SHOW_TIME   : %s\n", DPX_SHOW_TIME ? "true" : "false");
+                    Serial.printf("  DPX_SHOW_DATE   : %s\n", DPX_SHOW_DATE ? "true" : "false");
+                    Serial.printf("  dpxEnabled      : %s\n", dpxEnabled ? "true" : "false");
+                    Serial.println(F("─────────────────────────────────────────"));
                     break;
                 }
                 case 'r':
@@ -248,8 +309,10 @@ public:
         }
         _serialWasConnected = serialNow;
 
-        // Advance app pointer when duration expires
-        dpxAppLoopTick();
+        // Advance app pointer when duration expires.
+        // Guard: skip while notification is active — dpxNextApp() resets dpxScroll
+        // which would restart a completing notification scroll indefinitely.
+        if (!dpxNotifActive) dpxAppLoopTick();
 
         // TC dwell timeout — restore auto-transition after TC signal stops
         dpxTcDwellTick();

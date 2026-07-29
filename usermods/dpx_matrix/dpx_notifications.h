@@ -51,10 +51,11 @@ static bool dpxPushNotification(const char* json) {
     return true;
 }
 
-// Dismiss the currently active held notification
+// Dismiss the currently active notification and advance to the next queued one.
+// Does NOT clear the rest of the queue — use /api/notify/clear for that.
 static void dpxDismissNotification() {
     dpxNotifActive = false;
-    dpxNotifQueue.erase(dpxNotifQueue.begin(), dpxNotifQueue.end());
+    dpxScroll.stop();  // clear scroll state so it doesn't bleed into next app/notif
 }
 
 // Notification tick — call from loop() after app tick
@@ -69,8 +70,10 @@ static bool dpxNotifTick() {
         dpxScroll.stop();
     }
 
-    // Check duration expiry (hold notifications never auto-dismiss)
-    if (!dpxCurrentNotif.hold) {
+    // Check duration expiry (hold notifications never auto-dismiss).
+    // When repeat >= 0, scroll count governs the end — duration is ignored
+    // so the two mechanisms don't compete.
+    if (!dpxCurrentNotif.hold && dpxCurrentNotif.data.repeat < 0) {
         unsigned long dur = dpxCurrentNotif.data.durationMs();
         if (dur == 0) dur = 5000; // default 5s
         if (millis() - dpxNotifStartMs >= dur) {

@@ -246,13 +246,15 @@ static bool dpxRenderApp(DpxCustomApp& app) {
         return true; // static apps never "complete"
     }
 
-    // Scrolling
-    if (!dpxScroll.active || dpxScroll.text != app.text) {
+    // Scrolling — only (re)start if not already running for this text and not
+    // already naturally completed (completed=true means finite repeat finished).
+    if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.text != app.text) {
         dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat);
     }
     bool done = dpxScroll.tick();
     dpxScroll.render();
-    return !done;
+    // Also signal done if scroll has already completed its finite repeat cycle
+    return !(done || dpxScroll.completed);
 }
 
 // ── App loop management ───────────────────────────────────────────────────────

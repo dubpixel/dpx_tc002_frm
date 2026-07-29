@@ -119,6 +119,7 @@ struct DpxScrollState {
     int     speedMs    = 50;         // ms between scroll steps (lower = faster)
     unsigned long lastStepMs = 0;
     bool    active     = false;
+    bool    completed  = false;      // true when finite repeat cycle finished naturally
     int16_t repeat     = -1;         // scroll repeat count (-1 = infinite)
     int16_t repeatsDone = 0;
     int     textWidth  = 0;         // cached pixel width
@@ -135,9 +136,10 @@ struct DpxScrollState {
         scrollX    = DPX_MATRIX_W;
         lastStepMs = 0;
         active     = true;
+        completed  = false;
     }
 
-    void stop() { active = false; }
+    void stop() { active = false; completed = false; }
 
     // Returns true when the current scroll cycle is complete (scrolled off left).
     // Caller should call again to advance another repeat or stop.
@@ -147,11 +149,13 @@ struct DpxScrollState {
         if (now - lastStepMs < (unsigned long)speedMs) return false;
         lastStepMs = now;
         scrollX--;
-        // Complete when text has fully scrolled off left
-        if (scrollX < -(textWidth)) {
+        // Complete when text has fully scrolled off left with a half-screen
+        // trailing gap — gives a clean blank before wrap/end (issue #51)
+        if (scrollX < -(textWidth + DPX_MATRIX_W / 2)) {
             repeatsDone++;
             if (repeat >= 0 && repeatsDone >= repeat) {
-                active = false;
+                active    = false;
+                completed = true;
                 return true; // done
             }
             scrollX = DPX_MATRIX_W; // wrap

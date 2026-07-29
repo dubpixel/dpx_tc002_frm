@@ -59,6 +59,8 @@ ok()   { echo -e "  ${G}✓${RST} $1"; PASS=$((PASS+1)); }
 fail() { echo -e "  ${R}✗${RST} $1"; FAIL=$((FAIL+1)); }
 skip() { echo -e "  ${DIM}⊘${RST} $1"; SKIP=$((SKIP+1)); }
 info() { echo -e "  ${DIM}  $1${RST}"; }
+_blank() { echo ""; }
+_clr_ind() { _post "/api/indicator$1" '{"color":"#000000"}' > /dev/null; }
 
 assert_ok() {
     local got; got=$(echo "$1" | jq -r '.ok' 2>/dev/null)
@@ -107,17 +109,20 @@ suite "connectivity" || { :; } && {
 resp=$(_get /dpx) || { fail "unreachable at $HOST"; exit 1; }
 assert_has "$resp" '"build"' "GET /dpx"
     _dev_build=$(_jq "$resp" '.build')
-    info "Device build: $_dev_build"
-    _ts_file="$(cd "$(dirname "$0")/.." && pwd)/build_output/dpx_build.ts"
-    if [[ -f "$_ts_file" ]]; then
-        _local_build=$(cat "$_ts_file")
-        if [[ "$_local_build" == "$_dev_build" ]]; then
-            ok "Device firmware is current ($_dev_build)"
+    _dev_build_id=$(_jq "$resp" '.build_id')
+    info "Device build: $_dev_build  id=${_dev_build_id:-none}"
+    # Read ID from dpx_build_id.h — reflects the last *build*, not just last upload.
+    # If device ID != local header ID, the device needs a fresh upload.
+    _hdr="$(cd "$(dirname "$0")/.." && pwd)/wled00/dpx_build_id.h"
+    if [[ -f "$_hdr" ]]; then
+        _local_id=$(grep -o '"[^"]*"' "$_hdr" | tr -d '"')
+        if [[ "$_local_id" == "$_dev_build_id" ]]; then
+            ok "Device firmware is current (build_id=$_dev_build_id)"
         else
-            echo -e "  \033[1;33m⚠  STALE FIRMWARE: device=$_dev_build  local=$_local_build — upload before testing\033[0m"
+            echo -e "  \033[1;33m⚠  STALE — device=$_dev_build_id  local=$_local_id — upload the latest build\033[0m"
         fi
     else
-        info "No build timestamp file — build once to enable firmware version check"
+        info "dpx_build_id.h not found — run pio build once to enable check"
     fi
 resp=$(_get /api/stats);  assert_has "$resp" '"ram"'       "GET /api/stats"
 resp=$(_get /api/apps);   assert_has "$resp" '"name"'      "GET /api/apps"
@@ -181,41 +186,53 @@ assert_no "$(_get /api/apps)" '"_t_x"' "App gone after delete"
 
 # ── notify ────────────────────────────────────────────────────────────────────
 suite "notify" || { :; } && {
-# 1. White notification — stays until dismissed after confirm
-_post /api/notify '{"text":"TEST","color":"#FFFFFF","duration":30}' > /dev/null
-vis "White 'TEST' scrolling" '_post /api/notify/dismiss {}'
+# 1. White notification — short duration so it doesn't block if dismiss fails
+_post /api/notify '{"text":"WHITE SCROLL TEST","color":"#FFFFFF","duration":5}' > /dev/null
+_wait 1
+vis "White text scrolling (WHITE SCROLL TEST)" '_post /api/notify/dismiss {}'
+_wait 2  # let dismiss fully process before sending next notify
 
 # 2. Dismiss test — show it, ask, then we dismiss via API, ask again
-_post /api/notify '{"text":"DISMISS ME","color":"#FF8800","duration":30}' > /dev/null
-vis "Orange 'DISMISS ME' scrolling — confirm you see it"
+_post /api/notify '{"text":"DISMISS ME NOW","color":"#FF8800","duration":5}' > /dev/null
+_wait 1
+vis "Orange 'DISMISS ME NOW' scrolling — confirm you see it"
 resp=$(_post /api/notify/dismiss '{}'); assert_ok "$resp" "Dismiss API"
+_wait 1
 vis "Display cleared immediately after dismiss (nothing scrolling)"
+_wait 2  # let dismiss settle before next notify
 
 # 3. Finite repeat — must scroll exactly 2× then vanish on its own
-_post /api/notify '{"text":"TWICE","color":"#00FFFF","repeat":2,"duration":30}' > /dev/null
-vis "Cyan 'TWICE' — watch it scroll EXACTLY 2 times then disappear on its own" '_post /api/notify/dismiss {}'
+_post /api/notify '{"text":"SCROLL TWICE AND STOP","color":"#00FFFF","repeat":2,"duration":5}' > /dev/null
+_wait 1
+vis "Cyan text scrolling — watch it scroll EXACTLY 2 times then disappear on its own" '_post /api/notify/dismiss {}'
+_wait 2  # let dismiss settle before next notify
 
 # 4. Rainbow
-_post /api/notify '{"text":"RAINBOW","rainbow":true,"duration":30}' > /dev/null
-vis "Rainbow notification — per-letter colors" '_post /api/notify/dismiss {}'
+_post /api/notify '{"text":"RAINBOW COLORS","rainbow":true,"duration":5}' > /dev/null
+_wait 1
+vis "Rainbow text scrolling — each letter different hue" '_post /api/notify/dismiss {}'
+_wait 2
 }
 
 # ── overlay ───────────────────────────────────────────────────────────────────
 suite "overlay" || { :; } && {
-for effect in sparkle twinkle rain drizzle snow storm strobe blink frost; do
+for effect in sparkle twinkle rain drizzle snow storm thunder strobe blink frost; do
     _app "_t_ov" "{\"text\":\"$effect\",\"color\":\"#FFFFFF\",\"overlay\":\"$effect\",\"dur\":999}"
     _post /api/switch '{"name":"_t_ov"}' > /dev/null
+    _wait 1
     vis "$effect — text visible WITH $effect effect on top" '_del _t_ov'
 done
 # 1.11 regression: effect must clear when app has no overlay
 _app "_t_clean" '{"text":"CLEAN","color":"#FF8800","dur":999}'
 _post /api/switch '{"name":"_t_clean"}' > /dev/null
+_wait 1
 vis "1.11 REGRESSION: 'CLEAN' with NO effects — display must be plain text only" '_del _t_clean'
 # 1.12 regression: brightness respected
 orig_bri=$(_jq "$(_get /api/settings)" '.BRI')
 _post /api/settings '{"BRI":20}' > /dev/null
 _app "_t_dim" '{"text":"DIM","overlay":"rain","dur":999}'
 _post /api/switch '{"name":"_t_dim"}' > /dev/null
+_wait 1
 vis "1.12 REGRESSION: BRI=20 — text AND rain drops both dim, not full brightness" '_del _t_dim'
 _post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
 }
@@ -223,11 +240,14 @@ _post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
 # ── indicators ────────────────────────────────────────────────────────────────
 suite "indicators" || { :; } && {
 _post /api/indicator1 '{"color":"#FF0000"}' > /dev/null
-vis "TOP-LEFT corner: solid RED (3px L-shape)" '_post /api/indicator1 {"color":"#000000"}'
+_wait 1
+vis "TOP-LEFT corner: solid RED 3px L-shape" '_clr_ind 1'
 _post /api/indicator2 '{"color":"#00FF00","blink":400}' > /dev/null
-vis "TOP-RIGHT corner: GREEN blinking ~400ms" '_post /api/indicator2 {"color":"#000000"}'
+_wait 1
+vis "TOP-RIGHT corner: GREEN blinking ~400ms" '_clr_ind 2'
 _post /api/indicator3 '{"color":"#0088FF","fade":1500}' > /dev/null
-vis "BOTTOM-LEFT corner: BLUE pulsing slowly" '_post /api/indicator3 {"color":"#000000"}'
+_wait 1
+vis "BOTTOM-LEFT corner: BLUE pulsing slowly" '_clr_ind 3'
 for i in 1 2 3; do resp=$(_post /api/indicator$i '{"color":"#000000"}'); assert_ok "$resp" "Clear indicator $i"; done
 }
 
@@ -341,14 +361,14 @@ suite "lint" || { :; } && {
             n_text n_dur \
             bri i1c i1b i1f i2c i2b i2f i3c i3b i3f \
             tc_hold tc_dwell tc_mute \
-            snd_en rtttl \
+            snd_en rtttl ch_text_actions \
             osc_path_txt listener_list \
             status_bar toast; do
             if echo "$_ctrl" | grep -q "id=\"$_id\""; then ok "ctrl#$_id exists"
             else fail "ctrl#$_id MISSING — page will malfunction"; fi
         done
         # Check required JS functions are defined
-        for _fn in loadLoop apiPost sendNotify sendCustomApp sendInd switchApp addChannel updateChType addListener loadListeners; do
+        for _fn in loadLoop apiPost sendNotify sendCustomApp sendRtttl sendInd switchApp addChannel updateChType addListener loadListeners; do
             if echo "$_ctrl" | grep -q "function $_fn"; then ok "ctrl.$_fn() defined"
             else fail "ctrl.$_fn() MISSING — UI broken"; fi
         done
