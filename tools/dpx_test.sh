@@ -197,9 +197,9 @@ _post /api/notify '{"text":"DISMISS ME NOW","color":"#FF8800","duration":5}' > /
 _wait 1
 vis "Orange 'DISMISS ME NOW' scrolling — confirm you see it"
 resp=$(_post /api/notify/dismiss '{}'); assert_ok "$resp" "Dismiss API"
-_wait 1
+_wait 2  # wait for display to visibly clear before asking
 vis "Display cleared immediately after dismiss (nothing scrolling)"
-_wait 2  # let dismiss settle before next notify
+_wait 1  # let dismiss settle before next notify
 
 # 3. Finite repeat — must scroll exactly 2× then vanish on its own
 _post /api/notify '{"text":"SCROLL TWICE AND STOP","color":"#00FFFF","repeat":2,"duration":5}' > /dev/null
