@@ -170,6 +170,14 @@ public:
             }
         }
 
+        // Force ArduinoOTA enabled and OTA unlocked — cfg.json can persist these
+        // as disabled/locked from a previous save. Always keep OTA accessible on
+        // this development build.
+#ifdef WLED_ENABLE_AOTA
+        aOtaEnabled = true;
+        otaLock     = false;
+#endif
+
         _initDone = true;
         DEBUG_PRINTF("DpxMatrix: setup complete, effect id=%d\n", _dpxEffectId);
     }

@@ -11,7 +11,7 @@ def _get_cpp_define_value(env, define):
     define_list = [item[-1] for item in env["CPPDEFINES"] if item[0] == define]
 
     if define_list:
-        return define_list[0]
+        return define_list[-1]  # last definition wins (override takes precedence over base env)
 
     return None
 
@@ -25,7 +25,7 @@ def create_release(source):
         release_name = release_name_def.replace("\\\"", "")
         with open("package.json", "r") as package:
             version = json.load(package)["version"]        
-        release_file = os.path.join(OUTPUT_DIR, "release", f"WLED_{version}_{release_name}.bin")
+        release_file = os.path.join(OUTPUT_DIR, "release", f"dpx_tc002_{version}_{release_name}.bin")
         release_gz_file = release_file + ".gz"
         print(f"Copying {source} to {release_file}")
         shutil.copy(source, release_file)
