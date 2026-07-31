@@ -26,8 +26,9 @@
 //   2. PIXEL EFFECT — lightweight per-pixel effect applied on top of everything.
 //      Controlled via MQTT dpx/effect or JSON state {"dpx":{"effect":{...}}}.
 //
-//      Effects: "sparkle", "strobe", "rain", "twinkle", "blink", "pulse", "rainbow",
-//               "fire", "matrix", "scan", "none"
+//      Overlay Effects: "sparkle", "strobe", "rain", "twinkle", "blink", "drizzle",
+//                      "snow", "storm", "thunder", "frost", "none"
+//      Background Effects: "colorwaves", "plasma", "twinklingstars", "theatrechase", "pacifica"
 //
 //      JSON schema:
 //        {"name":"sparkle","color":"#FFFFFF","intensity":50}
@@ -421,128 +422,95 @@ static void dpxRenderPixelEffect() {
                     color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), 0xAADDFF, 160));
     }
 
-    // ── Pulse — dimming/brightening cycle ──────────────────────────────────
-    else if (dpxPixelEffect.name == "pulse") {
-        int intervalMs = map(iv, 0, 100, 1500, 300);
-        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
-            dpxPixelEffect.lastMs = now;
-            dpxPixelEffect.pulsePhase = (dpxPixelEffect.pulsePhase + 1) % 256;
-        }
-        uint8_t bri = 128 + (int8_t)((sin(dpxPixelEffect.pulsePhase * M_PI / 128.0) * 127));
-        for (int i = 0; i < 256; i++) {
-            uint32_t p = SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W);
-            uint8_t r = (p >> 16) & 0xFF, g = (p >> 8) & 0xFF, b = p & 0xFF;
-            uint32_t dimmed = ((uint32_t)(r * bri / 255) << 16) | ((uint32_t)(g * bri / 255) << 8) | (b * bri / 255);
-            SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W, dimmed);
+    // ── ColorWaves — horizontal color gradient animation ───────────────────
+    else if (dpxPixelEffect.name == "colorwaves") {
+        for (int x = 0; x < DPX_MATRIX_W; x++) {
+            for (int y = 0; y < DPX_MATRIX_H; y++) {
+                uint8_t hue = (uint8_t)((x * 255 / DPX_MATRIX_W) + now / 10);
+                uint32_t c = ColorFromPalette(RainbowColors_p, hue, 255, LINEARBLEND);
+                SEGMENT.setPixelColorXY(x, y,
+                    color_blend(SEGMENT.getPixelColorXY(x, y), c, map(iv, 0, 100, 80, 200)));
+            }
         }
     }
 
-    // ── Rainbow — hue cycle across spectrum ────────────────────────────────
-    else if (dpxPixelEffect.name == "rainbow") {
+    // ── Plasma — overlapping sine patterns ─────────────────────────────────
+    else if (dpxPixelEffect.name == "plasma") {
+        static double plasmaTime = 0;
+        plasmaTime += map(iv, 0, 100, 1, 10) * 0.01;
+        for (int x = 0; x < DPX_MATRIX_W; x++) {
+            for (int y = 0; y < DPX_MATRIX_H; y++) {
+                uint8_t value = sin8(x * 10 + plasmaTime * 50) +
+                               sin8(y * 10 + plasmaTime * 50 / 2) +
+                               sin8((x + y) * 10 + plasmaTime * 50 / 3);
+                value = value / 3;
+                uint32_t c = ColorFromPalette(RainbowColors_p, value, 255, LINEARBLEND);
+                SEGMENT.setPixelColorXY(x, y,
+                    color_blend(SEGMENT.getPixelColorXY(x, y), c, map(iv, 0, 100, 60, 180)));
+            }
+        }
+    }
+
+    // ── TwinklingStars — random fading pixels ──────────────────────────────
+    else if (dpxPixelEffect.name == "twinklingstars") {
+        int intervalMs = map(iv, 0, 100, 300, 60);
+        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
+            dpxPixelEffect.lastMs = now;
+            int numStars = max(1, (int)(iv / 20));
+            for (int i = 0; i < numStars; i++) {
+                int x = random(DPX_MATRIX_W);
+                int y = random(DPX_MATRIX_H);
+                dpxPixelEffect.pixbuf[y * DPX_MATRIX_W + x] = 200 + random(55);
+            }
+            for (int i = 0; i < 256; i++) {
+                if (dpxPixelEffect.pixbuf[i] > 0)
+                    dpxPixelEffect.pixbuf[i] = (dpxPixelEffect.pixbuf[i] > 20) ? dpxPixelEffect.pixbuf[i] - 20 : 0;
+            }
+        }
+        for (int i = 0; i < 256; i++) {
+            if (dpxPixelEffect.pixbuf[i] > 0) {
+                uint8_t bri = dpxPixelEffect.pixbuf[i];
+                uint32_t c = ColorFromPalette(OceanColors_p, random8(), 255, LINEARBLEND);
+                SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
+                    color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, bri));
+            }
+        }
+    }
+
+    // ── TheaterChase — chasing dots pattern ────────────────────────────────
+    else if (dpxPixelEffect.name == "theatrechase") {
         int intervalMs = map(iv, 0, 100, 200, 30);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
-            dpxPixelEffect.rainbowHue = (dpxPixelEffect.rainbowHue + 1) % 256;
-        }
-        for (int i = 0; i < 256; i++) {
-            uint8_t hue = (dpxPixelEffect.rainbowHue + (i * 256 / 256)) % 256;
-            uint32_t c = ColorFromPalette(RainbowColors_p, hue, 255, LINEARBLEND);
-            SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
-                color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, 180));
-        }
-    }
-
-    // ── Fire — flickering flame effect ─────────────────────────────────────
-    else if (dpxPixelEffect.name == "fire") {
-        int intervalMs = map(iv, 0, 100, 100, 20);
-        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
-            dpxPixelEffect.lastMs = now;
-            // Heat diffusion: cool pixels, add random hotspots at bottom
-            for (int i = 0; i < 256; i++) {
-                dpxPixelEffect.fireState[i] = (dpxPixelEffect.fireState[i] > 20) ? dpxPixelEffect.fireState[i] - 20 : 0;
-            }
-            // Add random heat at bottom rows
-            for (int y = 6; y < DPX_MATRIX_H; y++) {
-                for (int x = 0; x < DPX_MATRIX_W; x++) {
-                    if (random(256) < (iv * 2)) {
-                        dpxPixelEffect.fireState[y * DPX_MATRIX_W + x] = 255;
-                    }
-                }
-            }
-            // Spread heat upward
-            for (int y = DPX_MATRIX_H - 2; y >= 0; y--) {
-                for (int x = 0; x < DPX_MATRIX_W; x++) {
-                    int idx = y * DPX_MATRIX_W + x;
-                    int idxUp = (y + 1) * DPX_MATRIX_W + x;
-                    if (idxUp < 256) {
-                        dpxPixelEffect.fireState[idx] = max(dpxPixelEffect.fireState[idx],
-                            (uint8_t)(dpxPixelEffect.fireState[idxUp] * 0.7));
-                    }
-                }
-            }
-        }
-        // Render fire gradient: black → red → orange → yellow → white
-        for (int i = 0; i < 256; i++) {
-            uint8_t heat = dpxPixelEffect.fireState[i];
-            uint32_t c;
-            if (heat < 85)
-                c = (heat * 3) << 16; // red channel ramps
-            else if (heat < 170)
-                c = 0xFF0000 | ((heat - 85) * 3) << 8; // orange
-            else
-                c = 0xFFFF00 | (heat - 170) * 3; // yellow to white
-            SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
-                color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, 200));
-        }
-    }
-
-    // ── Matrix — digital rain columns ─────────────────────────────────────
-    else if (dpxPixelEffect.name == "matrix") {
-        int intervalMs = map(iv, 0, 100, 150, 30);
-        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
-            dpxPixelEffect.lastMs = now;
-            for (int x = 0; x < DPX_MATRIX_W; x++) {
-                if (dpxPixelEffect.matrix[x] > 0) {
-                    dpxPixelEffect.matrix[x]++;
-                    if ((int)dpxPixelEffect.matrix[x] > DPX_MATRIX_H + 2) dpxPixelEffect.matrix[x] = 0;
-                }
-                if (dpxPixelEffect.matrix[x] == 0 && random(256) < (iv + 10))
-                    dpxPixelEffect.matrix[x] = 1;
-            }
+            dpxPixelEffect.pulsePhase = (dpxPixelEffect.pulsePhase + 1) % 3;
         }
         for (int x = 0; x < DPX_MATRIX_W; x++) {
-            if (dpxPixelEffect.matrix[x] > 0) {
-                int y = (int)dpxPixelEffect.matrix[x] - 1;
-                if (y < DPX_MATRIX_H) {
-                    // Bright green trail head, dimming behind
-                    uint8_t tail = max(0, (int)(10 - y));
-                    uint32_t c = (tail << 8); // green
-                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), c, 220));
-                }
-                // Draw trail (lighter green)
-                if (y >= 1 && y < DPX_MATRIX_H) {
-                    SEGMENT.setPixelColorXY(x, y - 1, color_blend(SEGMENT.getPixelColorXY(x, y - 1), 0x00FF00, 100));
-                }
-            }
-        }
-    }
-
-    // ── Scan — horizontal beam ────────────────────────────────────────────
-    else if (dpxPixelEffect.name == "scan") {
-        int intervalMs = map(iv, 0, 100, 300, 50);
-        if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
-            dpxPixelEffect.lastMs = now;
-            dpxPixelEffect.scanPos = (dpxPixelEffect.scanPos + 1) % DPX_MATRIX_W;
-        }
-        // Draw bright beam at current position, dimmer beams around it
-        for (int x = 0; x < DPX_MATRIX_W; x++) {
-            int dist = abs(x - (int)dpxPixelEffect.scanPos);
-            if (dist > 2) continue; // only draw nearby pixels
-            uint8_t bri = max(0, 200 - (dist * 50));
             for (int y = 0; y < DPX_MATRIX_H; y++) {
-                uint32_t c = ((col >> 16) & 0xFF) ? col : 0xFF00FF; // use effect color or magenta
+                if ((x + dpxPixelEffect.pulsePhase) % 3 == 0) {
+                    uint8_t hue = (x * 255 / DPX_MATRIX_W);
+                    uint32_t c = ColorFromPalette(RainbowColors_p, hue, 255, LINEARBLEND);
+                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), c, 200));
+                }
+            }
+        }
+    }
+
+    // ── Pacifica — wavy ocean simulation ───────────────────────────────────
+    else if (dpxPixelEffect.name == "pacifica") {
+        static uint32_t pacificaTime = 0;
+        pacificaTime += map(iv, 0, 100, 1, 5);
+        for (int x = 0; x < DPX_MATRIX_W; x++) {
+            for (int y = 0; y < DPX_MATRIX_H; y++) {
+                uint16_t ulx = (pacificaTime / 8) - (x * 16);
+                uint16_t uly = (pacificaTime / 4) + (y * 16);
+                uint16_t v = 0;
+                v += sin16(ulx * 6 + pacificaTime / 2) / 8 + 127;
+                v += sin16(uly * 9 + pacificaTime / 2) / 8 + 127;
+                v += sin16(ulx * 7 + uly * 2 - pacificaTime) / 16;
+                v = v / 3;
+                uint32_t c = ColorFromPalette(OceanColors_p, v, 255, LINEARBLEND);
                 SEGMENT.setPixelColorXY(x, y,
-                    color_blend(SEGMENT.getPixelColorXY(x, y), c, bri));
+                    color_blend(SEGMENT.getPixelColorXY(x, y), c, map(iv, 0, 100, 100, 220)));
             }
         }
     }

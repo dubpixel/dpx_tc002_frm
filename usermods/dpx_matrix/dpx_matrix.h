@@ -55,9 +55,29 @@ static void mode_dpx_matrix() {
     // MQTT/API-driven global effects are unaffected (different code path).
     {
         static String _prevAppName;
+        static bool   _prevNotifActive = false;
+
+        // Notification overlay: activate on notification start, clear on end
+        if (notifActive && !_prevNotifActive) {
+            // Notification just started — set its overlay if it has one
+            String ov = dpxCurrentNotif.data.overlay;
+            if (ov.length() && ov != "none") {
+                String json = String(F("{\"name\":\"")) + ov + F("\"}");
+                dpxSetPixelEffect(json.c_str());
+            } else {
+                dpxClearPixelEffect();
+            }
+            _prevAppName = "";  // force app overlay re-evaluation after notif ends
+        } else if (!notifActive && _prevNotifActive) {
+            // Notification just ended — force app overlay re-evaluation
+            _prevAppName = "";
+        }
+        _prevNotifActive = notifActive;
+
+        // App overlay: only when not in a notification
         const String curName = (!notifActive && dpxCurrentApp < (int)dpxApps.size())
                                ? dpxApps[dpxCurrentApp].name : String();
-        if (curName != _prevAppName) {
+        if (!notifActive && curName != _prevAppName) {
             _prevAppName = curName;
             // Find overlay for current app
             String ov;
