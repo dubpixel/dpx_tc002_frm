@@ -206,7 +206,11 @@ static void dpxRenderPixelEffect() {
     }
 
     // ── Twinkle ──────────────────────────────────────────────────────────
-    // Pops pixels bright — random pixels flash above their base color. (#58)
+    // Inverse of sparkle: pops random *currently-lit* pixels DARKER instead of
+    // adding new bright flecks, so it reads as text/content flickering rather
+    // than glitter on top of it. pixbuf holds a per-pixel dim countdown — while
+    // >0 that pixel is drawn faded; it recovers back to full brightness as the
+    // countdown decays. (#58)
     else if (dpxPixelEffect.name == "twinkle") {
         int intervalMs = map(iv, 0, 100, 200, 50);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
@@ -214,16 +218,18 @@ static void dpxRenderPixelEffect() {
             for (int i = 0; i < 256; i++)
                 dpxPixelEffect.pixbuf[i] = (dpxPixelEffect.pixbuf[i] > 25) ? dpxPixelEffect.pixbuf[i] - 25 : 0;
             int count = max(1, (int)(iv / 6));
-            for (int i = 0; i < count; i++)
-                dpxPixelEffect.pixbuf[(int)random(256)] = 200 + (int)(random(55));
+            for (int n = 0; n < count; n++) {
+                int i = (int)random(256);
+                // Only dim pixels that currently have real content lit
+                if (SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W) != 0)
+                    dpxPixelEffect.pixbuf[i] = 220 + (int)random(36);
+            }
         }
-        uint8_t r = (col >> 16) & 0xFF, g = (col >> 8) & 0xFF, b = col & 0xFF;
         for (int i = 0; i < 256; i++) {
             if (dpxPixelEffect.pixbuf[i] > 0) {
-                uint8_t bri = dpxPixelEffect.pixbuf[i];
-                uint32_t c = ((uint32_t)(r * bri / 255) << 16) | ((uint32_t)(g * bri / 255) << 8) | (b * bri / 255);
-                SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
-                    color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, 160));
+                int x = i % DPX_MATRIX_W, y = i / DPX_MATRIX_W;
+                uint32_t p = SEGMENT.getPixelColorXY(x, y);
+                if (p) SEGMENT.setPixelColorXY(x, y, color_fade(p, 255 - dpxPixelEffect.pixbuf[i], true));
             }
         }
     }
