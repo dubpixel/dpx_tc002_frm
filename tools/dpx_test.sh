@@ -5,7 +5,8 @@
 # --auto   : skip all display/audio prompts (CI mode)
 # --fast   : skip timing-sensitive sleeps
 # --reboot : include persistence-after-reboot test
-# --suite  : run one suite only: connectivity|apps|notify|overlay|indicators|tc|sound|settings|persist
+# --suite  : jump straight to one suite: connectivity|apps|notify|overlay|indicators|tc|sound|settings|persist|lint
+#            e.g. `bash tools/dpx_test.sh --suite=overlay` to test only overlay effects
 # =============================================================================
 HOST="${!#}"; [[ "$HOST" == --* || -z "$HOST" ]] && HOST="192.168.2.33"
 BASE="http://$HOST"
@@ -105,7 +106,7 @@ suite() {
 echo -e "\n${C}dpx_tc002 — $HOST — $(date '+%H:%M:%S')${RST}"
 
 # ── connectivity ──────────────────────────────────────────────────────────────
-suite "connectivity" || { :; } && {
+if suite "connectivity"; then
 resp=$(_get /dpx) || { fail "unreachable at $HOST"; exit 1; }
 assert_has "$resp" '"build"' "GET /dpx"
     _dev_build=$(_jq "$resp" '.build')
@@ -150,10 +151,10 @@ SAVED_BRI=$(_jq "$resp" '.BRI // "128"')
 _post /api/settings "{\"BRI\":$SAVED_BRI}" > /dev/null
 sleep 1
 info "Device state cleared"
-}
+fi
 
 # ── apps ──────────────────────────────────────────────────────────────────────
-suite "apps" || { :; } && {
+if suite "apps"; then
 # Create + show green HELLO — delete immediately after confirm
 _app "_t" '{"text":"HELLO","color":"#00FF00","dur":999}'
 assert_has "$(_get /api/apps)" '"_t"' "App appears in loop"
@@ -182,10 +183,10 @@ _app "_t_x" '{"text":"X","dur":10}'
 assert_has "$(_get /api/apps)" '"_t_x"' "App in list after create"
 resp=$(_post /api/custom '{}'); _del _t_x
 assert_no "$(_get /api/apps)" '"_t_x"' "App gone after delete"
-}
+fi
 
 # ── notify ────────────────────────────────────────────────────────────────────
-suite "notify" || { :; } && {
+if suite "notify"; then
 # 1. White notification — short duration so it doesn't block if dismiss fails
 _post /api/notify '{"text":"WHITE SCROLL TEST","color":"#FFFFFF","duration":5}' > /dev/null
 _wait 1
@@ -212,11 +213,12 @@ _post /api/notify '{"text":"RAINBOW COLORS","rainbow":true,"duration":5}' > /dev
 _wait 1
 vis "Rainbow text scrolling — each letter different hue" '_post /api/notify/dismiss {}'
 _wait 2
-}
+fi
 
 # ── overlay ───────────────────────────────────────────────────────────────────
-suite "overlay" || { :; } && {
-for effect in sparkle twinkle rain drizzle snow storm thunder strobe blink frost; do
+if suite "overlay"; then
+for effect in sparkle twinkle rain drizzle snow storm thunder strobe blink frost \
+              colorwaves plasma twinklingstars theatrechase pacifica; do
     _app "_t_ov" "{\"text\":\"$effect\",\"color\":\"#FFFFFF\",\"overlay\":\"$effect\",\"dur\":999}"
     _post /api/switch '{"name":"_t_ov"}' > /dev/null
     _wait 1
@@ -235,10 +237,10 @@ _post /api/switch '{"name":"_t_dim"}' > /dev/null
 _wait 1
 vis "1.12 REGRESSION: BRI=20 — text AND rain drops both dim, not full brightness" '_del _t_dim'
 _post /api/settings "{\"BRI\":$orig_bri}" > /dev/null
-}
+fi
 
 # ── indicators ────────────────────────────────────────────────────────────────
-suite "indicators" || { :; } && {
+if suite "indicators"; then
 _post /api/indicator1 '{"color":"#FF0000"}' > /dev/null
 _wait 1
 vis "TOP-LEFT corner: solid RED 3px L-shape" '_clr_ind 1'
@@ -249,10 +251,10 @@ _post /api/indicator3 '{"color":"#0088FF","fade":1500}' > /dev/null
 _wait 1
 vis "BOTTOM-LEFT corner: BLUE pulsing slowly" '_clr_ind 3'
 for i in 1 2 3; do resp=$(_post /api/indicator$i '{"color":"#000000"}'); assert_ok "$resp" "Clear indicator $i"; done
-}
+fi
 
 # ── tc ────────────────────────────────────────────────────────────────────────
-suite "tc" || { :; } && {
+if suite "tc"; then
 saved=$(_get /api/dev); saved_mute=$(_jq "$saved" '.tc_mute')
 # Settings roundtrip
 resp=$(_post /api/dev '{"tc_mute":true}');   assert_ok "$resp" "tc_mute=true"
@@ -282,10 +284,10 @@ got=$(_jq "$(_get /dpx)" '.app')
 [[ "$got" != "tc" ]] && ok "TC mute suppresses takeover (app=$got)" || fail "TC mute failed (still tc)"
 _post /api/dev "{\"tc_mute\":$saved_mute,\"tc_dwell\":2}" > /dev/null
 ok "TC settings restored"
-}
+fi
 
 # ── sound ─────────────────────────────────────────────────────────────────────
-suite "sound" || { :; } && {
+if suite "sound"; then
 resp=$(_post /api/beeptest '{}')
 assert_ok "$resp" "POST /api/beeptest"
 assert_key "$resp" '.pin' "15" "Buzzer GPIO 15"
@@ -313,10 +315,10 @@ assert_key "$(_get /api/settings)" '.SOUND' "false" "SOUND=false in settings"
 _post /api/sound '{"rtttl":"Test:d=4,o=5,b=200:c,e,g"}' > /dev/null
 _wait 1; snd "SOUND DISABLED — silence (nothing should play)"
 _post /api/settings '{"SOUND":true}' > /dev/null; ok "Sound re-enabled"
-}
+fi
 
 # ── settings ──────────────────────────────────────────────────────────────────
-suite "settings" || { :; } && {
+if suite "settings"; then
 resp=$(_get /api/settings)
 for k in BRI ATIME ATRANS SSPEED UPPERCASE SOUND TIM DAT TC_MUTE MQTT_PREFIX; do
     assert_has "$resp" "\"$k\"" "settings.$k"
@@ -330,10 +332,10 @@ assert_ok "$(_post /api/settings '{"TIM":false}')" "TIM=false"
 assert_no "$(_get /api/apps)" '"Time"' "Time hidden"
 assert_ok "$(_post /api/settings '{"TIM":true}')" "TIM=true"
 assert_has "$(_get /api/apps)" '"Time"' "Time visible"
-}
+fi
 
 # ── persist ───────────────────────────────────────────────────────────────────
-suite "persist" || { :; } && {
+if suite "persist"; then
 $REBOOT || { skip "persist (pass --reboot to enable)"; }
 $REBOOT && {
 _post /api/settings '{"TIM":false}' > /dev/null
@@ -343,11 +345,11 @@ resp=$(_get /dpx) && ok "Device back online" || fail "Device offline after reboo
 assert_no "$(_get /api/apps)" '"Time"' "Time still hidden after reboot"
 _post /api/settings '{"TIM":true}' > /dev/null; ok "Time restored"
 }
-}
+fi
 
 # ── lint — fetch /ctrl and verify required element IDs exist ─────────────────
 # Catches broken HTML restructures before the user discovers them in a browser.
-suite "lint" || { :; } && {
+if suite "lint"; then
     _ctrl=$(curl -sf --compressed --max-time 10 "$BASE/ctrl" 2>/dev/null)
     if [[ -z "$_ctrl" ]]; then
         fail "GET /ctrl — no response"
@@ -378,7 +380,7 @@ suite "lint" || { :; } && {
         if [[ "$_opens" == "$_closes" ]]; then ok "HTML div balance ($_opens opens = $_closes closes)"
         else fail "HTML div IMBALANCE: $_opens opens vs $_closes closes"; fi
     fi
-}
+fi
 
 # ── summary ─────────────────────────────────────────────────────────────────
 echo ""
