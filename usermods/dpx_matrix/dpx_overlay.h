@@ -461,26 +461,60 @@ static void dpxRenderPixelEffect() {
                 dpxSetPixel(x, DPX_MATRIX_H - 1 - py, 0xDDDDFF);
     }
 
-    // ── Frost — animated: pixels crystallize in and slowly decay out (#18) ────
+    // ── Frost — crystals grow inward from the matrix edges (#61) ──────────────
+    // Seeds ignite along the border, then spread to adjacent unfrosted pixels
+    // each tick (a simple diffusion-limited-aggregation walk) until coverage
+    // hits an intensity-scaled target; past that it "breathes" — occasionally
+    // melting a pixel so growth can resume elsewhere, keeping it alive rather
+    // than settling into a static pattern. Hue is derived from pixel position
+    // (not re-randomized per draw) so it doesn't flicker at frame rate (#59).
     else if (dpxPixelEffect.name == "frost") {
-        int intervalMs = map(iv, 0, 100, 400, 80);
+        int intervalMs = map(iv, 0, 100, 300, 60);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
-            // Decay a few existing crystals each tick
-            for (int i = 0; i < 256; i++)
-                if (dpxPixelEffect.pixbuf[i] > 0 && random(20) < 3)
-                    dpxPixelEffect.pixbuf[i] = (dpxPixelEffect.pixbuf[i] > 40) ? dpxPixelEffect.pixbuf[i] - 40 : 0;
-            // Activate new crystals up to a target coverage proportional to intensity
-            int target = (256 * iv) / 200;
             int active = 0;
             for (int i = 0; i < 256; i++) if (dpxPixelEffect.pixbuf[i] > 0) active++;
-            int toAdd = max(0, target - active) / 4 + 1;
-            for (int i = 0; i < toAdd; i++)
-                dpxPixelEffect.pixbuf[(int)random(256)] = 180 + random(76);
+            int target = 30 + (iv * 150) / 100;
+
+            if (active == 0) {
+                // Seed fresh crystals along the border
+                for (int s = 0; s < 6; s++) {
+                    int x, y;
+                    switch (random(4)) {
+                        case 0: x = 0;                 y = random(DPX_MATRIX_H); break;
+                        case 1: x = DPX_MATRIX_W - 1;   y = random(DPX_MATRIX_H); break;
+                        case 2: x = random(DPX_MATRIX_W); y = 0;                 break;
+                        default: x = random(DPX_MATRIX_W); y = DPX_MATRIX_H - 1; break;
+                    }
+                    dpxPixelEffect.pixbuf[y * DPX_MATRIX_W + x] = 255;
+                }
+            } else if (active < target) {
+                // Grow: pick a lit crystal, ignite one unlit 4-neighbor
+                static const int dx[4] = {1, -1, 0, 0};
+                static const int dy[4] = {0, 0, 1, -1};
+                for (int attempt = 0; attempt < 8; attempt++) {
+                    int i = (int)random(256);
+                    if (dpxPixelEffect.pixbuf[i] == 0) continue;
+                    int x = i % DPX_MATRIX_W, y = i / DPX_MATRIX_W;
+                    int d = (int)random(4);
+                    int nx = x + dx[d], ny = y + dy[d];
+                    if (nx >= 0 && nx < DPX_MATRIX_W && ny >= 0 && ny < DPX_MATRIX_H &&
+                        dpxPixelEffect.pixbuf[ny * DPX_MATRIX_W + nx] == 0) {
+                        dpxPixelEffect.pixbuf[ny * DPX_MATRIX_W + nx] = 200 + random(56);
+                        break;
+                    }
+                }
+            } else if (random(4) == 0) {
+                // At target coverage: melt one pixel so growth can resume — keeps it alive
+                int i = (int)random(256);
+                if (dpxPixelEffect.pixbuf[i] > 0)
+                    dpxPixelEffect.pixbuf[i] = (dpxPixelEffect.pixbuf[i] > 60) ? dpxPixelEffect.pixbuf[i] - 60 : 0;
+            }
         }
         for (int i = 0; i < 256; i++) {
             if (dpxPixelEffect.pixbuf[i] > 0) {
-                uint32_t c = ColorFromPalette(OceanColors_p, random8(), 255, LINEARBLEND);
+                uint8_t hue = (uint8_t)((i * 37) & 0xFF); // stable per-pixel hue, no per-frame flicker
+                uint32_t c = ColorFromPalette(OceanColors_p, hue, 255, LINEARBLEND);
                 SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
                     color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, dpxPixelEffect.pixbuf[i]));
             }
@@ -535,7 +569,9 @@ static void dpxRenderPixelEffect() {
         for (int i = 0; i < 256; i++) {
             if (dpxPixelEffect.pixbuf[i] > 0) {
                 uint8_t bri = dpxPixelEffect.pixbuf[i];
-                uint32_t c = ColorFromPalette(OceanColors_p, random8(), 255, LINEARBLEND);
+                // Stable per-pixel hue (not re-rolled per draw) so stars don't flicker color at frame rate
+                uint8_t hue = (uint8_t)((i * 37) & 0xFF);
+                uint32_t c = ColorFromPalette(OceanColors_p, hue, 255, LINEARBLEND);
                 SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
                     color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, bri));
             }
