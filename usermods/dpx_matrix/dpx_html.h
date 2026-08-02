@@ -122,7 +122,7 @@ code,.snip{background:#1a1a2e;color:#8cf;padding:1px 4px;border-radius:3px;font-
 <tr><td><code>loopSound</code></td><td>bool</td><td>Loop sound for notification duration</td><td>false</td><td class="tag">N</td></tr>
 <tr><td><code>effect</code></td><td>string</td><td>Background effect name (see Effects)</td><td>—</td><td class="tag">B</td></tr>
 <tr><td><code>effectSettings</code></td><td>object</td><td><code>{"speed":3,"palette":"Rainbow","blend":true}</code></td><td>—</td><td class="tag">B</td></tr>
-<tr><td><code>overlay</code></td><td>string</td><td>Per-app overlay: snow/rain/drizzle/storm/thunder/frost/clear</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>overlay</code></td><td>string</td><td>Per-app overlay effect — weather: snow/rain/drizzle/storm/thunder/frost; decorative: sparkle/twinkle/strobe/blink; background: colorwaves/plasma/twinklingstars/theatrechase/pacifica; or clear</td><td>—</td><td class="tag">B</td></tr>
 <tr><td><code>bar</code></td><td>int[]</td><td>Bar chart data (max 16 values, 11 with icon)</td><td>—</td><td class="tag">B</td></tr>
 <tr><td><code>line</code></td><td>int[]</td><td>Line chart data (same limits)</td><td>—</td><td class="tag">B</td></tr>
 <tr><td><code>autoscale</code></td><td>bool</td><td>Autoscale bar/line chart</td><td>true</td><td class="tag">B</td></tr>
@@ -176,7 +176,7 @@ code,.snip{background:#1a1a2e;color:#8cf;padding:1px 4px;border-radius:3px;font-
 </div>
 <div style="flex:1;min-width:180px">
   <h3>Overlay Effects</h3>
-  <div style="color:#8cf">clear · snow · rain · drizzle · storm · thunder · frost</div>
+  <div style="color:#8cf">clear · snow · rain · drizzle · storm · thunder · frost · sparkle · twinkle · strobe · blink · colorwaves · plasma · twinklingstars · theatrechase · pacifica</div>
 </div>
 <div style="flex:1;min-width:180px">
   <h3>App Transitions</h3>
@@ -644,7 +644,7 @@ select option{background:#222}
 </div>
 <div class="row">
   <div style="flex:1"><label>Effect</label><select id="n_effect"><option value="">None</option></select></div>
-  <div style="flex:1"><label>Overlay</label><select id="n_overlay"><option value="">None</option><option value="drizzle">Drizzle</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="storm">Storm</option><option value="thunder">Thunder</option><option value="frost">Frost</option></select></div>
+  <div style="flex:1"><label>Overlay</label><select id="n_overlay"><option value="">None</option><optgroup label="Weather"><option value="drizzle">Drizzle</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="storm">Storm</option><option value="thunder">Thunder</option><option value="frost">Frost</option></optgroup><optgroup label="Decorative"><option value="sparkle">Sparkle</option><option value="twinkle">Twinkle</option><option value="strobe">Strobe</option><option value="blink">Blink</option></optgroup><optgroup label="Background"><option value="colorwaves">ColorWaves</option><option value="plasma">Plasma</option><option value="twinklingstars">TwinklingStars</option><option value="theatrechase">TheaterChase</option><option value="pacifica">Pacifica</option></optgroup></select></div>
 </div>
 <div class="row">
   <div style="flex:1"><label>Speed (0-100)</label><input type="number" id="n_speed" value="100" min="0" max="100"></div>
@@ -715,7 +715,7 @@ select option{background:#222}
 </div>
 <div class="row">
   <div style="flex:1"><label>Effect</label><select id="ca_effect"><option value="">None</option></select></div>
-  <div style="flex:1"><label>Overlay</label><select id="ca_overlay"><option value="">None</option><option value="drizzle">Drizzle</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="storm">Storm</option><option value="thunder">Thunder</option><option value="frost">Frost</option></select></div>
+  <div style="flex:1"><label>Overlay</label><select id="ca_overlay"><option value="">None</option><optgroup label="Weather"><option value="drizzle">Drizzle</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="storm">Storm</option><option value="thunder">Thunder</option><option value="frost">Frost</option></optgroup><optgroup label="Decorative"><option value="sparkle">Sparkle</option><option value="twinkle">Twinkle</option><option value="strobe">Strobe</option><option value="blink">Blink</option></optgroup><optgroup label="Background"><option value="colorwaves">ColorWaves</option><option value="plasma">Plasma</option><option value="twinklingstars">TwinklingStars</option><option value="theatrechase">TheaterChase</option><option value="pacifica">Pacifica</option></optgroup></select></div>
 </div>
 <div class="row">
   <div style="flex:1"><label>Speed</label><input type="number" id="ca_speed" value="100" min="0" max="100"></div>
