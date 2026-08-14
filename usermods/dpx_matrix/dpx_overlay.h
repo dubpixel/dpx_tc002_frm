@@ -40,6 +40,30 @@
 #include "dpx_text.h"
 #include "dpx_apps.h"  // for dpxParseColor
 
+// ── Palette helpers (WLED has no FastLED RainbowColors_p/OceanColors_p/sin8) ──
+static inline uint32_t dpxHueColor(uint8_t hue) {
+    CRGBW rgb = CHSV(hue, 255, 255);
+    return (uint32_t)rgb.r << 16 | (uint32_t)rgb.g << 8 | rgb.b;
+}
+static inline uint32_t dpxOceanColor(uint8_t v) {
+    // Blue/cyan band only (FastLED hue ~130-170) for a watery feel.
+    CRGBW rgb = CHSV(130 + (v % 40), 200, 255);
+    return (uint32_t)rgb.r << 16 | (uint32_t)rgb.g << 8 | rgb.b;
+}
+
+// Maps a linear position (0..perim) onto the DPX_MATRIX_W x DPX_MATRIX_H border ring,
+// walking clockwise from (0,0) — used for marquee/border-chase style effects.
+static inline void dpxPerimXY(int p, int &x, int &y) {
+    const int W = DPX_MATRIX_W, H = DPX_MATRIX_H;
+    if (p < W) { x = p; y = 0; return; }
+    p -= W;
+    if (p < H - 1) { x = W - 1; y = p + 1; return; }
+    p -= (H - 1);
+    if (p < W - 1) { x = W - 2 - p; y = H - 1; return; }
+    p -= (W - 1);
+    x = 0; y = H - 2 - p;
+}
+
 // ── Text overlay state ────────────────────────────────────────────────────────
 static struct {
     bool     active   = false;
@@ -272,20 +296,36 @@ static void dpxRenderPixelEffect() {
     // ovBuf holds real color per pixel; unaffected pixels stay untouched so
     // text underneath is never erased (#12) — only drawn-on pixels are set.
     else if (dpxPixelEffect.name == "rain") {
-        int intervalMs = map(iv, 0, 100, 200, 20);
+        int intervalMs = map(iv, 0, 100, 160, 16);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
+            // Per-column speed jitter — not every drop falls in lockstep.
             for (int x = 0; x < DPX_MATRIX_W; x++) {
-                for (int y = DPX_MATRIX_H - 1; y > 0; y--)
-                    dpxPixelEffect.ovBuf[x][y] = dpxPixelEffect.ovBuf[x][y - 1];
-                dpxPixelEffect.ovBuf[x][0] = 0;
+                if (random(10) < 8) {
+                    for (int y = DPX_MATRIX_H - 1; y > 0; y--)
+                        dpxPixelEffect.ovBuf[x][y] = dpxPixelEffect.ovBuf[x][y - 1];
+                    dpxPixelEffect.ovBuf[x][0] = 0;
+                }
+            }
+            // Wind lean — drops occasionally drift diagonally instead of straight down.
+            for (int x = 0; x < DPX_MATRIX_W; x++) {
+                for (int y = 0; y < DPX_MATRIX_H; y++) {
+                    if (dpxPixelEffect.ovBuf[x][y] && random(14) == 0) {
+                        int nx = x + (random(2) == 0 ? 1 : -1);
+                        if (nx >= 0 && nx < DPX_MATRIX_W && !dpxPixelEffect.ovBuf[nx][y]) {
+                            dpxPixelEffect.ovBuf[nx][y] = dpxPixelEffect.ovBuf[x][y];
+                            dpxPixelEffect.ovBuf[x][y] = 0;
+                        }
+                    }
+                }
             }
             for (int x = 0; x < DPX_MATRIX_W; x++)
                 for (int y = 0; y < DPX_MATRIX_H; y++)
                     if (dpxPixelEffect.ovBuf[x][y])
-                        dpxPixelEffect.ovBuf[x][y] = color_fade(dpxPixelEffect.ovBuf[x][y], 200, true);
+                        dpxPixelEffect.ovBuf[x][y] = color_fade(dpxPixelEffect.ovBuf[x][y], 195, true);
             for (int x = 0; x < DPX_MATRIX_W; x++)
-                if (random(256) < (iv * 2)) dpxPixelEffect.ovBuf[x][0] = 0x4466AA;
+                if (!dpxPixelEffect.ovBuf[x][0] && random(256) < (uint32_t)(iv * 2))
+                    dpxPixelEffect.ovBuf[x][0] = random(2) ? 0x4466AA : 0x5577CC; // two-tone drops read as depth
         }
         for (int x = 0; x < DPX_MATRIX_W; x++)
             for (int y = 0; y < DPX_MATRIX_H; y++)
@@ -339,9 +379,12 @@ static void dpxRenderPixelEffect() {
             for (int x = 0; x < DPX_MATRIX_W; x++)
                 for (int y = 0; y < DPX_MATRIX_H; y++)
                     if (dpxPixelEffect.ovBuf[x][y])
-                        dpxPixelEffect.ovBuf[x][y] = color_fade(dpxPixelEffect.ovBuf[x][y], 210, true);
+                        dpxPixelEffect.ovBuf[x][y] = color_fade(dpxPixelEffect.ovBuf[x][y], 165, true);
+            // was `random(128) < iv*3+20` — at default intensity the threshold (170)
+            // exceeded random()'s own range (0-127), so EVERY column spawned a drop
+            // EVERY tick: a solid wall that buried the text. Capped + rescaled.
             for (int x = 0; x < DPX_MATRIX_W; x++)
-                if (random(128) < (uint32_t)(iv * 3 + 20)) dpxPixelEffect.ovBuf[x][0] = 0x6688FF;
+                if (random(256) < (uint32_t)map(iv, 0, 100, 30, 130)) dpxPixelEffect.ovBuf[x][0] = 0x6688FF;
         }
         for (int x = 0; x < DPX_MATRIX_W; x++)
             for (int y = 0; y < DPX_MATRIX_H; y++)
@@ -352,7 +395,7 @@ static void dpxRenderPixelEffect() {
         if (_stormFlashFrames > 0) {
             for (int y = 0; y < DPX_MATRIX_H; y++)
                 for (int x = 0; x < DPX_MATRIX_W; x++)
-                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), 0xFFFFFF, 180));
+                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), 0xFFFFFF, 150));
             _stormFlashFrames--;
         } else if (now - _stormFlashMs > 2000 && random(200) < 5) {
             _stormFlashMs = now;
@@ -360,59 +403,57 @@ static void dpxRenderPixelEffect() {
         }
     }
 
-    // ── Thunder — storm-style buffer rain underneath periodic full-white flash ──
+    // ── Thunder — jagged bolt + screen shake + decaying afterglow (redesign) ──
+    // Distinct from storm: mostly idle/dark, punctuated by a jagged lightning
+    // bolt streaking top-to-bottom, a soft screen-wide afterglow, and a brief
+    // shake of everything already on screen (text included) as if it rattled
+    // the display. ovBuf holds a snapshot of the pre-shake frame so repeated
+    // shifts each frame don't compound the displacement.
     else if (dpxPixelEffect.name == "thunder") {
-        int intervalMs = map(iv, 0, 100, 150, 30);
+        static int shakeFramesLeft = 0;
+        static unsigned long _boltMs = 0;
+
+        int intervalMs = map(iv, 0, 100, 60, 20);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
-            for (int x = 0; x < DPX_MATRIX_W; x++) {
-                for (int y = DPX_MATRIX_H - 1; y > 0; y--)
-                    dpxPixelEffect.ovBuf[x][y] = dpxPixelEffect.ovBuf[x][y - 1];
-                dpxPixelEffect.ovBuf[x][0] = 0;
-            }
-            dpxPixelEffect.pulsePhase = (dpxPixelEffect.pulsePhase + 1) % 3;
-            if (dpxPixelEffect.pulsePhase == 0) {
-                for (int y = 0; y < DPX_MATRIX_H; y++) {
-                    uint32_t carry = dpxPixelEffect.ovBuf[DPX_MATRIX_W - 1][y];
-                    for (int x = DPX_MATRIX_W - 1; x > 0; x--)
-                        dpxPixelEffect.ovBuf[x][y] = dpxPixelEffect.ovBuf[x - 1][y];
-                    dpxPixelEffect.ovBuf[0][y] = carry;
-                }
-            }
-            for (int x = 0; x < DPX_MATRIX_W; x++)
-                for (int y = 0; y < DPX_MATRIX_H; y++)
-                    if (dpxPixelEffect.ovBuf[x][y])
-                        dpxPixelEffect.ovBuf[x][y] = color_fade(dpxPixelEffect.ovBuf[x][y], 210, true);
-            for (int x = 0; x < DPX_MATRIX_W; x++)
-                if (random(128) < (uint32_t)(iv + 15)) dpxPixelEffect.ovBuf[x][0] = 0x445577;
-        }
-        for (int x = 0; x < DPX_MATRIX_W; x++)
-            for (int y = 0; y < DPX_MATRIX_H; y++)
-                if (dpxPixelEffect.ovBuf[x][y])
-                    dpxSetPixel(x, y, dpxPixelEffect.ovBuf[x][y]);
-        // Periodic full-white flash frame — replaces the rain visually for that frame
-        static unsigned long _thunderFlashMs = 0;
-        if (dpxPixelEffect.strobeOn) {
-            bool anyActive = false;
-            for (int i = 0; i < 256; i++) {
-                if (dpxPixelEffect.pixbuf[i] > 0) {
-                    dpxPixelEffect.pixbuf[i] = (dpxPixelEffect.pixbuf[i] > 15) ? dpxPixelEffect.pixbuf[i] - 15 : 0;
-                    anyActive = true;
-                }
-            }
-            if (!anyActive) dpxPixelEffect.strobeOn = false;
             for (int i = 0; i < 256; i++)
-                if (dpxPixelEffect.pixbuf[i] > 0)
-                    SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
-                        color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W),
-                                    0xFFFFFF, dpxPixelEffect.pixbuf[i]));
+                dpxPixelEffect.pixbuf[i] = (dpxPixelEffect.pixbuf[i] > 18) ? dpxPixelEffect.pixbuf[i] - 18 : 0;
+
+            int boltIntervalMs = map(iv, 0, 100, 5000, 1200);
+            if (shakeFramesLeft == 0 && now - _boltMs >= (unsigned long)boltIntervalMs) {
+                _boltMs = now;
+                if (random(100) < 55) {
+                    int x = (int)random(DPX_MATRIX_W);
+                    for (int y = 0; y < DPX_MATRIX_H; y++) {
+                        x += (int)random(3) - 1; // jagged left/right/straight
+                        x = constrain(x, 0, DPX_MATRIX_W - 1);
+                        dpxPixelEffect.pixbuf[y * DPX_MATRIX_W + x] = 255;
+                    }
+                    for (int i = 0; i < 256; i++) // faint screen-wide afterglow
+                        if (dpxPixelEffect.pixbuf[i] < 50) dpxPixelEffect.pixbuf[i] = 50;
+                    for (int x2 = 0; x2 < DPX_MATRIX_W; x2++)
+                        for (int y2 = 0; y2 < DPX_MATRIX_H; y2++)
+                            dpxPixelEffect.ovBuf[x2][y2] = SEGMENT.getPixelColorXY(x2, y2);
+                    shakeFramesLeft = 8;
+                }
+            }
         }
-        int flashIntervalMs = map(iv, 0, 100, 6000, 1000);
-        if (now - _thunderFlashMs >= (unsigned long)flashIntervalMs) {
-            _thunderFlashMs = now;
-            if (random(100) < 40) {
-                memset(dpxPixelEffect.pixbuf, 255, sizeof(dpxPixelEffect.pixbuf));
-                dpxPixelEffect.strobeOn = true;
+        if (shakeFramesLeft > 0) {
+            int dx = (int)random(3) - 1, dy = (int)random(3) - 1;
+            for (int x = 0; x < DPX_MATRIX_W; x++) {
+                for (int y = 0; y < DPX_MATRIX_H; y++) {
+                    int sx = constrain(x + dx, 0, DPX_MATRIX_W - 1);
+                    int sy = constrain(y + dy, 0, DPX_MATRIX_H - 1);
+                    SEGMENT.setPixelColorXY(x, y, dpxPixelEffect.ovBuf[sx][sy]);
+                }
+            }
+            shakeFramesLeft--;
+        }
+        for (int i = 0; i < 256; i++) {
+            if (dpxPixelEffect.pixbuf[i] > 0) {
+                int x = i % DPX_MATRIX_W, y = i / DPX_MATRIX_W;
+                SEGMENT.setPixelColorXY(x, y,
+                    color_blend(SEGMENT.getPixelColorXY(x, y), 0xFFFFFF, dpxPixelEffect.pixbuf[i]));
             }
         }
     }
@@ -424,11 +465,24 @@ static void dpxRenderPixelEffect() {
             dpxPixelEffect.lastMs = now;
             for (int x = 0; x < DPX_MATRIX_W; x++) {
                 int floorY = DPX_MATRIX_H - 1 - (int)dpxPixelEffect.snow[x];
+                // Per-column pile cap (deterministic, varies 3-6 rows) so the
+                // floor builds up unevenly instead of one flat uniform line.
+                uint8_t maxPile = 3 + ((x * 41) % 4);
                 // Fall: shift occupied cells down one row unless blocked by the floor
                 for (int y = DPX_MATRIX_H - 1; y > 0; y--) {
                     if (dpxPixelEffect.ovBuf[x][y - 1] && !dpxPixelEffect.ovBuf[x][y]) {
                         if (y >= floorY) {
-                            if (dpxPixelEffect.snow[x] < DPX_MATRIX_H) dpxPixelEffect.snow[x]++;
+                            if (dpxPixelEffect.snow[x] < maxPile) {
+                                dpxPixelEffect.snow[x]++;
+                            } else if (random(3) == 0) {
+                                // Column capped out — spill into a shorter neighbor
+                                // so drifts redistribute instead of just stopping.
+                                int nx = x + (random(2) ? 1 : -1);
+                                if (nx >= 0 && nx < DPX_MATRIX_W) {
+                                    uint8_t nMax = 3 + ((nx * 41) % 4);
+                                    if (dpxPixelEffect.snow[nx] < nMax) dpxPixelEffect.snow[nx]++;
+                                }
+                            }
                             dpxPixelEffect.ovBuf[x][y - 1] = 0;
                         } else {
                             dpxPixelEffect.ovBuf[x][y] = dpxPixelEffect.ovBuf[x][y - 1];
@@ -436,7 +490,7 @@ static void dpxRenderPixelEffect() {
                         }
                     }
                 }
-                if (!dpxPixelEffect.ovBuf[x][0] && random(1024) < (uint32_t)(iv + 5))
+                if (!dpxPixelEffect.ovBuf[x][0] && random(300) < (uint32_t)(iv + 15))
                     dpxPixelEffect.ovBuf[x][0] = 0xDDDDFF;
             }
             // Wind drift: occasionally shift a falling flake left or right
@@ -456,56 +510,70 @@ static void dpxRenderPixelEffect() {
             for (int y = 0; y < DPX_MATRIX_H; y++)
                 if (dpxPixelEffect.ovBuf[x][y])
                     dpxSetPixel(x, y, dpxPixelEffect.ovBuf[x][y]);
-        for (int x = 0; x < DPX_MATRIX_W; x++)
-            for (uint8_t py = 0; py < dpxPixelEffect.snow[x]; py++)
-                dpxSetPixel(x, DPX_MATRIX_H - 1 - py, 0xDDDDFF);
+        // Drift pile: where it covers lit text, invert instead of painting flat
+        // white over it, so buried text still reads through the drift.
+        for (int x = 0; x < DPX_MATRIX_W; x++) {
+            for (uint8_t py = 0; py < dpxPixelEffect.snow[x]; py++) {
+                int y = DPX_MATRIX_H - 1 - py;
+                uint32_t p = SEGMENT.getPixelColorXY(x, y);
+                if (p) {
+                    uint32_t inv = (((255 - ((p >> 16) & 0xFF)) << 16)
+                                  | ((255 - ((p >>  8) & 0xFF)) <<  8)
+                                  |  (255 - ( p        & 0xFF)));
+                    SEGMENT.setPixelColorXY(x, y, inv);
+                } else {
+                    dpxSetPixel(x, y, 0xDDDDFF);
+                }
+            }
+        }
     }
 
-    // ── Frost — crystals grow inward from the matrix edges (#61) ──────────────
-    // Seeds ignite along the border, then spread to adjacent unfrosted pixels
-    // each tick (a simple diffusion-limited-aggregation walk) until coverage
-    // hits an intensity-scaled target; past that it "breathes" — occasionally
-    // melting a pixel so growth can resume elsewhere, keeping it alive rather
-    // than settling into a static pattern. Hue is derived from pixel position
-    // (not re-randomized per draw) so it doesn't flicker at frame rate (#59).
+    // ── Frost — dendritic crystal growth from edge seeds (redesign #3) ────────
+    // Previous versions were either scattered blobs or a flat uniform rim —
+    // neither read as "crystal." Each new pixel mostly continues its parent's
+    // growth direction (needle-like branches) with occasional turns to branch
+    // off, which is what actually makes ice crystals look like ice crystals.
+    // ovBuf is reused as scratch: stores each occupied pixel's growth
+    // direction (1=+x, 2=-x, 3=+y, 4=-y).
     else if (dpxPixelEffect.name == "frost") {
-        int intervalMs = map(iv, 0, 100, 300, 60);
+        int intervalMs = map(iv, 0, 100, 200, 40);
+        int target = 20 + (iv * 120) / 100;
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
             int active = 0;
             for (int i = 0; i < 256; i++) if (dpxPixelEffect.pixbuf[i] > 0) active++;
-            int target = 30 + (iv * 150) / 100;
 
             if (active == 0) {
-                // Seed fresh crystals along the border
-                for (int s = 0; s < 6; s++) {
-                    int x, y;
+                for (int s = 0; s < 5; s++) {
+                    int x, y, dir;
                     switch (random(4)) {
-                        case 0: x = 0;                 y = random(DPX_MATRIX_H); break;
-                        case 1: x = DPX_MATRIX_W - 1;   y = random(DPX_MATRIX_H); break;
-                        case 2: x = random(DPX_MATRIX_W); y = 0;                 break;
-                        default: x = random(DPX_MATRIX_W); y = DPX_MATRIX_H - 1; break;
+                        case 0: x = 0;                    y = random(DPX_MATRIX_H); dir = 1; break; // grows +x
+                        case 1: x = DPX_MATRIX_W - 1;      y = random(DPX_MATRIX_H); dir = 2; break; // grows -x
+                        case 2: x = random(DPX_MATRIX_W);  y = 0;                    dir = 3; break; // grows +y
+                        default: x = random(DPX_MATRIX_W); y = DPX_MATRIX_H - 1;     dir = 4; break; // grows -y
                     }
                     dpxPixelEffect.pixbuf[y * DPX_MATRIX_W + x] = 255;
+                    dpxPixelEffect.ovBuf[x][y] = dir;
                 }
             } else if (active < target) {
-                // Grow: pick a lit crystal, ignite one unlit 4-neighbor
-                static const int dx[4] = {1, -1, 0, 0};
-                static const int dy[4] = {0, 0, 1, -1};
+                static const int ddx[5] = {0, 1, -1, 0, 0};
+                static const int ddy[5] = {0, 0, 0, 1, -1};
                 for (int attempt = 0; attempt < 8; attempt++) {
                     int i = (int)random(256);
                     if (dpxPixelEffect.pixbuf[i] == 0) continue;
                     int x = i % DPX_MATRIX_W, y = i / DPX_MATRIX_W;
-                    int d = (int)random(4);
-                    int nx = x + dx[d], ny = y + dy[d];
+                    int dir = (int)dpxPixelEffect.ovBuf[x][y];
+                    if (dir == 0) dir = 1 + (int)random(4);
+                    int newDir = (random(4) < 3) ? dir : 1 + (int)random(4); // mostly straight, sometimes branch
+                    int nx = x + ddx[newDir], ny = y + ddy[newDir];
                     if (nx >= 0 && nx < DPX_MATRIX_W && ny >= 0 && ny < DPX_MATRIX_H &&
                         dpxPixelEffect.pixbuf[ny * DPX_MATRIX_W + nx] == 0) {
                         dpxPixelEffect.pixbuf[ny * DPX_MATRIX_W + nx] = 200 + random(56);
+                        dpxPixelEffect.ovBuf[nx][ny] = newDir;
                         break;
                     }
                 }
             } else if (random(4) == 0) {
-                // At target coverage: melt one pixel so growth can resume — keeps it alive
                 int i = (int)random(256);
                 if (dpxPixelEffect.pixbuf[i] > 0)
                     dpxPixelEffect.pixbuf[i] = (dpxPixelEffect.pixbuf[i] > 60) ? dpxPixelEffect.pixbuf[i] - 60 : 0;
@@ -513,8 +581,7 @@ static void dpxRenderPixelEffect() {
         }
         for (int i = 0; i < 256; i++) {
             if (dpxPixelEffect.pixbuf[i] > 0) {
-                uint8_t hue = (uint8_t)((i * 37) & 0xFF); // stable per-pixel hue, no per-frame flicker
-                uint32_t c = ColorFromPalette(OceanColors_p, hue, 255, LINEARBLEND);
+                uint32_t c = dpxOceanColor((uint8_t)((i * 37) & 0xFF));
                 SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
                     color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, dpxPixelEffect.pixbuf[i]));
             }
@@ -526,26 +593,45 @@ static void dpxRenderPixelEffect() {
         for (int x = 0; x < DPX_MATRIX_W; x++) {
             for (int y = 0; y < DPX_MATRIX_H; y++) {
                 uint8_t hue = (uint8_t)((x * 255 / DPX_MATRIX_W) + now / 10);
-                uint32_t c = ColorFromPalette(RainbowColors_p, hue, 255, LINEARBLEND);
+                uint32_t c = dpxHueColor(hue);
                 SEGMENT.setPixelColorXY(x, y,
                     color_blend(SEGMENT.getPixelColorXY(x, y), c, map(iv, 0, 100, 80, 200)));
             }
         }
     }
 
-    // ── Plasma — overlapping sine patterns ─────────────────────────────────
+    // ── Plasma — overlapping sine + radial waves, rotating hue (redesign) ──
+    // The 3-term average was too flat/muddy. Adds a 4th radial term, contrast-
+    // stretches the result, and rotates a global hue offset over time so the
+    // palette keeps cycling instead of sitting on one static-looking gradient.
+    // Where it crosses lit text it inverts instead of blending, so text stays
+    // legible against the noise.
     else if (dpxPixelEffect.name == "plasma") {
         static double plasmaTime = 0;
-        plasmaTime += map(iv, 0, 100, 1, 10) * 0.01;
+        plasmaTime += map(iv, 0, 100, 2, 16) * 0.01;
+        uint8_t hueShift = (uint8_t)(plasmaTime * 25);
         for (int x = 0; x < DPX_MATRIX_W; x++) {
             for (int y = 0; y < DPX_MATRIX_H; y++) {
-                uint8_t value = sin8(x * 10 + plasmaTime * 50) +
-                               sin8(y * 10 + plasmaTime * 50 / 2) +
-                               sin8((x + y) * 10 + plasmaTime * 50 / 3);
-                value = value / 3;
-                uint32_t c = ColorFromPalette(RainbowColors_p, value, 255, LINEARBLEND);
+                uint32_t existing = SEGMENT.getPixelColorXY(x, y);
+                if (existing) {
+                    uint32_t inv = (((255 - ((existing >> 16) & 0xFF)) << 16)
+                                  | ((255 - ((existing >>  8) & 0xFF)) <<  8)
+                                  |  (255 - ( existing        & 0xFF)));
+                    SEGMENT.setPixelColorXY(x, y, inv);
+                    continue;
+                }
+                int cx = x - DPX_MATRIX_W / 2, cy = y - DPX_MATRIX_H / 2;
+                uint8_t radial = sin8_t((uint8_t)((int)sqrtf((float)(cx * cx + cy * cy)) * 12 + plasmaTime * 60));
+                int sum = sin8_t((uint8_t)(x * 14 + plasmaTime * 70))
+                        + sin8_t((uint8_t)(y * 14 + plasmaTime * 55))
+                        + sin8_t((uint8_t)((x + y) * 9 + plasmaTime * 40))
+                        + radial;
+                uint8_t value = (uint8_t)(sum / 4);
+                int stretched = ((int)value - 128) * 2 + 128; // widen contrast around midpoint
+                value = (uint8_t)constrain(stretched, 0, 255);
+                uint32_t c = dpxHueColor((uint8_t)(value + hueShift));
                 SEGMENT.setPixelColorXY(x, y,
-                    color_blend(SEGMENT.getPixelColorXY(x, y), c, map(iv, 0, 100, 60, 180)));
+                    color_blend(SEGMENT.getPixelColorXY(x, y), c, map(iv, 0, 100, 120, 220)));
             }
         }
     }
@@ -569,29 +655,36 @@ static void dpxRenderPixelEffect() {
         for (int i = 0; i < 256; i++) {
             if (dpxPixelEffect.pixbuf[i] > 0) {
                 uint8_t bri = dpxPixelEffect.pixbuf[i];
-                // Stable per-pixel hue (not re-rolled per draw) so stars don't flicker color at frame rate
-                uint8_t hue = (uint8_t)((i * 37) & 0xFF);
-                uint32_t c = ColorFromPalette(OceanColors_p, hue, 255, LINEARBLEND);
+                // Fixed warm amber tone (hue ~30) — brightness varies per star, not hue.
+                CRGBW rgb = CHSV(30, 230, 255);
+                uint32_t c = (uint32_t)rgb.r << 16 | (uint32_t)rgb.g << 8 | rgb.b;
                 SEGMENT.setPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W,
                     color_blend(SEGMENT.getPixelColorXY(i % DPX_MATRIX_W, i / DPX_MATRIX_W), c, bri));
             }
         }
     }
 
-    // ── TheaterChase — chasing dots pattern ────────────────────────────────
+    // ── TheaterChase — marquee-style chase around the screen border ────────
+    // Chases lights around the perimeter ring only, leaving the interior
+    // untouched. Color slowly breathes between solid amber and a full rainbow
+    // sweep and back (~10s cycle) instead of sitting on one look.
     else if (dpxPixelEffect.name == "theatrechase") {
-        int intervalMs = map(iv, 0, 100, 200, 30);
+        int intervalMs = map(iv, 0, 100, 160, 30);
         if (now - dpxPixelEffect.lastMs >= (unsigned long)intervalMs) {
             dpxPixelEffect.lastMs = now;
             dpxPixelEffect.pulsePhase = (dpxPixelEffect.pulsePhase + 1) % 3;
         }
-        for (int x = 0; x < DPX_MATRIX_W; x++) {
-            for (int y = 0; y < DPX_MATRIX_H; y++) {
-                if ((x + dpxPixelEffect.pulsePhase) % 3 == 0) {
-                    uint8_t hue = (x * 255 / DPX_MATRIX_W);
-                    uint32_t c = ColorFromPalette(RainbowColors_p, hue, 255, LINEARBLEND);
-                    SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), c, 200));
-                }
+        const int perim = 2 * (DPX_MATRIX_W + DPX_MATRIX_H) - 4;
+        uint8_t rainbowMix = sin8_t((uint8_t)(now / 40)); // ~10s amber<->rainbow<->amber
+        CRGBW amberRgb = CHSV(30, 230, 255);
+        uint32_t amber = (uint32_t)amberRgb.r << 16 | (uint32_t)amberRgb.g << 8 | amberRgb.b;
+        for (int p = 0; p < perim; p++) {
+            if ((p + dpxPixelEffect.pulsePhase) % 3 == 0) {
+                int x, y;
+                dpxPerimXY(p, x, y);
+                uint32_t rainbow = dpxHueColor((uint8_t)(p * 255 / perim));
+                uint32_t c = color_blend(amber, rainbow, rainbowMix);
+                SEGMENT.setPixelColorXY(x, y, color_blend(SEGMENT.getPixelColorXY(x, y), c, 220));
             }
         }
     }
@@ -599,17 +692,17 @@ static void dpxRenderPixelEffect() {
     // ── Pacifica — wavy ocean simulation ───────────────────────────────────
     else if (dpxPixelEffect.name == "pacifica") {
         static uint32_t pacificaTime = 0;
-        pacificaTime += map(iv, 0, 100, 1, 5);
+        pacificaTime += map(iv, 0, 100, 1, 3); // slower drift than the original 1-5 range
         for (int x = 0; x < DPX_MATRIX_W; x++) {
             for (int y = 0; y < DPX_MATRIX_H; y++) {
                 uint16_t ulx = (pacificaTime / 8) - (x * 16);
                 uint16_t uly = (pacificaTime / 4) + (y * 16);
                 uint16_t v = 0;
-                v += sin16(ulx * 6 + pacificaTime / 2) / 8 + 127;
-                v += sin16(uly * 9 + pacificaTime / 2) / 8 + 127;
-                v += sin16(ulx * 7 + uly * 2 - pacificaTime) / 16;
+                v += sin16_t(ulx * 6 + pacificaTime / 2) / 8 + 127;
+                v += sin16_t(uly * 9 + pacificaTime / 2) / 8 + 127;
+                v += sin16_t(ulx * 7 + uly * 2 - pacificaTime) / 16;
                 v = v / 3;
-                uint32_t c = ColorFromPalette(OceanColors_p, v, 255, LINEARBLEND);
+                uint32_t c = dpxOceanColor((uint8_t)v);
                 SEGMENT.setPixelColorXY(x, y,
                     color_blend(SEGMENT.getPixelColorXY(x, y), c, map(iv, 0, 100, 100, 220)));
             }
