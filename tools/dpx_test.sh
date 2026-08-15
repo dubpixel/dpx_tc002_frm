@@ -327,11 +327,14 @@ pr=$(curl -sf --compressed --max-time 5 "$purl")
 } || skip "buzzer/parse endpoint not in build"
 resp=$(_post /api/sound '{"rtttl":"Scale:d=4,o=5,b=120:c,d,e,f,g,a,b,c6"}')
 assert_ok "$resp" "RTTTL scale"
+assert_key "$(_get /api/sound/status)" '.playing' "true" "buzzer entered play state (scale)"
 _wait 5; snd "C major scale — 8 ascending notes"
 resp=$(_post /api/sound '{"rtttl":"Mario:d=4,o=5,b=100:16e6,16e6,32p,8e6,16c6,8e6,8g6,8p,8g5,8p"}')
 assert_ok "$resp" "RTTTL Mario"
+assert_key "$(_get /api/sound/status)" '.playing' "true" "buzzer entered play state (mario)"
 _wait 3; snd "Mario theme opening"
 _post /api/sound '{}' > /dev/null
+assert_key "$(_get /api/sound/status)" '.playing' "false" "buzzer stopped after {}"
 # Sound disable: settings persists and blocks playback
 _post /api/settings '{"SOUND":false}' > /dev/null
 assert_key "$(_get /api/settings)" '.SOUND' "false" "SOUND=false in settings"

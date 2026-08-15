@@ -583,8 +583,17 @@ static void dpxRegisterRoutes() {
         }
     });
 
+    // ── Buzzer play state (GH #9) — lets --auto sound tests verify the
+    // buzzer actually entered play state, not just that the API returned ok.
+    server.on("/api/sound/status", HTTP_GET, [](AsyncWebServerRequest* r) {
+        DynamicJsonDocument doc(64);
+        doc["playing"] = _bzActive;
+        String s; serializeJson(doc, s);
+        r->send(200, F("application/json"), s);
+    });
+
     // ── File rename ───────────────────────────────────────────────────────────
-    // {"from":"/ICONS/a.jpg","to":"/ICONS/b.jpg"}
+    // {"from":"/ICONS/a.raw","to":"/ICONS/b.raw"}
     server.on("/api/rename", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
         DynamicJsonDocument doc(256);
