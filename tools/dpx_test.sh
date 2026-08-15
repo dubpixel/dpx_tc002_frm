@@ -245,7 +245,7 @@ for effect in sparkle twinkle rain drizzle snow storm thunder strobe blink frost
     _app "_t_ov" "{\"text\":\"$effect\",\"color\":\"#FFFFFF\",\"overlay\":\"$effect\",\"dur\":999}"
     _post /api/switch '{"name":"_t_ov"}' > /dev/null
     _wait 1
-    vis "$effect — text visible WITH $effect effect on top" '_del _t_ov'
+    vis "$effect — text must remain readable THROUGH $effect (effect overlays text, does not erase it)" '_del _t_ov'
 done
 # 1.11 regression: effect must clear when app has no overlay
 _app "_t_clean" '{"text":"CLEAN","color":"#FF8800","dur":999}'
