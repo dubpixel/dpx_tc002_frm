@@ -141,6 +141,7 @@ public:
         // Write default cfg.json on first boot if LittleFS has none.
         // Must run before dpxLoadDev() so WLED picks it up on next reboot.
         dpxFirstBoot();
+        dpxEnsureDirs();
 
         // Load persistent settings
         dpxLoadDev();

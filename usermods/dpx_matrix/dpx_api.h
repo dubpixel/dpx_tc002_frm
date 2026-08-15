@@ -595,6 +595,32 @@ static void dpxRegisterRoutes() {
         }
     });
 
+    // ── Directory listing (WLED's stock /edit?list= always lists root only —
+    // it ignores the path argument — so it can't list /ICONS/, /MELODIES/, etc.
+    // used by the /browse UI's installed-icons dropdown and file manager.)
+    server.on("/api/list", HTTP_GET, [](AsyncWebServerRequest* r) {
+        String dir = r->hasArg("dir") ? r->arg("dir") : "/";
+        if (!dir.startsWith("/")) dir = "/" + dir;
+        DynamicJsonDocument doc(4096);
+        JsonArray arr = doc.to<JsonArray>();
+        File d = LittleFS.open(dir, "r");
+        if (d && d.isDirectory()) {
+            File f = d.openNextFile();
+            while (f) {
+                JsonObject o = arr.createNestedObject();
+                String name = f.name();
+                int slash = name.lastIndexOf('/');
+                if (slash >= 0) name = name.substring(slash + 1); // basename only
+                o["name"] = name;
+                o["type"] = f.isDirectory() ? "dir" : "file";
+                o["size"] = f.size();
+                f = d.openNextFile();
+            }
+        }
+        String s; serializeJson(doc, s);
+        r->send(200, F("application/json"), s);
+    });
+
     // ── WLED effects list ─────────────────────────────────────────────────────
     server.on("/api/effects", HTTP_GET, [](AsyncWebServerRequest* r) {
         DynamicJsonDocument doc(8192);

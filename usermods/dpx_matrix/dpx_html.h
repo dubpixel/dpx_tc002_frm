@@ -77,7 +77,7 @@ code,.snip{background:#1a1a2e;color:#8cf;padding:1px 4px;border-radius:3px;font-
 <tr><td><span class="pill get">GET</span></td><td><code>/api/time</code></td><td>Current device time: <code>{"local":"2026-07-14T15:30:00","utc":1752506200}</code></td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/time</code></td><td><code>{"utc":1752506200}</code> — set clock via settimeofday()</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/syncntp</code></td><td>Re-trigger NTP sync with current server + timezone settings</td></tr>
-<tr><td><span class="pill post">POST</span></td><td><code>/api/rename</code></td><td><code>{"from":"/ICONS/old.jpg","to":"/ICONS/new.jpg"}</code></td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/rename</code></td><td><code>{"from":"/ICONS/old.raw","to":"/ICONS/new.raw"}</code></td></tr>
 <tr><td><span class="pill get">GET</span></td><td><code>/api/reboot</code></td><td>Reboot device</td></tr>
 <tr><td><span class="pill get">GET</span></td><td><code>/screen</code></td><td>Live view page</td></tr>
 <tr><td><span class="pill get">GET</span></td><td><code>/ctrl</code></td><td>Control panel</td></tr>
@@ -108,7 +108,7 @@ code,.snip{background:#1a1a2e;color:#8cf;padding:1px 4px;border-radius:3px;font-
 <tr><td><code>rainbow</code></td><td>bool</td><td>RGB rainbow per letter</td><td>false</td><td class="tag">B</td></tr>
 <tr><td><code>blinkText</code></td><td>int</td><td>Blink text every N ms</td><td>—</td><td class="tag">B</td></tr>
 <tr><td><code>fadeText</code></td><td>int</td><td>Fade text in/out every N ms</td><td>—</td><td class="tag">B</td></tr>
-<tr><td><code>icon</code></td><td>string</td><td>Icon filename (no ext) or LaMetric ID, or 8×8 JPG as base64</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>icon</code></td><td>string</td><td>Installed icon name (no ext) — install via /browse, saved as /ICONS/&lt;name&gt;.raw</td><td>—</td><td class="tag">B</td></tr>
 <tr><td><code>pushIcon</code></td><td>int</td><td>0=fixed, 1=scroll+gone, 2=scroll+loop</td><td>0</td><td class="tag">B</td></tr>
 <tr><td><code>noScroll</code></td><td>bool</td><td>Disable text scrolling</td><td>false</td><td class="tag">B</td></tr>
 <tr><td><code>scrollSpeed</code></td><td>int</td><td>Scroll speed % of default</td><td>100</td><td class="tag">B</td></tr>
@@ -465,7 +465,7 @@ function installIcon(id,btn){
     var finish=function(b,ext){
       var fd=new FormData();
       fd.append("image",b,"ICONS/"+saveName+ext);
-      fetch("/edit",{method:"POST",body:fd,mode:"no-cors"})
+      fetch("/upload",{method:"POST",body:fd,mode:"no-cors"})
         .then(function(){
           toast("Saved as \""+saveName+"\" \u2192 use icon:\""+saveName+"\"");
           installed[id]=ext;
@@ -476,16 +476,22 @@ function installIcon(id,btn){
     if(ct.indexOf("gif")>=0){
       finish(blob,".gif");
     } else {
+      // Convert to raw RGB888 8x8 on-device format (GH #16) — no PNG decoder
+      // needed on the device, dpxLoadIcon() just reads 192 raw bytes.
       var ou=URL.createObjectURL(blob);
       var im=new Image();
       im.onload=function(){
         var cv=document.createElement("canvas");
-        cv.width=im.width;cv.height=im.height;
-        cv.getContext("2d").drawImage(im,0,0);
-        cv.toBlob(function(b){finish(b,".jpg");},"image/jpeg",1);
+        cv.width=8;cv.height=8;
+        var ctx=cv.getContext("2d");
+        ctx.drawImage(im,0,0,8,8);
+        var rgba=ctx.getImageData(0,0,8,8).data; // 64px * 4 bytes (RGBA)
+        var raw=new Uint8Array(64*3);
+        for(var i=0;i<64;i++){raw[i*3]=rgba[i*4];raw[i*3+1]=rgba[i*4+1];raw[i*3+2]=rgba[i*4+2];}
+        finish(new Blob([raw],{type:"application/octet-stream"}),".raw");
         URL.revokeObjectURL(ou);
       };
-      im.onerror=function(){finish(blob,".png");};
+      im.onerror=function(){toast("Icon image failed to load",false);if(btn){btn.textContent=orig;btn.disabled=false;}};
       im.src=ou;
     }
   }).catch(function(e){
@@ -519,7 +525,7 @@ function loadGifs(){
           btn.textContent="...";btn.disabled=true;
           fetch(f.download_url).then(function(r){return r.blob();}).then(function(b){
             var fd=new FormData();fd.append("image",b,f.name);
-            fetch("/edit",{method:"POST",body:fd,mode:"no-cors"})
+            fetch("/upload",{method:"POST",body:fd,mode:"no-cors"})
               .then(function(){toast("Installed "+f.name);btn.textContent="✓";btn.style.background="#285";})
               .catch(function(e){toast("Save error: "+e,false);btn.textContent="&#8659; Install";btn.disabled=false;});
           }).catch(function(e){toast("Fetch error: "+e,false);btn.textContent="&#8659; Install";btn.disabled=false;});
@@ -572,9 +578,9 @@ function renderDir(data,elId,prefix){
 }
 
 function loadFiles(){
-  fetch("/list?dir=/ICONS/").then(function(r){return r.json();}).then(function(d){renderDir(d,"f_icons","/ICONS/");}).catch(function(){document.getElementById("f_icons").textContent="Could not list.";});
-  fetch("/list?dir=/MELODIES/").then(function(r){return r.json();}).then(function(d){renderDir(d,"f_mel","/MELODIES/");}).catch(function(){document.getElementById("f_mel").textContent="Could not list.";});
-  fetch("/list?dir=/").then(function(r){return r.json();}).then(function(d){renderDir(d,"f_root","/");}).catch(function(){document.getElementById("f_root").textContent="Could not list.";});
+  fetch("/api/list?dir=/ICONS/").then(function(r){return r.json();}).then(function(d){renderDir(d,"f_icons","/ICONS/");}).catch(function(){document.getElementById("f_icons").textContent="Could not list.";});
+  fetch("/api/list?dir=/MELODIES/").then(function(r){return r.json();}).then(function(d){renderDir(d,"f_mel","/MELODIES/");}).catch(function(){document.getElementById("f_mel").textContent="Could not list.";});
+  fetch("/api/list?dir=/").then(function(r){return r.json();}).then(function(d){renderDir(d,"f_root","/");}).catch(function(){document.getElementById("f_root").textContent="Could not list.";});
 }
 
 // init
@@ -898,7 +904,7 @@ function toast(m,ok){var t=document.getElementById("toast");t.textContent=m;t.st
 function apiPost(url,data){return fetch(url,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(data))}).then(function(r){r.ok?toast(url.split("/").pop()+" OK"):toast("Error "+r.status,false);}).catch(function(e){toast(String(e),false);});}
 function strip(d){Object.keys(d).forEach(function(k){if(d[k]===undefined||d[k]==="")delete d[k];});return d;}
 fetch("/api/effects").then(function(r){return r.json();}).then(function(fx){["n_effect","ca_effect"].forEach(function(id){var s=document.getElementById(id);fx.forEach(function(e){var o=document.createElement("option");o.value=e;o.textContent=e;s.appendChild(o);});});}).catch(function(){});
-function loadIcons(){fetch("/list?dir=/ICONS/").then(function(r){return r.json();}).then(function(files){var names=files.filter(function(f){return f.type==="file";}).map(function(f){return f.name.replace(/\.[^.]+$/,"");});["n_icon_sel","ca_icon_sel"].forEach(function(id){var s=document.getElementById(id);s.innerHTML="<option value=''>&#8212; installed icons &#8212;</option>";names.forEach(function(n){var o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});});}).catch(function(){});}
+function loadIcons(){fetch("/api/list?dir=/ICONS/").then(function(r){return r.json();}).then(function(files){var names=files.filter(function(f){return f.type==="file";}).map(function(f){return f.name.replace(/\.[^.]+$/,"");});["n_icon_sel","ca_icon_sel"].forEach(function(id){var s=document.getElementById(id);s.innerHTML="<option value=''>&#8212; installed icons &#8212;</option>";names.forEach(function(n){var o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});});}).catch(function(){});}
 loadIcons();
 var mqttPrefix="[prefix]";
 function loadLoop(){
@@ -1077,7 +1083,7 @@ fetch("/api/settings").then(function(r){return r.json();}).then(function(s){
   if(st){st.textContent=en.checked?"(on)":"(DISABLED \u2014 check this box and Save)";st.style.color=en.checked?"#2a5":"#f66";}
   en.onchange=function(){if(st){st.textContent=en.checked?"(on)":"(DISABLED)";st.style.color=en.checked?"#2a5":"#f66";}};
 }).catch(function(){});
-fetch("/list?dir=/MELODIES/").then(function(r){return r.json();}).then(function(files){var s=document.getElementById("snd_file_sel");files.filter(function(f){return f.type==="file";}).forEach(function(f){var n=f.name.replace(/\.txt$/i,"");var o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});}).catch(function(){});
+fetch("/api/list?dir=/MELODIES/").then(function(r){return r.json();}).then(function(files){var s=document.getElementById("snd_file_sel");files.filter(function(f){return f.type==="file";}).forEach(function(f){var n=f.name.replace(/\.txt$/i,"");var o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});}).catch(function(){});
 function loadStatus(){
   fetch("/dpx").then(function(r){return r.json();}).then(function(d){
     var el=document.getElementById("status_bar");if(el)

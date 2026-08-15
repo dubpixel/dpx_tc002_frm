@@ -58,9 +58,11 @@ static inline uint32_t dpxRainbowColor(int charIdx, int totalChars) {
 // ── Draw a single glyph using AwtrixFont (GFX row-major format) ───────────────
 // x         = left edge of where the glyph will land
 // baseline  = cursor_y (pass DPX_FONT_BASELINE to centre in 8-row display)
+// minX      = left clip boundary (pixels before this column are not drawn) —
+//             used to keep scrolling text from running under a fixed icon.
 // Returns the next cursor X (x + xAdvance).
 // Glyphs that land partially off-left are clipped pixel-by-pixel.
-static int dpxDrawChar(int x, int baseline, char c, uint32_t color) {
+static int dpxDrawChar(int x, int baseline, char c, uint32_t color, int minX = 0) {
     extern const GFXfont AwtrixFont;
     uint8_t ci = (uint8_t)c;
     if (ci < AwtrixFont.first || ci > AwtrixFont.last) return x + 4;
@@ -82,7 +84,7 @@ static int dpxDrawChar(int x, int baseline, char c, uint32_t color) {
                 int col = (b * 8) + (7 - bit);
                 if (col >= (int)g.width) break;
                 int px = x + g.xOffset + col;
-                if (px < 0) continue;
+                if (px < minX) continue;
                 if (px >= DPX_MATRIX_W) break;
                 if (bits & (1 << bit))
                     dpxSetPixel(px, py, color);
@@ -96,14 +98,15 @@ static int dpxDrawChar(int x, int baseline, char c, uint32_t color) {
 // x        = left cursor position
 // baseline = cursor_y (use DPX_FONT_BASELINE for centered output)
 // rainbow  = true overrides color with per-character hue sweep
+// minX     = left clip boundary, see dpxDrawChar
 // Returns the x position after the last character.
-static int dpxRenderText(int x, int baseline, const char* text, uint32_t color, bool rainbow = false) {
+static int dpxRenderText(int x, int baseline, const char* text, uint32_t color, bool rainbow = false, int minX = 0) {
     if (!text) return x;
     int n = strlen(text);
     int curX = x;
     for (int i = 0; i < n; i++) {
         uint32_t c = rainbow ? dpxRainbowColor(i, n) : color;
-        curX = dpxDrawChar(curX, baseline, text[i], c);
+        curX = dpxDrawChar(curX, baseline, text[i], c, minX);
         if (curX >= DPX_MATRIX_W) break;
     }
     return curX;
@@ -164,9 +167,10 @@ struct DpxScrollState {
     }
 
     // Render current scroll position. Call after tick().
-    void render() const {
+    // minX: left clip boundary, see dpxDrawChar — keeps text from running under a fixed icon.
+    void render(int minX = 0) const {
         if (!active) return;
-        dpxRenderText(scrollX, y, text.c_str(), color, rainbow);
+        dpxRenderText(scrollX, y, text.c_str(), color, rainbow, minX);
     }
 };
 

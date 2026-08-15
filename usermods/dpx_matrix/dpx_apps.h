@@ -21,6 +21,7 @@
 #include <Arduino.h>
 #include "dpx_text.h"
 #include "dpx_persist.h"
+#include "dpx_icons.h"
 
 // ── Draw instruction (subset of SPEC.md §4.3) ────────────────────────────────
 struct DpxDrawCmd {
@@ -221,6 +222,14 @@ static void dpxRenderNativeDate() {
 
 // ── Render one custom app frame (static or scroll) ───────────────────────────
 // Returns false if app has completed its scroll cycles.
+//
+// Icon layout (GH #16): when app.icon resolves to a loaded 8x8 icon, it takes
+// cols 0-7 and text is confined to cols 8-31. app.pushIcon controls how the
+// icon behaves relative to scrolling text:
+//   0 = fixed   — icon stays put; text scrolls/renders within its own region
+//   1 = scroll+gone — icon rides along with the text on the first pass, then
+//                      stays gone on any further repeats (text goes full-width)
+//   2 = scroll+loop — icon rides along with the text on every pass
 static bool dpxRenderApp(DpxCustomApp& app) {
     if (!app.valid) return false;
 
@@ -237,23 +246,52 @@ static bool dpxRenderApp(DpxCustomApp& app) {
 
     int textY = app.topText ? (DPX_FONT_BASELINE - 1) : DPX_FONT_BASELINE; // proper AwtrixFont baselines
     int textW = dpxTextPixelWidth(app.text.c_str());
+    const uint32_t* icon = app.icon.length() ? dpxGetIcon(app.icon) : nullptr;
 
-    if (app.noScroll || textW <= DPX_MATRIX_W) {
-        // Static: center or left-align
-        int x = 0;
-        if (app.center && textW < DPX_MATRIX_W) x = (DPX_MATRIX_W - textW) / 2;
-        dpxRenderText(x, textY, app.text.c_str(), app.color, app.rainbow);
-        return true; // static apps never "complete"
+    if (!icon) {
+        // No icon — original full-width behavior.
+        if (app.noScroll || textW <= DPX_MATRIX_W) {
+            int x = 0;
+            if (app.center && textW < DPX_MATRIX_W) x = (DPX_MATRIX_W - textW) / 2;
+            dpxRenderText(x, textY, app.text.c_str(), app.color, app.rainbow);
+            return true; // static apps never "complete"
+        }
+        if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.text != app.text) {
+            dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat);
+        }
+        bool done = dpxScroll.tick();
+        dpxScroll.render();
+        return !(done || dpxScroll.completed);
     }
 
-    // Scrolling — only (re)start if not already running for this text and not
-    // already naturally completed (completed=true means finite repeat finished).
+    if (app.pushIcon == 0) {
+        // Fixed icon; text confined to cols 8-31.
+        dpxRenderIcon(icon, 0, 0);
+        const int areaX = DPX_ICON_W, areaW = DPX_MATRIX_W - DPX_ICON_W;
+        if (app.noScroll || textW <= areaW) {
+            int x = areaX;
+            if (app.center && textW < areaW) x = areaX + (areaW - textW) / 2;
+            dpxRenderText(x, textY, app.text.c_str(), app.color, app.rainbow, areaX);
+            return true;
+        }
+        if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.text != app.text) {
+            dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat);
+        }
+        bool done = dpxScroll.tick();
+        dpxScroll.render(areaX);
+        return !(done || dpxScroll.completed);
+    }
+
+    // pushIcon 1/2 — icon rides along with the scrolling text as one unit.
     if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.text != app.text) {
         dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat);
     }
     bool done = dpxScroll.tick();
+    bool showIcon = (app.pushIcon == 2) || dpxScroll.repeatsDone == 0;
+    if (showIcon && dpxScroll.active) {
+        dpxRenderIcon(icon, dpxScroll.scrollX - DPX_ICON_W - 1, 0); // 1px gap before text
+    }
     dpxScroll.render();
-    // Also signal done if scroll has already completed its finite repeat cycle
     return !(done || dpxScroll.completed);
 }
 

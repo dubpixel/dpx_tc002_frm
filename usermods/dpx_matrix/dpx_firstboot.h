@@ -20,6 +20,14 @@
 
 #pragma once
 
+// ESP32 LittleFS does not auto-create parent directories when opening a
+// nested path for write — /upload silently fails into a subfolder that
+// doesn't exist yet. Runs every boot (mkdir on an existing dir is a no-op).
+static void dpxEnsureDirs() {
+    if (!LittleFS.exists("/ICONS"))    LittleFS.mkdir("/ICONS");
+    if (!LittleFS.exists("/MELODIES")) LittleFS.mkdir("/MELODIES");
+}
+
 static void dpxFirstBoot() {
     if (LittleFS.exists(F("/cfg.json"))) return;
 
