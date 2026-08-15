@@ -218,6 +218,11 @@ static void dpxRegisterRoutes() {
     server.on("/api/custom", HTTP_ANY, [](AsyncWebServerRequest* r) {
         String name = r->hasParam("name") ? r->getParam("name")->value() : String();
         if (name.isEmpty()) { r->send(400, F("text/plain"), F("name required")); return; }
+        // GH #30 — optional slot suffix lets the same base name occupy multiple
+        // rotation positions (e.g. name=score&slot=1, name=score&slot=2). The
+        // combined "name#slot" is the real key everywhere downstream (map,
+        // rotation, switch/mute) — no other code needs to know slots exist.
+        if (r->hasParam("slot")) name += "#" + r->getParam("slot")->value();
 
         if (r->method() == HTTP_GET) {
             r->send(200, F("application/json"), dpxGetCustomAppJson(name));
