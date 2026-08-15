@@ -215,7 +215,9 @@ static void dpxRegisterRoutes() {
     });
 
     // ── Device pairing (device-claim flow, see dpx_pair.h) ─────────────────────
-    // {"pin":"482913","duration":60} — full-screen PIN, highest render priority.
+    // {"pin":"482913","duration":60,"scale":1} — full-screen PIN, highest render
+    // priority. scale 1 (default) or 2 (larger, may clip vertically — not yet
+    // visually confirmed to read well, so opt-in rather than default).
     // Empty body = clear early.
     server.on("/api/pair", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);

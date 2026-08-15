@@ -26,9 +26,10 @@
 //   .../dpx/power            → {"power":true/false}
 //   .../dpx/brightness       → {"bri":128}  (0–255)
 //   .../dpx/rtttl            → raw RTTTL string or JSON {"rtttl":"..."} — "stop" silences
-//   .../dpx/pair             → device-claim PIN display {"pin":"482913","duration":60}
-//                               (secs, default 60) or "" to clear. Full-screen, highest
-//                               render priority (even over notifications). See dpx_pair.h.
+//   .../dpx/pair             → device-claim PIN display {"pin":"482913","duration":60,"scale":1}
+//                               (duration secs default 60; scale 1=default/safe or 2=large/
+//                               may clip) or "" to clear. Full-screen, highest render
+//                               priority (even over notifications). See dpx_pair.h.
 //
 // Published (not subscribed) on connect, retained:
 //   .../dpx/info              → {"name","ip","mac","build"} — device registry metadata.
