@@ -64,9 +64,15 @@ static const char DPX_MQTT_ALIAS[] PROGMEM = "dpx/#";
 // Returns empty String if topic doesn't look like ours.
 static String dpxMqttCmd(const char* topic) {
     String t(topic);
-    // Match either "{mqttDeviceTopic}/dpx/..." or "dpx/..."
+    // WLED core (mqtt.cpp) strips the mqttDeviceTopic prefix before forwarding
+    // to usermods when the incoming topic starts with it, leaving a leading
+    // slash: "wled/AABBCC/dpx/notify" arrives here as "/dpx/notify", not the
+    // full topic. Check that stripped form first.
+    if (t.startsWith(F("/dpx/"))) return t.substring(5);
+    // In case a caller ever passes the full, unstripped topic directly.
     String dev = String(mqttDeviceTopic) + F("/dpx/");
     if (t.startsWith(dev)) return t.substring(dev.length());
+    // Bare alias: "dpx/..." (device topic didn't match, core left it untouched)
     if (t.startsWith(F("dpx/"))) return t.substring(4);
     return "";
 }
