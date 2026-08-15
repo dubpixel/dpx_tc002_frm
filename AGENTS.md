@@ -51,10 +51,15 @@ bash tools/dpx_test.sh [IP]
 bash tools/dpx_test.sh --auto --fast --suite=<name> [IP]
 ```
 
-Suites: `connectivity` · `apps` · `notify` · `overlay` · `indicators` · `tc` · `sound` · `settings` · `persist`
+Suites: `connectivity` · `apps` · `icons` · `notify` · `overlay` · `indicators` · `tc` · `sound` · `settings` · `persist` · `lint`
 
 **When to run:** before opening a PR, after flashing new firmware, after any API change.
 Exit code 0 = all automated checks passed.
+
+**`persist` is manual-only** (GH #36) — it power-cycles the device and is
+gated behind `--reboot`, so it's skipped by every `--auto`/CI run. Run it
+by hand before any release that touches settings persistence:
+`bash tools/dpx_test.sh --reboot --suite=persist <IP>`
 
 ### Common Firmware Environments
 

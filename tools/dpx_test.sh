@@ -7,6 +7,12 @@
 # --reboot : include persistence-after-reboot test
 # --suite  : jump straight to one suite: connectivity|apps|icons|notify|overlay|indicators|tc|sound|settings|persist|lint
 #            e.g. `bash tools/dpx_test.sh --suite=overlay` to test only overlay effects
+#
+# NOTE on `persist` (GH #36): this suite power-cycles the device and is gated
+# behind --reboot, so it's SKIPPED by every --auto/--fast/CI run — it's the
+# only suite that verifies settings survive a reboot. Run it manually before
+# any release that touches settings persistence:
+#   bash tools/dpx_test.sh --reboot --suite=persist <IP>
 # =============================================================================
 HOST="${!#}"; [[ "$HOST" == --* || -z "$HOST" ]] && HOST="192.168.2.33"
 BASE="http://$HOST"
