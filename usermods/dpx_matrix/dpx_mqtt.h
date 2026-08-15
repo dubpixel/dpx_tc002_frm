@@ -27,6 +27,16 @@
 //   .../dpx/brightness       → {"bri":128}  (0–255)
 //   .../dpx/rtttl            → raw RTTTL string or JSON {"rtttl":"..."} — "stop" silences
 //
+// Published (not subscribed) on connect, retained:
+//   .../dpx/info              → {"name","ip","mac","build"} — device registry metadata.
+//                                Online/offline presence itself is WLED core's existing
+//                                LWT at {mqttDeviceTopic}/status ("online"/"offline"),
+//                                not duplicated here.
+//
+// NOTE for the friendster/cuemaster server (see dpx_tc002_server.md): device topics are
+// nested as "wled/<mac>/..." (mqttDeviceTopic), not a flat "<name>/...". A single-level
+// "+/presence" subscription won't match — use "wled/+/status" and "wled/+/dpx/info".
+//
 // ================================================================================
 
 #pragma once
@@ -34,6 +44,7 @@
 #include "dpx_notifications.h"
 #include "dpx_tc.h"
 #include "dpx_overlay.h"
+#include "../../wled00/dpx_build_id.h"
 
 // dpxIndicator is defined in dpx_matrix.cpp; declared extern in dpx_osc.h
 extern uint32_t dpxIndicator[3];
@@ -67,6 +78,18 @@ static void dpxMqttConnect() {
     // Alias: dpx/#  (compatible with dpx_tc001 senders)
     mqtt->subscribe("dpx/#", 0);
     DEBUG_PRINTF("DpxMatrix: MQTT subscribed to %s and dpx/#\n", sub.c_str());
+
+    // Retained device-registry metadata for the friendster/cuemaster server.
+    // Presence (online/offline) is WLED core's own LWT at {mqttDeviceTopic}/status.
+    StaticJsonDocument<192> info;
+    info["name"]  = serverDescription;
+    info["ip"]    = WiFi.localIP().toString();
+    info["mac"]   = escapedMac;
+    info["build"] = DPX_BUILD_ID;
+    String infoStr;
+    serializeJson(info, infoStr);
+    String infoTopic = String(mqttDeviceTopic) + "/dpx/info";
+    mqtt->publish(infoTopic.c_str(), 0, true, infoStr.c_str());
 }
 
 // Call from DpxMatrix::onMqttMessage(). Returns true if topic was ours.
