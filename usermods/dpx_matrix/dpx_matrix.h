@@ -32,6 +32,7 @@
 #include "dpx_buzzer.h"    // after dpx_persist.h so DPX_SOUND_ENABLED is in scope
 #include "dpx_apps.h"
 #include "dpx_notifications.h"
+#include "dpx_pair.h"
 #include "dpx_tc.h"
 #include "dpx_osc.h"
 #include "dpx_overlay.h"
@@ -93,14 +94,20 @@ static void mode_dpx_matrix() {
             }
         }
     }
-    // Notifications take priority
-    if (notifActive) {
+    // Pairing PIN takes priority over everything, even notifications — it's a
+    // deliberate, time-boxed action (device-claim flow, see dpx_pair.h) that
+    // shouldn't get interrupted or garbled by other content.
+    const bool pairActive = dpxPairActive();
+    if (pairActive) {
+        dpxRenderPair();
+    } else if (notifActive) {
         dpxRenderNotification();
     } else {
         dpxRenderCurrentApp();
     }
-    // Text overlay + pixel effects on top
-    dpxRenderOverlays();
+    // Text overlay + pixel effects on top — skipped during pairing so the
+    // PIN stays legible (no rain/frost etc. drawn over it).
+    if (!pairActive) dpxRenderOverlays();
     // Corner indicator pixels (topmost layer) — L-shape at each corner, AWTRIX3 style
     // ind[0]=top-left (0,0)(1,0)(0,1)  ind[1]=top-right (31,0)(30,0)(31,1)  ind[2]=bottom-left (0,7)(1,7)(0,6)
     {

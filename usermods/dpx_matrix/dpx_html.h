@@ -63,6 +63,7 @@ code,.snip{background:#1a1a2e;color:#8cf;padding:1px 4px;border-radius:3px;font-
 <tr><td><span class="pill get">GET</span></td><td><code>/api/settings</code></td><td>Current settings JSON</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/notify</code></td><td>One-shot notification — see JSON keys below</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/notify/dismiss</code></td><td>Dismiss held notification (empty body)</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/pair</code></td><td><code>{"pin":"482913","duration":60}</code> — full-screen PIN display for device-claim pairing; highest render priority. Empty body clears early.</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/custom?name=<i>appname</i>[&amp;slot=<i>id</i>]</code></td><td>Create/update persistent custom app. Optional <code>slot</code> lets the same <code>name</code> occupy multiple rotation positions — the real key is <code>name#slot</code> everywhere (switch/mute/delete too).</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/switch</code></td><td><code>{"name":"Time"}</code> — jump to app</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/nextapp</code></td><td>empty body</td></tr>

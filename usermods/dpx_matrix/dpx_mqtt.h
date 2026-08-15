@@ -26,6 +26,9 @@
 //   .../dpx/power            → {"power":true/false}
 //   .../dpx/brightness       → {"bri":128}  (0–255)
 //   .../dpx/rtttl            → raw RTTTL string or JSON {"rtttl":"..."} — "stop" silences
+//   .../dpx/pair             → device-claim PIN display {"pin":"482913","duration":60}
+//                               (secs, default 60) or "" to clear. Full-screen, highest
+//                               render priority (even over notifications). See dpx_pair.h.
 //
 // Published (not subscribed) on connect, retained:
 //   .../dpx/info              → {"name","ip","mac","build"} — device registry metadata.
@@ -234,6 +237,13 @@ static bool dpxMqttMessage(char* topic, char* payload) {
             dpxClearPixelEffect();
         else
             dpxSetPixelEffect(p.c_str());
+        return true;
+    }
+
+    // ── Pairing PIN (device-claim flow, see dpx_pair.h) ────────────────────────
+    // topic: .../dpx/pair  payload: {"pin":"482913","duration":60} or "" to clear
+    if (cmd == F("pair")) {
+        dpxSetPair(payload);
         return true;
     }
 

@@ -214,6 +214,15 @@ static void dpxRegisterRoutes() {
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
 
+    // ── Device pairing (device-claim flow, see dpx_pair.h) ─────────────────────
+    // {"pin":"482913","duration":60} — full-screen PIN, highest render priority.
+    // Empty body = clear early.
+    server.on("/api/pair", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        bool ok = dpxSetPair(body.c_str());
+        r->send(ok ? 200 : 400, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"bad JSON\"}"));
+    });
+
     // ── Custom apps (GET=load, POST=push, name in query) ──────────────────────
     server.on("/api/custom", HTTP_ANY, [](AsyncWebServerRequest* r) {
         String name = r->hasParam("name") ? r->getParam("name")->value() : String();
