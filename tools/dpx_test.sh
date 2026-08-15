@@ -5,7 +5,7 @@
 # --auto   : skip all display/audio prompts (CI mode)
 # --fast   : skip timing-sensitive sleeps
 # --reboot : include persistence-after-reboot test
-# --suite  : jump straight to one suite: connectivity|apps|notify|overlay|indicators|tc|sound|settings|persist|lint
+# --suite  : jump straight to one suite: connectivity|apps|icons|notify|overlay|indicators|tc|sound|settings|persist|lint
 #            e.g. `bash tools/dpx_test.sh --suite=overlay` to test only overlay effects
 # =============================================================================
 HOST="${!#}"; [[ "$HOST" == --* || -z "$HOST" ]] && HOST="192.168.2.33"
@@ -183,6 +183,29 @@ _app "_t_x" '{"text":"X","dur":10}'
 assert_has "$(_get /api/apps)" '"_t_x"' "App in list after create"
 resp=$(_post /api/custom '{}'); _del _t_x
 assert_no "$(_get /api/apps)" '"_t_x"' "App gone after delete"
+fi
+
+# ── icons ─────────────────────────────────────────────────────────────────────
+if suite "icons"; then
+tmpicon=$(mktemp)
+# Solid red 8x8, 192 bytes raw RGB888 — deterministic, recognizable on-screen.
+for i in $(seq 1 64); do printf '\xff\x00\x00'; done > "$tmpicon"
+resp=$(curl -sf --compressed --max-time 8 -X POST "$BASE/upload" \
+       -F "image=@$tmpicon;filename=ICONS/_test_icon.raw")
+assert_has "$resp" "Uploaded" "Icon upload via /upload"
+assert_has "$(_get /api/list?dir=/ICONS/)" '"_test_icon.raw"' "Icon appears in /api/list"
+# pushIcon=0 (fixed): icon stays put, text confined to its own region
+_app "_t_icon" '{"text":"ICON","color":"#FFFFFF","icon":"_test_icon","pushIcon":0,"noScroll":true,"dur":999}'
+_post /api/switch '{"name":"_t_icon"}' > /dev/null
+_wait 1
+vis "RED square (left 8 cols) + white 'ICON' text (cols 8-31) — no overlap" '_del _t_icon'
+# pushIcon=2 (scroll+loop): icon rides along with scrolling text
+_app "_t_icon2" '{"text":"PUSHING TEXT LONGER THAN SCREEN","color":"#00FFAA","icon":"_test_icon","pushIcon":2,"dur":999}'
+_post /api/switch '{"name":"_t_icon2"}' > /dev/null
+_wait 1
+vis "Icon scrolls together with the text (pushIcon=2, loops)" '_del _t_icon2'
+curl -sf --compressed --max-time 8 -X DELETE "$BASE/edit?path=/ICONS/_test_icon.raw" > /dev/null 2>&1
+rm -f "$tmpicon"
 fi
 
 # ── notify ────────────────────────────────────────────────────────────────────
