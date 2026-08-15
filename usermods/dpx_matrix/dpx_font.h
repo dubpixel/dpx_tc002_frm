@@ -526,7 +526,8 @@ const GFXfont AwtrixFont PROGMEM = {
 
 // ── Pixel-width helper (defined after font data so AwtrixFont is in scope) ─────
 // Returns the total pixel width of a null-terminated string.
-static int dpxTextPixelWidth(const char* str) {
+// scale: pixel-doubling factor (GH #19/#63), see dpxDrawChar.
+static int dpxTextPixelWidth(const char* str, int scale = 1) {
     if (!str) return 0;
     int w = 0;
     while (*str) {
@@ -534,9 +535,9 @@ static int dpxTextPixelWidth(const char* str) {
         if (c < AwtrixFont.first || c > AwtrixFont.last) continue;
         GFXglyph glyph;
         memcpy_P(&glyph, &AwtrixFont.glyph[c - AwtrixFont.first], sizeof(GFXglyph));
-        w += glyph.xAdvance;
+        w += glyph.xAdvance * scale;
     }
     // Trim trailing 1-px gap of last character
-    if (w > 0) w--;
+    if (w > 0) w -= scale;
     return w;
 }

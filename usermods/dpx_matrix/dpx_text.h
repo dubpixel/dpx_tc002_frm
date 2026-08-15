@@ -60,38 +60,48 @@ static inline uint32_t dpxRainbowColor(int charIdx, int totalChars) {
 // baseline  = cursor_y (pass DPX_FONT_BASELINE to centre in 8-row display)
 // minX      = left clip boundary (pixels before this column are not drawn) —
 //             used to keep scrolling text from running under a fixed icon.
-// Returns the next cursor X (x + xAdvance).
+// scale     = integer pixel-doubling factor (GH #19/#63 "bigger font"; no new
+//             font data — each source pixel becomes a scale x scale block).
+//             Most glyphs are 5px tall, so scale=2 (10px) clips top/bottom
+//             against the 8-row matrix — dpxSetPixel's own bounds check
+//             handles that gracefully, no special-casing needed here.
+// Returns the next cursor X (x + xAdvance*scale).
 // Glyphs that land partially off-left are clipped pixel-by-pixel.
-static int dpxDrawChar(int x, int baseline, char c, uint32_t color, int minX = 0) {
+static int dpxDrawChar(int x, int baseline, char c, uint32_t color, int minX = 0, int scale = 1) {
     extern const GFXfont AwtrixFont;
     uint8_t ci = (uint8_t)c;
-    if (ci < AwtrixFont.first || ci > AwtrixFont.last) return x + 4;
+    if (ci < AwtrixFont.first || ci > AwtrixFont.last) return x + 4 * scale;
 
     GFXglyph g;
     memcpy_P(&g, &AwtrixFont.glyph[ci - AwtrixFont.first], sizeof(GFXglyph));
 
     // Each row of the glyph is ceil(g.width/8) bytes; here always 1 byte (width=8)
     int bytesPerRow = (g.width + 7) / 8;
-    int glyphTop = baseline + g.yOffset; // top pixel row on matrix
+    int glyphTop = baseline + g.yOffset * scale; // top pixel row on matrix
 
     for (int row = 0; row < (int)g.height; row++) {
-        int py = glyphTop + row;
-        if (py < 0 || py >= DPX_MATRIX_H) continue;
         for (int b = 0; b < bytesPerRow; b++) {
             uint8_t bits = pgm_read_byte(
                 &((uint8_t*)AwtrixFont.bitmap)[g.bitmapOffset + row * bytesPerRow + b]);
             for (int bit = 7; bit >= 0; bit--) {
                 int col = (b * 8) + (7 - bit);
                 if (col >= (int)g.width) break;
-                int px = x + g.xOffset + col;
-                if (px < minX) continue;
-                if (px >= DPX_MATRIX_W) break;
-                if (bits & (1 << bit))
-                    dpxSetPixel(px, py, color);
+                if (!(bits & (1 << bit))) continue;
+                int baseX = x + (g.xOffset + col) * scale;
+                int baseY = glyphTop + row * scale;
+                for (int sy = 0; sy < scale; sy++) {
+                    int py = baseY + sy;
+                    if (py < 0 || py >= DPX_MATRIX_H) continue;
+                    for (int sx = 0; sx < scale; sx++) {
+                        int px = baseX + sx;
+                        if (px < minX || px >= DPX_MATRIX_W) continue;
+                        dpxSetPixel(px, py, color);
+                    }
+                }
             }
         }
     }
-    return x + g.xAdvance;
+    return x + g.xAdvance * scale;
 }
 
 // ── Render a text string ───────────────────────────────────────────────────────
@@ -99,14 +109,15 @@ static int dpxDrawChar(int x, int baseline, char c, uint32_t color, int minX = 0
 // baseline = cursor_y (use DPX_FONT_BASELINE for centered output)
 // rainbow  = true overrides color with per-character hue sweep
 // minX     = left clip boundary, see dpxDrawChar
+// scale    = pixel-doubling factor, see dpxDrawChar
 // Returns the x position after the last character.
-static int dpxRenderText(int x, int baseline, const char* text, uint32_t color, bool rainbow = false, int minX = 0) {
+static int dpxRenderText(int x, int baseline, const char* text, uint32_t color, bool rainbow = false, int minX = 0, int scale = 1) {
     if (!text) return x;
     int n = strlen(text);
     int curX = x;
     for (int i = 0; i < n; i++) {
         uint32_t c = rainbow ? dpxRainbowColor(i, n) : color;
-        curX = dpxDrawChar(curX, baseline, text[i], c, minX);
+        curX = dpxDrawChar(curX, baseline, text[i], c, minX, scale);
         if (curX >= DPX_MATRIX_W) break;
     }
     return curX;
@@ -126,8 +137,9 @@ struct DpxScrollState {
     int16_t repeat     = -1;         // scroll repeat count (-1 = infinite)
     int16_t repeatsDone = 0;
     int     textWidth  = 0;         // cached pixel width
+    int     scale      = 1;         // GH #19/#63 pixel-doubling factor
 
-    void start(const String& t, uint32_t col, bool rb, int y_, int speedPct, int16_t rep) {
+    void start(const String& t, uint32_t col, bool rb, int y_, int speedPct, int16_t rep, int scale_ = 1) {
         text       = t;
         color      = col;
         rainbow    = rb;
@@ -135,7 +147,8 @@ struct DpxScrollState {
         speedMs    = max(10, (int)(50 * 100 / max(1, speedPct)));
         repeat     = rep;
         repeatsDone = 0;
-        textWidth  = dpxTextPixelWidth(t.c_str());
+        scale      = scale_;
+        textWidth  = dpxTextPixelWidth(t.c_str(), scale);
         scrollX    = DPX_MATRIX_W;
         lastStepMs = 0;
         active     = true;
@@ -170,7 +183,7 @@ struct DpxScrollState {
     // minX: left clip boundary, see dpxDrawChar — keeps text from running under a fixed icon.
     void render(int minX = 0) const {
         if (!active) return;
-        dpxRenderText(scrollX, y, text.c_str(), color, rainbow, minX);
+        dpxRenderText(scrollX, y, text.c_str(), color, rainbow, minX, scale);
     }
 };
 

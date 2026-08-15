@@ -659,6 +659,7 @@ select option{background:#222}
   <div style="flex:1"><label>Speed (0-100)</label><input type="number" id="n_speed" value="100" min="0" max="100"></div>
   <div style="flex:1"><label>Duration (s)</label><input type="number" id="n_dur" value="5" min="1"></div>
   <div style="flex:1"><label>Repeat (-1=&#8734;)</label><input type="number" id="n_rep" value="1" min="-1"></div>
+  <div style="flex:1"><label>Font</label><select id="n_fontsize"><option value="1">Normal</option><option value="2">Large</option></select></div>
 </div>
 <div class="row" style="margin-top:6px">
   <div class="chk"><input type="checkbox" id="n_center"><label for="n_center">Center</label></div>
@@ -759,6 +760,7 @@ select option{background:#222}
 <div class="row">
   <div style="flex:1"><label>Speed</label><input type="number" id="ca_speed" value="100" min="0" max="100"></div>
   <div style="flex:1"><label>Duration (s, 0=perm)</label><input type="number" id="ca_dur" value="0" min="0"></div>
+  <div style="flex:1"><label>Font</label><select id="ca_fontsize"><option value="1">Normal</option><option value="2">Large</option></select></div>
 </div>
 <div class="row" style="margin-top:6px">
   <div class="chk"><input type="checkbox" id="ca_center"><label for="ca_center">Center</label></div>
@@ -1001,16 +1003,14 @@ function loadLoop(){
 loadLoop();
 document.getElementById("bri").addEventListener("input",function(){document.getElementById("bri_v").textContent=this.value;});
 function sendNotify(){
-  var d={text:document.getElementById("n_text").value,color:h2r(document.getElementById("n_color").value),background:h2r(document.getElementById("n_bg").value),rainbow:document.getElementById("n_rainbow").checked,icon:document.getElementById("n_icon").value||undefined,pushIcon:+document.getElementById("n_pushicon").value,scrollSpeed:+document.getElementById("n_speed").value,noScrolling:document.getElementById("n_noscroll").checked,center:document.getElementById("n_center").checked,bounce:document.getElementById("n_bounce").checked,topText:document.getElementById("n_toptext").checked,fade:+document.getElementById("n_fade").value,blink:+document.getElementById("n_blink").value,textCase:+document.getElementById("n_tcase").value,duration:+document.getElementById("n_dur").value,repeat:+document.getElementById("n_rep").value};
-  var e=document.getElementById("n_effect").value;if(e)d.effect=e;
+  var d={text:document.getElementById("n_text").value,color:h2r(document.getElementById("n_color").value),background:h2r(document.getElementById("n_bg").value),rainbow:document.getElementById("n_rainbow").checked,icon:document.getElementById("n_icon").value||undefined,pushIcon:+document.getElementById("n_pushicon").value,scrollSpeed:+document.getElementById("n_speed").value,fontScale:+document.getElementById("n_fontsize").value,noScrolling:document.getElementById("n_noscroll").checked,center:document.getElementById("n_center").checked,bounce:document.getElementById("n_bounce").checked,topText:document.getElementById("n_toptext").checked,fade:+document.getElementById("n_fade").value,blink:+document.getElementById("n_blink").value,textCase:+document.getElementById("n_tcase").value,duration:+document.getElementById("n_dur").value,repeat:+document.getElementById("n_rep").value};
   d.overlay=document.getElementById("n_overlay").value;
   var p=+document.getElementById("n_prog").value;if(p>=0){d.progress=p;d.progressC=h2r(document.getElementById("n_pc").value);d.progressBC=h2r(document.getElementById("n_pbc").value);}
   apiPost("/api/notify",strip(d));
 }
 function sendCustomApp(){
   var name=document.getElementById("ca_name").value;if(!name){toast("Name required",false);return;}
-  var d={text:document.getElementById("ca_text").value,color:h2r(document.getElementById("ca_color").value),background:h2r(document.getElementById("ca_bg").value),rainbow:document.getElementById("ca_rainbow").checked,icon:document.getElementById("ca_icon").value||undefined,pushIcon:+document.getElementById("ca_pushicon").value,scrollSpeed:+document.getElementById("ca_speed").value,noScrolling:document.getElementById("ca_noscroll").checked,center:document.getElementById("ca_center").checked,bounce:document.getElementById("ca_bounce").checked,fade:+document.getElementById("ca_fade").value,blink:+document.getElementById("ca_blink").value};
-  var e=document.getElementById("ca_effect").value;if(e)d.effect=e;
+  var d={text:document.getElementById("ca_text").value,color:h2r(document.getElementById("ca_color").value),background:h2r(document.getElementById("ca_bg").value),rainbow:document.getElementById("ca_rainbow").checked,icon:document.getElementById("ca_icon").value||undefined,pushIcon:+document.getElementById("ca_pushicon").value,scrollSpeed:+document.getElementById("ca_speed").value,fontScale:+document.getElementById("ca_fontsize").value,noScrolling:document.getElementById("ca_noscroll").checked,center:document.getElementById("ca_center").checked,bounce:document.getElementById("ca_bounce").checked,fade:+document.getElementById("ca_fade").value,blink:+document.getElementById("ca_blink").value};
   d.overlay=document.getElementById("ca_overlay").value;
   var dur=+document.getElementById("ca_dur").value;if(dur>0)d.duration=dur;
   var p=+document.getElementById("ca_prog").value;if(p>=0){d.progress=p;d.progressC=h2r(document.getElementById("ca_pc").value);d.progressBC=h2r(document.getElementById("ca_pbc").value);}
@@ -1024,6 +1024,7 @@ function loadCustomApp(){
     if(d.center!==undefined)document.getElementById("ca_center").checked=d.center;
     if(d.noScrolling!==undefined)document.getElementById("ca_noscroll").checked=d.noScrolling;
     if(d.scrollSpeed!==undefined)document.getElementById("ca_speed").value=d.scrollSpeed;
+    if(d.fontScale!==undefined)document.getElementById("ca_fontsize").value=d.fontScale;
     if(d.fade!==undefined)document.getElementById("ca_fade").value=d.fade;
     if(d.blink!==undefined)document.getElementById("ca_blink").value=d.blink;
     if(d.bounce!==undefined)document.getElementById("ca_bounce").checked=d.bounce;

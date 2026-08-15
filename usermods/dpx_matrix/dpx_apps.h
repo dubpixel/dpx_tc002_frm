@@ -41,6 +41,7 @@ struct DpxCustomApp {
     bool     center      = false;
     bool     noScroll    = false;
     int      scrollSpeed = 100;      // % of base speed
+    int      fontScale   = 1;        // GH #19/#63 — 1=normal, 2=2x pixel-doubled
     bool     topText     = false;
     int      duration    = 0;        // seconds; 0 = use DPX_ATIME
     int16_t  repeat      = -1;
@@ -182,6 +183,8 @@ static DpxCustomApp dpxParseApp(const char* json) {
     if (doc.containsKey("center"))      app.center      = doc["center"].as<bool>();
     if (doc.containsKey("noScroll"))    app.noScroll    = doc["noScroll"].as<bool>();
     if (doc.containsKey("scrollSpeed")) app.scrollSpeed = doc["scrollSpeed"].as<int>();
+    if (doc.containsKey("fontScale"))   app.fontScale   = constrain(doc["fontScale"].as<int>(), 1, 2);
+    if (doc.containsKey("font"))        app.fontScale   = (doc["font"].as<String>() == "large") ? 2 : 1;
     if (doc.containsKey("topText"))     app.topText     = doc["topText"].as<bool>();
     if (doc.containsKey("duration"))    app.duration    = doc["duration"].as<int>();
     if (doc.containsKey("repeat"))      app.repeat      = doc["repeat"].as<int>();
@@ -311,7 +314,8 @@ static bool dpxRenderApp(DpxCustomApp& app) {
     }
 
     int textY = app.topText ? (DPX_FONT_BASELINE - 1) : DPX_FONT_BASELINE; // proper AwtrixFont baselines
-    int textW = dpxTextPixelWidth(app.text.c_str());
+    int scale = app.fontScale;
+    int textW = dpxTextPixelWidth(app.text.c_str(), scale);
     const uint32_t* icon = app.icon.length() ? dpxGetIcon(app.icon) : nullptr;
 
     if (!icon) {
@@ -319,11 +323,11 @@ static bool dpxRenderApp(DpxCustomApp& app) {
         if (app.noScroll || textW <= DPX_MATRIX_W) {
             int x = 0;
             if (app.center && textW < DPX_MATRIX_W) x = (DPX_MATRIX_W - textW) / 2;
-            dpxRenderText(x, textY, app.text.c_str(), app.color, app.rainbow);
+            dpxRenderText(x, textY, app.text.c_str(), app.color, app.rainbow, 0, scale);
             return true; // static apps never "complete"
         }
         if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.text != app.text) {
-            dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat);
+            dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
         }
         bool done = dpxScroll.tick();
         dpxScroll.render();
@@ -337,11 +341,11 @@ static bool dpxRenderApp(DpxCustomApp& app) {
         if (app.noScroll || textW <= areaW) {
             int x = areaX;
             if (app.center && textW < areaW) x = areaX + (areaW - textW) / 2;
-            dpxRenderText(x, textY, app.text.c_str(), app.color, app.rainbow, areaX);
+            dpxRenderText(x, textY, app.text.c_str(), app.color, app.rainbow, areaX, scale);
             return true;
         }
         if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.text != app.text) {
-            dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat);
+            dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
         }
         bool done = dpxScroll.tick();
         dpxScroll.render(areaX);
@@ -350,7 +354,7 @@ static bool dpxRenderApp(DpxCustomApp& app) {
 
     // pushIcon 1/2 — icon rides along with the scrolling text as one unit.
     if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.text != app.text) {
-        dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat);
+        dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
     }
     bool done = dpxScroll.tick();
     bool showIcon = (app.pushIcon == 2) || dpxScroll.repeatsDone == 0;
@@ -496,6 +500,7 @@ static String dpxGetCustomAppJson(const String& name) {
     doc["center"]      = a.center;
     doc["noScroll"]    = a.noScroll;
     doc["scrollSpeed"] = a.scrollSpeed;
+    doc["fontScale"]   = a.fontScale;
     doc["duration"]    = a.duration;
     doc["progress"]    = a.progress;
     doc["icon"]        = a.icon;
