@@ -58,11 +58,17 @@ struct DpxCustomApp {
     // GH #11 — WLED pattern slot: when type=="wled_fx", this app hands the whole
     // display over to a real WLED FX-engine effect for its dwell (duration),
     // instead of rendering text. No icon/overlay/text during a pattern slot.
-    String   type        = "text"; // "text" (default) | "wled_fx"
+    String   type        = "text"; // "text" (default) | "wled_fx" | "time" | "date"
     int      effectId    = -1;     // WLED mode ID (index into GET /api/effects)
     int      fxPalette   = -1;     // WLED palette ID (index into GET /json/palx), -1=leave as-is
     uint8_t  fxSpeed      = 128;
     uint8_t  fxIntensity  = 128;
+
+    // GH #31 — customizable clock/date instances. type=="time"|"date" apps
+    // regenerate .text every frame from localTime+tzOffsetMin, then render
+    // through the normal text/icon pipeline (dpxRenderApp) — color/icon/
+    // pushIcon all apply, and multiple instances work for free via #30 slots.
+    int      tzOffsetMin = 0;      // minutes offset from WLED's configured local time
 
     bool valid = false;  // false = slot unused
 
@@ -192,6 +198,7 @@ static DpxCustomApp dpxParseApp(const char* json) {
     if (doc.containsKey("palette"))    app.fxPalette  = doc["palette"].as<int>();
     if (doc.containsKey("speed"))      app.fxSpeed     = doc["speed"].as<uint8_t>();
     if (doc.containsKey("intensity"))  app.fxIntensity = doc["intensity"].as<uint8_t>();
+    if (doc.containsKey("offset"))     app.tzOffsetMin = doc["offset"].as<int>();
     app.addedMs = millis();
 
     // Draw commands
@@ -256,6 +263,27 @@ static void dpxRenderNativeDate() {
     int w = dpxTextPixelWidth(buf);
     int x = (DPX_MATRIX_W - w) / 2;
     dpxRenderText(x, DPX_FONT_BASELINE, buf, 0x8888FF);
+}
+
+// ── Customizable clock/date instances (GH #31) ────────────────────────────────
+// type=="time"|"date" apps regenerate .text every frame from
+// localTime+tzOffsetMin, then fall through to the normal dpxRenderApp() text/
+// icon pipeline — color/icon/pushIcon all apply, and multiple instances (a
+// second timezone, say) work for free via the #30 slot mechanism.
+static void dpxUpdateTimeDateText(DpxCustomApp& app) {
+    time_t t = localTime + (time_t)app.tzOffsetMin * 60;
+    char buf[9];
+    if (localTime < 100000UL) {
+        strncpy(buf, app.type == "date" ? "--.--.--" : "--:--", sizeof(buf));
+    } else if (app.type == "date") {
+        snprintf(buf, sizeof(buf), "%02d.%02d.%02d", day(t), month(t), year(t) % 100);
+    } else if (useAMPM) {
+        uint8_t h = hourFormat12(t);
+        snprintf(buf, sizeof(buf), "%d:%02d%s", h, minute(t), (hour(t) < 12) ? "a" : "p");
+    } else {
+        snprintf(buf, sizeof(buf), "%02d:%02d", hour(t), minute(t));
+    }
+    app.text = buf;
 }
 
 // ── Render one custom app frame (static or scroll) ───────────────────────────
@@ -478,6 +506,7 @@ static String dpxGetCustomAppJson(const String& name) {
     doc["palette"]     = a.fxPalette;
     doc["speed"]       = a.fxSpeed;
     doc["intensity"]   = a.fxIntensity;
+    doc["offset"]      = a.tzOffsetMin;
     String s; serializeJson(doc, s); return s;
 }
 
@@ -527,6 +556,7 @@ static void dpxRenderCurrentApp() {
         if (app.name == "Time") dpxRenderNativeTime();
         else if (app.name == "Date") dpxRenderNativeDate();
     } else {
+        if (app.data.type == "time" || app.data.type == "date") dpxUpdateTimeDateText(app.data);
         dpxRenderApp(app.data);
     }
 }

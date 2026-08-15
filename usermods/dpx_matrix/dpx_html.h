@@ -63,7 +63,7 @@ code,.snip{background:#1a1a2e;color:#8cf;padding:1px 4px;border-radius:3px;font-
 <tr><td><span class="pill get">GET</span></td><td><code>/api/settings</code></td><td>Current settings JSON</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/notify</code></td><td>One-shot notification — see JSON keys below</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/notify/dismiss</code></td><td>Dismiss held notification (empty body)</td></tr>
-<tr><td><span class="pill post">POST</span></td><td><code>/api/custom?name=<i>appname</i></code></td><td>Create/update persistent custom app</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/custom?name=<i>appname</i>[&amp;slot=<i>id</i>]</code></td><td>Create/update persistent custom app. Optional <code>slot</code> lets the same <code>name</code> occupy multiple rotation positions — the real key is <code>name#slot</code> everywhere (switch/mute/delete too).</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/switch</code></td><td><code>{"name":"Time"}</code> — jump to app</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/nextapp</code></td><td>empty body</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/previousapp</code></td><td>empty body</td></tr>
@@ -110,6 +110,12 @@ code,.snip{background:#1a1a2e;color:#8cf;padding:1px 4px;border-radius:3px;font-
 <tr><td><code>fadeText</code></td><td>int</td><td>Fade text in/out every N ms</td><td>—</td><td class="tag">B</td></tr>
 <tr><td><code>icon</code></td><td>string</td><td>Installed icon name (no ext) — install via /browse, saved as /ICONS/&lt;name&gt;.raw</td><td>—</td><td class="tag">B</td></tr>
 <tr><td><code>pushIcon</code></td><td>int</td><td>0=fixed, 1=scroll+gone, 2=scroll+loop</td><td>0</td><td class="tag">B</td></tr>
+<tr><td><code>type</code></td><td>string</td><td>"text" (default) | "wled_fx" (pattern slot) | "time" | "date" (custom clock)</td><td>text</td><td class="tag">B</td></tr>
+<tr><td><code>effect</code></td><td>int</td><td>type=wled_fx: WLED mode ID (index into GET /api/effects)</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>palette</code></td><td>int</td><td>type=wled_fx: WLED palette ID (index into GET /json/pal), -1=leave as-is</td><td>-1</td><td class="tag">B</td></tr>
+<tr><td><code>speed</code></td><td>int</td><td>type=wled_fx: WLED FX speed (0-255)</td><td>128</td><td class="tag">B</td></tr>
+<tr><td><code>intensity</code></td><td>int</td><td>type=wled_fx: WLED FX intensity (0-255)</td><td>128</td><td class="tag">B</td></tr>
+<tr><td><code>offset</code></td><td>int</td><td>type=time/date: minutes offset from WLED's configured local time</td><td>0</td><td class="tag">B</td></tr>
 <tr><td><code>noScroll</code></td><td>bool</td><td>Disable text scrolling</td><td>false</td><td class="tag">B</td></tr>
 <tr><td><code>scrollSpeed</code></td><td>int</td><td>Scroll speed % of default</td><td>100</td><td class="tag">B</td></tr>
 <tr><td><code>duration</code></td><td>int</td><td>Display time in seconds</td><td>5</td><td class="tag">B</td></tr>
@@ -690,11 +696,31 @@ select option{background:#222}
     <option value="timecode">Timecode</option>
     <option value="osc">OSC</option>
     <option value="wledfx">Pattern Slot</option>
+    <option value="customclock">Custom Clock</option>
   </select>
 </div>
 <div id="ch_fields_native" style="display:none">
   <p id="ch_native_hint" style="color:#8cf;font-size:12px;margin:8px 0 12px">Select a type above.</p>
   <button onclick="addChannel()">+ Add to Rotation</button>
+</div>
+<div id="ch_fields_customclock" style="display:none">
+  <p style="color:#8cf;font-size:12px;margin:8px 0 12px">A customizable Time/Date instance — own color, timezone offset, and icon. Add more than one for e.g. a second timezone (give each a different name, or the same name with a different Slot).</p>
+  <div class="row">
+    <div style="flex:1"><label>Channel name</label><input type="text" id="ch_cc_name" value="clock1" placeholder="name"></div>
+    <div style="flex:1"><label>Slot (optional)</label><input type="text" id="ch_cc_slot" placeholder="e.g. utc"></div>
+  </div>
+  <div class="row">
+    <div style="flex:1"><label>Show</label><select id="ch_cc_kind"><option value="time">Time</option><option value="date">Date</option></select></div>
+    <div><label>Color</label><input type="color" id="ch_cc_color" value="#ffffff"></div>
+    <div style="flex:1"><label>Offset (min from local)</label><input type="number" id="ch_cc_offset" value="0" step="15"></div>
+  </div>
+  <label>Icon</label>
+  <div class="row">
+    <select id="ch_cc_icon_sel" style="flex:1" onchange="document.getElementById('ch_cc_icon').value=this.value"><option value="">&#8212; installed icons &#8212;</option></select>
+    <input type="text" id="ch_cc_icon" placeholder="name or ID" style="flex:1">
+    <select id="ch_cc_pushicon" style="width:auto"><option value="0">Fixed</option><option value="1">Scroll</option><option value="2">Loop</option></select>
+  </div>
+  <button onclick="addCustomClock()">+ Add to Rotation</button>
 </div>
 <div id="ch_fields_wledfx" style="display:none">
   <p style="color:#8cf;font-size:12px;margin:8px 0 12px">Hands the whole display over to a real WLED effect for its dwell, then returns to dpx Matrix. No text/icon during the slot.</p>
@@ -913,7 +939,7 @@ function strip(d){Object.keys(d).forEach(function(k){if(d[k]===undefined||d[k]==
 // Effect/palette id = array index (GH #11 pattern slots)
 fetch("/api/effects").then(function(r){return r.json();}).then(function(fx){var s=document.getElementById("ch_fx_effect");if(!s)return;fx.forEach(function(e,i){var o=document.createElement("option");o.value=i;o.textContent=e;s.appendChild(o);});}).catch(function(){});
 fetch("/json/pal").then(function(r){return r.json();}).then(function(pal){var s=document.getElementById("ch_fx_palette");if(!s)return;pal.forEach(function(p,i){var o=document.createElement("option");o.value=i;o.textContent=p;s.appendChild(o);});}).catch(function(){});
-function loadIcons(){fetch("/api/list?dir=/ICONS/").then(function(r){return r.json();}).then(function(files){var names=files.filter(function(f){return f.type==="file";}).map(function(f){return f.name.replace(/\.[^.]+$/,"");});["n_icon_sel","ca_icon_sel"].forEach(function(id){var s=document.getElementById(id);s.innerHTML="<option value=''>&#8212; installed icons &#8212;</option>";names.forEach(function(n){var o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});});}).catch(function(){});}
+function loadIcons(){fetch("/api/list?dir=/ICONS/").then(function(r){return r.json();}).then(function(files){var names=files.filter(function(f){return f.type==="file";}).map(function(f){return f.name.replace(/\.[^.]+$/,"");});["n_icon_sel","ca_icon_sel","ch_cc_icon_sel"].forEach(function(id){var s=document.getElementById(id);if(!s)return;s.innerHTML="<option value=''>&#8212; installed icons &#8212;</option>";names.forEach(function(n){var o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});});}).catch(function(){});}
 loadIcons();
 var mqttPrefix="[prefix]";
 function loadLoop(){
@@ -1063,13 +1089,14 @@ var _CH_NATIVE_HINTS={
   osc:"Create a named channel driven by OSC. Use the channel name when adding an OSC Listener."
 };
 function updateChType(t){
-  var tf=document.getElementById("ch_fields_text"),nf=document.getElementById("ch_fields_native"),ta=document.getElementById("ch_text_actions"),wf=document.getElementById("ch_fields_wledfx");
+  var tf=document.getElementById("ch_fields_text"),nf=document.getElementById("ch_fields_native"),ta=document.getElementById("ch_text_actions"),wf=document.getElementById("ch_fields_wledfx"),cf=document.getElementById("ch_fields_customclock");
   var textTypes=t==="text"||t==="osc";
   var nativeTypes=t==="time"||t==="date"||t==="timecode";
   if(tf)tf.style.display=textTypes?"":"none";
   if(nf)nf.style.display=nativeTypes?"":"none";
   if(ta)ta.style.display=textTypes?"":"none";
   if(wf)wf.style.display=t==="wledfx"?"":"none";
+  if(cf)cf.style.display=t==="customclock"?"":"none";
   var h=document.getElementById("ch_native_hint");
   if(h)h.textContent=_CH_NATIVE_HINTS[t]||"";
 }
@@ -1091,6 +1118,16 @@ function addPatternSlot(){
   if(!name){toast("Enter a channel name",false);return;}
   var d={type:"wled_fx",effect:+document.getElementById("ch_fx_effect").value,palette:+document.getElementById("ch_fx_palette").value,speed:+document.getElementById("ch_fx_speed").value,intensity:+document.getElementById("ch_fx_intensity").value,duration:+document.getElementById("ch_fx_dur").value};
   fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(d))}).then(function(r){r.ok?toast("Pattern slot '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
+}
+// GH #31 — customizable Time/Date instance: own color/offset/icon, and
+// multiple instances via the #30 slot query param.
+function addCustomClock(){
+  var name=document.getElementById("ch_cc_name").value.trim().replace(/\s+/g,"_");
+  if(!name){toast("Enter a channel name",false);return;}
+  var slot=document.getElementById("ch_cc_slot").value.trim();
+  var d={type:document.getElementById("ch_cc_kind").value,color:h2r(document.getElementById("ch_cc_color").value),offset:+document.getElementById("ch_cc_offset").value,icon:document.getElementById("ch_cc_icon").value||undefined,pushIcon:+document.getElementById("ch_cc_pushicon").value};
+  var url="/api/custom?name="+encodeURIComponent(name)+(slot?"&slot="+encodeURIComponent(slot):"");
+  fetch(url,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(d))}).then(function(r){r.ok?toast("Clock '"+name+(slot?"#"+slot:"")+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
 }
 
 function sendRtttl(){var v=document.getElementById("rtttl").value.trim();if(!v){toast("Enter RTTTL string",false);return;}apiPost("/api/sound",{rtttl:v});}
