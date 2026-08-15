@@ -11,13 +11,21 @@
     {
       "name": "⊘ dpx_showsite_ops",
       "path": "/Users/yourmom/Code/DPX_SHOWSITE_OPS"
+    },
+    {
+      "path": "../../_...CODE/dpx_friendster"
+    },
+    {
+       "name": "⊘ dpx_server_operations",
+      "path": "../../_...CODE/dpx_server_operations"
     }
   ],
   "settings": {
     "files.readonlyInclude": {
       "**/dpx_reference/**": true,
-      "**/WLED/**": true,
-      "**/dpx_showsite_ops/**": true
+      "**/wled00/**": true,
+      "**/DPX_SHOWSITE_OPS/**": true,
+      "**/dpx_server_operations/**": true
     },
     "platformio-ide.activeProjectPioEnv": "ulanzi_tc001"
   }
