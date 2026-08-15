@@ -55,6 +55,15 @@ struct DpxCustomApp {
     String   icon      = "";   // icon name (no extension, no path)
     int      pushIcon  = 0;    // 0=fixed left, 1=scroll+gone, 2=scroll+loop
 
+    // GH #11 — WLED pattern slot: when type=="wled_fx", this app hands the whole
+    // display over to a real WLED FX-engine effect for its dwell (duration),
+    // instead of rendering text. No icon/overlay/text during a pattern slot.
+    String   type        = "text"; // "text" (default) | "wled_fx"
+    int      effectId    = -1;     // WLED mode ID (index into GET /api/effects)
+    int      fxPalette   = -1;     // WLED palette ID (index into GET /json/palx), -1=leave as-is
+    uint8_t  fxSpeed      = 128;
+    uint8_t  fxIntensity  = 128;
+
     bool valid = false;  // false = slot unused
 
     // Effective display duration in milliseconds
@@ -109,6 +118,30 @@ static unsigned long dpxAppStartMs = 0;            // when current app was shown
 // Active scroll state — one per display
 static DpxScrollState dpxScroll;
 
+// ── Pattern slots (GH #11) ────────────────────────────────────────────────────
+// Activates whatever app is now current: a "wled_fx" app hands the segment over
+// to a real WLED FX-engine effect (mode_dpx_matrix stops rendering entirely
+// until dpxActivateEffect() restores it — see dpxAppLoopTick(), which keeps
+// advancing the dwell timer via the usermod's loop() regardless of which FX
+// mode is active); anything else just ensures dpx Matrix is showing.
+static void dpxActivateCurrentApp() {
+    if (dpxApps.empty() || dpxCurrentApp < 0 || dpxCurrentApp >= (int)dpxApps.size()) {
+        dpxActivateEffect();
+        return;
+    }
+    const DpxApp& a = dpxApps[dpxCurrentApp];
+    if (!a.isNative && a.data.type == "wled_fx" && a.data.effectId >= 0) {
+        Segment& seg = strip.getMainSegment();
+        seg.speed     = a.data.fxSpeed;
+        seg.intensity = a.data.fxIntensity;
+        if (a.data.fxPalette >= 0) seg.setPalette(a.data.fxPalette);
+        seg.setMode((uint8_t)a.data.effectId);
+        stateUpdated(CALL_MODE_DIRECT_CHANGE);
+    } else {
+        dpxActivateEffect();
+    }
+}
+
 // ── Parse a color from JSON value (string "#RRGGBB" or array [r,g,b]) ─────────
 static uint32_t dpxParseColor(JsonVariant v, uint32_t def = 0xFFFFFF) {
     if (v.is<JsonArray>()) {
@@ -154,6 +187,11 @@ static DpxCustomApp dpxParseApp(const char* json) {
     if (doc.containsKey("overlay"))  { app.overlay = doc["overlay"].as<String>(); app.overlay.toLowerCase(); }
     if (doc.containsKey("icon"))       app.icon     = doc["icon"].as<String>();
     if (doc.containsKey("pushIcon"))   app.pushIcon = doc["pushIcon"].as<int>();
+    if (doc.containsKey("type"))       app.type     = doc["type"].as<String>();
+    if (doc.containsKey("effect"))     { app.effectId = doc["effect"].as<int>(); app.type = "wled_fx"; }
+    if (doc.containsKey("palette"))    app.fxPalette  = doc["palette"].as<int>();
+    if (doc.containsKey("speed"))      app.fxSpeed     = doc["speed"].as<uint8_t>();
+    if (doc.containsKey("intensity"))  app.fxIntensity = doc["intensity"].as<uint8_t>();
     app.addedMs = millis();
 
     // Draw commands
@@ -355,6 +393,7 @@ static void dpxNextApp() {
     } while (dpxApps[dpxCurrentApp].muted && dpxCurrentApp != start);
     dpxAppStartMs = millis();
     dpxScroll.stop();
+    dpxActivateCurrentApp();
 }
 
 // Go to previous unmuted app
@@ -366,6 +405,7 @@ static void dpxPrevApp() {
     } while (dpxApps[dpxCurrentApp].muted && dpxCurrentApp != start);
     dpxAppStartMs = millis();
     dpxScroll.stop();
+    dpxActivateCurrentApp();
 }
 
 // Switch to a named app; JSON body: {"name":"AppName"}
@@ -378,7 +418,7 @@ static bool dpxSwitchToApp(const char* json) {
             dpxCurrentApp = i;
             dpxAppStartMs = millis();
             dpxScroll.stop();
-            dpxActivateEffect();  // switch display to dpx Matrix
+            dpxActivateCurrentApp();
             return true;
         }
     }
@@ -403,6 +443,7 @@ static String dpxGetAppsJson() {
         o["name"]   = a.name;
         o["native"] = a.isNative;
         o["muted"]  = a.muted;
+        o["type"]   = a.isNative ? "text" : a.data.type;
     }
     String s; serializeJson(doc, s); return s;
 }
@@ -432,6 +473,11 @@ static String dpxGetCustomAppJson(const String& name) {
     doc["icon"]        = a.icon;
     doc["pushIcon"]    = a.pushIcon;
     doc["overlay"]     = a.overlay;
+    doc["type"]        = a.type;
+    doc["effect"]      = a.effectId;
+    doc["palette"]     = a.fxPalette;
+    doc["speed"]       = a.fxSpeed;
+    doc["intensity"]   = a.fxIntensity;
     String s; serializeJson(doc, s); return s;
 }
 
@@ -469,6 +515,13 @@ static void dpxRenderCurrentApp() {
     }
 
     DpxApp& app = dpxApps[dpxCurrentApp];
+    if (!app.isNative && app.data.type == "wled_fx") {
+        // Something (a notification, TC signal) took the segment back to
+        // dpx Matrix mid-slot — hand it back to the WLED FX instead of
+        // rendering blank text for a pattern-slot app.
+        dpxActivateCurrentApp();
+        return;
+    }
     if (app.isNative) {
         dpxClear();
         if (app.name == "Time") dpxRenderNativeTime();

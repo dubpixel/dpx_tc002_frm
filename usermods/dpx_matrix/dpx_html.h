@@ -568,7 +568,7 @@ function renderDir(data,elId,prefix){
     var del=document.createElement("button");del.textContent="Delete";del.className="red sm";del.style.marginTop="0";
     del.onclick=(function(fname){return function(){
       if(!confirm("Delete "+prefix+fname+"?"))return;
-      fetch("/edit?path="+encodeURIComponent(prefix+fname),{method:"DELETE"})
+      fetch("/edit?func=delete&path="+encodeURIComponent(prefix+fname))
         .then(function(){toast("Deleted "+fname);row.remove();})
         .catch(function(){toast("Delete failed",false);});
     };})(f.name);
@@ -648,10 +648,7 @@ select option{background:#222}
   <input type="text" id="n_icon" placeholder="name or ID" style="flex:1">
   <select id="n_pushicon" style="width:auto"><option value="0">Fixed</option><option value="1">Scroll</option><option value="2">Loop</option></select>
 </div>
-<div class="row">
-  <div style="flex:1"><label>Effect</label><select id="n_effect"><option value="">None</option></select></div>
-  <div style="flex:1"><label>Overlay</label><select id="n_overlay"><option value="">None</option><optgroup label="Weather"><option value="drizzle">Drizzle</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="storm">Storm</option><option value="thunder">Thunder</option><option value="frost">Frost</option></optgroup><optgroup label="Decorative"><option value="sparkle">Sparkle</option><option value="twinkle">Twinkle</option><option value="strobe">Strobe</option><option value="blink">Blink</option></optgroup><optgroup label="Background"><option value="colorwaves">ColorWaves</option><option value="plasma">Plasma</option><option value="twinklingstars">TwinklingStars</option><option value="theatrechase">TheaterChase</option><option value="pacifica">Pacifica</option></optgroup></select></div>
-</div>
+<label>Overlay</label><select id="n_overlay"><option value="">None</option><optgroup label="Weather"><option value="drizzle">Drizzle</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="storm">Storm</option><option value="thunder">Thunder</option><option value="frost">Frost</option></optgroup><optgroup label="Decorative"><option value="sparkle">Sparkle</option><option value="twinkle">Twinkle</option><option value="strobe">Strobe</option><option value="blink">Blink</option></optgroup><optgroup label="Background"><option value="colorwaves">ColorWaves</option><option value="plasma">Plasma</option><option value="twinklingstars">TwinklingStars</option><option value="theatrechase">TheaterChase</option><option value="pacifica">Pacifica</option></optgroup></select>
 <div class="row">
   <div style="flex:1"><label>Speed (0-100)</label><input type="number" id="n_speed" value="100" min="0" max="100"></div>
   <div style="flex:1"><label>Duration (s)</label><input type="number" id="n_dur" value="5" min="1"></div>
@@ -692,11 +689,24 @@ select option{background:#222}
     <option value="date">Date</option>
     <option value="timecode">Timecode</option>
     <option value="osc">OSC</option>
+    <option value="wledfx">Pattern Slot</option>
   </select>
 </div>
 <div id="ch_fields_native" style="display:none">
   <p id="ch_native_hint" style="color:#8cf;font-size:12px;margin:8px 0 12px">Select a type above.</p>
   <button onclick="addChannel()">+ Add to Rotation</button>
+</div>
+<div id="ch_fields_wledfx" style="display:none">
+  <p style="color:#8cf;font-size:12px;margin:8px 0 12px">Hands the whole display over to a real WLED effect for its dwell, then returns to dpx Matrix. No text/icon during the slot.</p>
+  <label>Channel name</label><input type="text" id="ch_fx_name" value="pattern1" placeholder="name">
+  <label>Effect</label><select id="ch_fx_effect"></select>
+  <label>Palette</label><select id="ch_fx_palette"><option value="-1">(leave as-is)</option></select>
+  <div class="row">
+    <div style="flex:1"><label>Speed (0-255)</label><input type="number" id="ch_fx_speed" value="128" min="0" max="255"></div>
+    <div style="flex:1"><label>Intensity (0-255)</label><input type="number" id="ch_fx_intensity" value="128" min="0" max="255"></div>
+    <div style="flex:1"><label>Dwell (s)</label><input type="number" id="ch_fx_dur" value="10" min="1"></div>
+  </div>
+  <button onclick="addPatternSlot()">+ Add to Rotation</button>
 </div>
 <div id="ch_fields_text">
 <div class="row">
@@ -719,10 +729,7 @@ select option{background:#222}
   <input type="text" id="ca_icon" placeholder="name or ID" style="flex:1">
   <select id="ca_pushicon" style="width:auto"><option value="0">Fixed</option><option value="1">Scroll</option><option value="2">Loop</option></select>
 </div>
-<div class="row">
-  <div style="flex:1"><label>Effect</label><select id="ca_effect"><option value="">None</option></select></div>
-  <div style="flex:1"><label>Overlay</label><select id="ca_overlay"><option value="">None</option><optgroup label="Weather"><option value="drizzle">Drizzle</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="storm">Storm</option><option value="thunder">Thunder</option><option value="frost">Frost</option></optgroup><optgroup label="Decorative"><option value="sparkle">Sparkle</option><option value="twinkle">Twinkle</option><option value="strobe">Strobe</option><option value="blink">Blink</option></optgroup><optgroup label="Background"><option value="colorwaves">ColorWaves</option><option value="plasma">Plasma</option><option value="twinklingstars">TwinklingStars</option><option value="theatrechase">TheaterChase</option><option value="pacifica">Pacifica</option></optgroup></select></div>
-</div>
+<label>Overlay</label><select id="ca_overlay"><option value="">None</option><optgroup label="Weather"><option value="drizzle">Drizzle</option><option value="rain">Rain</option><option value="snow">Snow</option><option value="storm">Storm</option><option value="thunder">Thunder</option><option value="frost">Frost</option></optgroup><optgroup label="Decorative"><option value="sparkle">Sparkle</option><option value="twinkle">Twinkle</option><option value="strobe">Strobe</option><option value="blink">Blink</option></optgroup><optgroup label="Background"><option value="colorwaves">ColorWaves</option><option value="plasma">Plasma</option><option value="twinklingstars">TwinklingStars</option><option value="theatrechase">TheaterChase</option><option value="pacifica">Pacifica</option></optgroup></select>
 <div class="row">
   <div style="flex:1"><label>Speed</label><input type="number" id="ca_speed" value="100" min="0" max="100"></div>
   <div style="flex:1"><label>Duration (s, 0=perm)</label><input type="number" id="ca_dur" value="0" min="0"></div>
@@ -903,7 +910,9 @@ function h2r(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parse
 function toast(m,ok){var t=document.getElementById("toast");t.textContent=m;t.style.background=ok===false?"#822":"#2a5";t.style.display="block";setTimeout(function(){t.style.display="none";},2500);}
 function apiPost(url,data){return fetch(url,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(data))}).then(function(r){r.ok?toast(url.split("/").pop()+" OK"):toast("Error "+r.status,false);}).catch(function(e){toast(String(e),false);});}
 function strip(d){Object.keys(d).forEach(function(k){if(d[k]===undefined||d[k]==="")delete d[k];});return d;}
-fetch("/api/effects").then(function(r){return r.json();}).then(function(fx){["n_effect","ca_effect"].forEach(function(id){var s=document.getElementById(id);fx.forEach(function(e){var o=document.createElement("option");o.value=e;o.textContent=e;s.appendChild(o);});});}).catch(function(){});
+// Effect/palette id = array index (GH #11 pattern slots)
+fetch("/api/effects").then(function(r){return r.json();}).then(function(fx){var s=document.getElementById("ch_fx_effect");if(!s)return;fx.forEach(function(e,i){var o=document.createElement("option");o.value=i;o.textContent=e;s.appendChild(o);});}).catch(function(){});
+fetch("/json/pal").then(function(r){return r.json();}).then(function(pal){var s=document.getElementById("ch_fx_palette");if(!s)return;pal.forEach(function(p,i){var o=document.createElement("option");o.value=i;o.textContent=p;s.appendChild(o);});}).catch(function(){});
 function loadIcons(){fetch("/api/list?dir=/ICONS/").then(function(r){return r.json();}).then(function(files){var names=files.filter(function(f){return f.type==="file";}).map(function(f){return f.name.replace(/\.[^.]+$/,"");});["n_icon_sel","ca_icon_sel"].forEach(function(id){var s=document.getElementById(id);s.innerHTML="<option value=''>&#8212; installed icons &#8212;</option>";names.forEach(function(n){var o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});});}).catch(function(){});}
 loadIcons();
 var mqttPrefix="[prefix]";
@@ -1054,11 +1063,13 @@ var _CH_NATIVE_HINTS={
   osc:"Create a named channel driven by OSC. Use the channel name when adding an OSC Listener."
 };
 function updateChType(t){
-  var tf=document.getElementById("ch_fields_text"),nf=document.getElementById("ch_fields_native"),ta=document.getElementById("ch_text_actions");
+  var tf=document.getElementById("ch_fields_text"),nf=document.getElementById("ch_fields_native"),ta=document.getElementById("ch_text_actions"),wf=document.getElementById("ch_fields_wledfx");
   var textTypes=t==="text"||t==="osc";
+  var nativeTypes=t==="time"||t==="date"||t==="timecode";
   if(tf)tf.style.display=textTypes?"":"none";
-  if(nf)nf.style.display=textTypes?"none":"";
+  if(nf)nf.style.display=nativeTypes?"":"none";
   if(ta)ta.style.display=textTypes?"":"none";
+  if(wf)wf.style.display=t==="wledfx"?"":"none";
   var h=document.getElementById("ch_native_hint");
   if(h)h.textContent=_CH_NATIVE_HINTS[t]||"";
 }
@@ -1072,6 +1083,14 @@ function addChannel(){
   if(!name){toast("Enter a channel name",false);return;}
   var text=document.getElementById("ca_text").value||name;
   fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify({text:text,scrollSpeed:80}))}).then(function(r){r.ok?toast("Channel '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
+}
+// GH #11 — WLED pattern slot: hands the display over to a real WLED FX-engine
+// effect for `duration` seconds, then dpx Matrix resumes automatically.
+function addPatternSlot(){
+  var name=document.getElementById("ch_fx_name").value.trim().replace(/\s+/g,"_");
+  if(!name){toast("Enter a channel name",false);return;}
+  var d={type:"wled_fx",effect:+document.getElementById("ch_fx_effect").value,palette:+document.getElementById("ch_fx_palette").value,speed:+document.getElementById("ch_fx_speed").value,intensity:+document.getElementById("ch_fx_intensity").value,duration:+document.getElementById("ch_fx_dur").value};
+  fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(d))}).then(function(r){r.ok?toast("Pattern slot '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
 }
 
 function sendRtttl(){var v=document.getElementById("rtttl").value.trim();if(!v){toast("Enter RTTTL string",false);return;}apiPost("/api/sound",{rtttl:v});}
