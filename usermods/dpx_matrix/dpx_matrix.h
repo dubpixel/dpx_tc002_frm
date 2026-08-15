@@ -307,6 +307,7 @@ public:
                     Serial.printf("  DPX_SHOW_TIME   : %s\n", DPX_SHOW_TIME ? "true" : "false");
                     Serial.printf("  DPX_SHOW_DATE   : %s\n", DPX_SHOW_DATE ? "true" : "false");
                     Serial.printf("  dpxEnabled      : %s\n", dpxEnabled ? "true" : "false");
+                    Serial.printf("  _dpxEffectId    : %u\n", (unsigned)_dpxEffectId);
                     Serial.println(F("─────────────────────────────────────────"));
                     break;
                 }
