@@ -204,7 +204,7 @@ _app "_t_icon2" '{"text":"PUSHING TEXT LONGER THAN SCREEN","color":"#00FFAA","ic
 _post /api/switch '{"name":"_t_icon2"}' > /dev/null
 _wait 1
 vis "Icon scrolls together with the text (pushIcon=2, loops)" '_del _t_icon2'
-curl -sf --compressed --max-time 8 -X DELETE "$BASE/edit?path=/ICONS/_test_icon.raw" > /dev/null 2>&1
+curl -sf --compressed --max-time 8 "$BASE/edit?func=delete&path=/ICONS/_test_icon.raw" > /dev/null 2>&1
 rm -f "$tmpicon"
 fi
 
