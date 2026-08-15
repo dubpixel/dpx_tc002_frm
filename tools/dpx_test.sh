@@ -382,8 +382,10 @@ if suite "lint"; then
         for _id in \
             loop_list sw_app_sel \
             ch_type ch_fields_text ch_fields_native \
-            ca_name ca_text ca_color ca_rainbow ca_dur \
-            n_text n_dur \
+            ch_fields_wledfx ch_fx_name ch_fx_effect ch_fx_palette ch_fx_speed ch_fx_intensity ch_fx_dur \
+            ch_fields_customclock ch_cc_name ch_cc_slot ch_cc_kind ch_cc_color ch_cc_offset ch_cc_icon ch_cc_icon_sel ch_cc_pushicon \
+            ca_name ca_text ca_color ca_rainbow ca_dur ca_fontsize ca_icon ca_icon_sel ca_pushicon ca_overlay \
+            n_text n_dur n_fontsize n_icon n_icon_sel n_pushicon n_overlay \
             bri i1c i1b i1f i2c i2b i2f i3c i3b i3f \
             tc_hold tc_dwell tc_mute \
             snd_en rtttl ch_text_actions \
@@ -393,7 +395,7 @@ if suite "lint"; then
             else fail "ctrl#$_id MISSING — page will malfunction"; fi
         done
         # Check required JS functions are defined
-        for _fn in loadLoop apiPost sendNotify sendCustomApp sendRtttl sendInd switchApp addChannel updateChType addListener loadListeners; do
+        for _fn in loadLoop apiPost sendNotify sendCustomApp sendRtttl sendInd switchApp addChannel updateChType addListener loadListeners addPatternSlot addCustomClock loadIcons; do
             if echo "$_ctrl" | grep -q "function $_fn"; then ok "ctrl.$_fn() defined"
             else fail "ctrl.$_fn() MISSING — UI broken"; fi
         done
