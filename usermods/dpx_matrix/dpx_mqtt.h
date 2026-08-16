@@ -22,7 +22,9 @@
 //   .../dpx/nextapp          → advance app loop (payload ignored)
 //   .../dpx/previousapp      → step back in app loop (payload ignored)
 //   .../dpx/app/<name>       → create/update custom app by name
-//   .../dpx/indicator/<1-3>  → set indicator pixel {"color":[r,g,b]} or "" to clear
+//   .../dpx/indicator/<1-3>  → set indicator pixel {"color":[r,g,b]|"#rrggbb",
+//                               "blink":ms,"fade":ms} or "" to clear (same fields
+//                               as POST /api/indicator1|2|3)
 //   .../dpx/power            → {"power":true/false}
 //   .../dpx/brightness       → {"bri":128}  (0–255)
 //   .../dpx/rtttl            → raw RTTTL string or JSON {"rtttl":"..."} — "stop" silences
@@ -62,6 +64,8 @@
 
 // dpxIndicator is defined in dpx_matrix.cpp; declared extern in dpx_osc.h
 extern uint32_t dpxIndicator[3];
+extern uint32_t dpxIndicatorBlink[3];
+extern uint32_t dpxIndicatorFade[3];
 
 // Relative sub-path we attach to mqttDeviceTopic. Must match what senders use.
 static const char DPX_MQTT_SUB[] PROGMEM = "/dpx/#";
@@ -168,21 +172,42 @@ static bool dpxMqttMessage(char* topic, char* payload) {
     }
 
     // ── indicator pixels ─────────────────────────────────────────────────────
-    // topic: .../dpx/indicator/1  (or 2, 3)
+    // topic: .../dpx/indicator/1  (or 2, 3)  payload: {"color":[r,g,b]|"#rrggbb",
+    // "blink":ms,"fade":ms} — same fields as POST /api/indicator1|2|3, previously
+    // MQTT only supported a static "color" while HTTP also had blink/fade.
     if (cmd.startsWith(F("indicator/"))) {
         int num = cmd.charAt(10) - '0';
         if (num >= 1 && num <= 3) {
+            int idx = num - 1;
             String p(payload); p.trim();
             if (!p.length() || p == "0" || p == "off") {
-                dpxIndicator[num - 1] = 0;
+                dpxIndicator[idx] = 0;
+                dpxIndicatorBlink[idx] = 0;
+                dpxIndicatorFade[idx] = 0;
             } else {
                 StaticJsonDocument<128> doc;
-                if (!deserializeJson(doc, p) && doc.containsKey("color")) {
-                    JsonArray a = doc["color"].as<JsonArray>();
-                    if (a.size() >= 3)
-                        dpxIndicator[num - 1] = ((uint32_t)(uint8_t)a[0] << 16)
-                                              | ((uint32_t)(uint8_t)a[1] <<  8)
-                                              |  (uint32_t)(uint8_t)a[2];
+                if (!deserializeJson(doc, p)) {
+                    if (doc.containsKey("color")) {
+                        JsonVariant cv = doc["color"];
+                        if (cv.is<JsonArray>()) {
+                            JsonArray a = cv.as<JsonArray>();
+                            if (a.size() >= 3)
+                                dpxIndicator[idx] = ((uint32_t)(uint8_t)a[0].as<int>() << 16)
+                                                  | ((uint32_t)(uint8_t)a[1].as<int>() <<  8)
+                                                  |  (uint32_t)(uint8_t)a[2].as<int>();
+                            else
+                                dpxIndicator[idx] = 0;
+                        } else if (cv.is<const char*>()) {
+                            const char* s = cv.as<const char*>();
+                            dpxIndicator[idx] = (s && s[0] == '#') ? (uint32_t)strtol(s + 1, nullptr, 16) : 0;
+                        } else {
+                            dpxIndicator[idx] = 0;
+                        }
+                    }
+                    if (doc.containsKey("blink"))
+                        dpxIndicatorBlink[idx] = (uint32_t)max(0, doc["blink"].as<int>());
+                    if (doc.containsKey("fade"))
+                        dpxIndicatorFade[idx] = (uint32_t)max(0, doc["fade"].as<int>());
                 }
             }
         }
