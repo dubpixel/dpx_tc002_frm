@@ -327,13 +327,19 @@ static bool dpxMqttMessage(char* topic, char* payload) {
     if (cmd.startsWith(F("icon/get/"))) {
         String name = cmd.substring(9);
         if (name.length()) {
-            const uint32_t* px = dpxGetIcon(name);
-            if (px) {
+            // Load directly via dpxLoadIcon() into a local buffer instead of
+            // dpxGetIcon()'s shared single-slot cache. AsyncMqttClient message
+            // callbacks run on the async_tcp task, not the main loop task that
+            // owns the render path (dpx_apps.h also calls dpxGetIcon() every
+            // frame) — two tasks mutating that shared static String/cache with
+            // no locking is a heap-corruption race, not just a redundant load.
+            uint32_t pixels[DPX_ICON_PIXELS];
+            if (dpxLoadIcon(name, pixels)) {
                 uint8_t buf[DPX_ICON_BYTES];
                 for (int i = 0; i < DPX_ICON_PIXELS; i++) {
-                    buf[i * 3]     = (px[i] >> 16) & 0xFF;
-                    buf[i * 3 + 1] = (px[i] >> 8)  & 0xFF;
-                    buf[i * 3 + 2] =  px[i]        & 0xFF;
+                    buf[i * 3]     = (pixels[i] >> 16) & 0xFF;
+                    buf[i * 3 + 1] = (pixels[i] >> 8)  & 0xFF;
+                    buf[i * 3 + 2] =  pixels[i]        & 0xFF;
                 }
                 String dataTopic = String(mqttDeviceTopic) + "/dpx/icon/data/" + name;
                 mqtt->publish(dataTopic.c_str(), 0, false, (const char*)buf, DPX_ICON_BYTES);
