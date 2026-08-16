@@ -30,12 +30,21 @@
 //                               (duration secs default 60; scale 1=default/safe or 2=large/
 //                               may clip) or "" to clear. Full-screen, highest render
 //                               priority (even over notifications). See dpx_pair.h.
+//   .../dpx/icon/list         → request the installed-icon listing (payload ignored).
+//                               Response published to .../dpx/icon/list/result.
+//   .../dpx/icon/get/<name>   → request one icon's raw bytes (<name> without .raw
+//                               extension). Response published to .../dpx/icon/data/<name>.
 //
 // Published (not subscribed) on connect, retained:
 //   .../dpx/info              → {"name","ip","mac","build"} — device registry metadata.
 //                                Online/offline presence itself is WLED core's existing
 //                                LWT at {mqttDeviceTopic}/status ("online"/"offline"),
 //                                not duplicated here.
+//
+// Published (not subscribed) on request, not retained:
+//   .../dpx/icon/list/result  → JSON array, same shape as GET /api/list?dir=/ICONS/
+//   .../dpx/icon/data/<name>  → raw 192-byte RGB888 buffer (8x8, row-major) — the exact
+//                                same format as GET /ICONS/<name>.raw over HTTP
 //
 // NOTE for the friendster/cuemaster server (see dpx_tc002_server.md): device topics are
 // nested as "wled/<mac>/..." (mqttDeviceTopic), not a flat "<name>/...". A single-level
@@ -48,6 +57,7 @@
 #include "dpx_notifications.h"
 #include "dpx_tc.h"
 #include "dpx_overlay.h"
+#include "dpx_icons.h"
 #include "../../wled00/dpx_build_id.h"
 
 // dpxIndicator is defined in dpx_matrix.cpp; declared extern in dpx_osc.h
@@ -251,6 +261,59 @@ static bool dpxMqttMessage(char* topic, char* payload) {
     // topic: .../dpx/pair  payload: {"pin":"482913","duration":60} or "" to clear
     if (cmd == F("pair")) {
         dpxSetPair(payload);
+        return true;
+    }
+
+    // ── Icon list / fetch over MQTT ────────────────────────────────────────────
+    // The friendster/cuemaster server may be cloud-hosted while this device
+    // sits on a venue/home LAN — HTTP can't reach it, but MQTT always can
+    // (same reasoning as everything else in this file). Request/response uses
+    // distinct topic names (not the request topic itself) so the device's own
+    // `dpx/#` subscription doesn't re-trigger on its own published reply.
+    //
+    // topic: .../dpx/icon/list  → publishes JSON array (same shape as
+    // GET /api/list?dir=/ICONS/) to .../dpx/icon/list/result
+    if (cmd == F("icon/list")) {
+        DynamicJsonDocument doc(4096);
+        JsonArray arr = doc.to<JsonArray>();
+        File d = LittleFS.open("/ICONS/", "r");
+        if (d && d.isDirectory()) {
+            File f = d.openNextFile();
+            while (f) {
+                JsonObject o = arr.createNestedObject();
+                String name = f.name();
+                int slash = name.lastIndexOf('/');
+                if (slash >= 0) name = name.substring(slash + 1); // basename only
+                o["name"] = name;
+                o["type"] = f.isDirectory() ? "dir" : "file";
+                o["size"] = f.size();
+                f = d.openNextFile();
+            }
+        }
+        String s; serializeJson(doc, s);
+        String resultTopic = String(mqttDeviceTopic) + "/dpx/icon/list/result";
+        mqtt->publish(resultTopic.c_str(), 0, false, s.c_str());
+        return true;
+    }
+
+    // topic: .../dpx/icon/get/<name>  (name WITHOUT the .raw extension, same
+    // convention as the CustomApp "icon" field elsewhere) → publishes the raw
+    // 192-byte RGB888 buffer to .../dpx/icon/data/<name>
+    if (cmd.startsWith(F("icon/get/"))) {
+        String name = cmd.substring(9);
+        if (name.length()) {
+            const uint32_t* px = dpxGetIcon(name);
+            if (px) {
+                uint8_t buf[DPX_ICON_BYTES];
+                for (int i = 0; i < DPX_ICON_PIXELS; i++) {
+                    buf[i * 3]     = (px[i] >> 16) & 0xFF;
+                    buf[i * 3 + 1] = (px[i] >> 8)  & 0xFF;
+                    buf[i * 3 + 2] =  px[i]        & 0xFF;
+                }
+                String dataTopic = String(mqttDeviceTopic) + "/dpx/icon/data/" + name;
+                mqtt->publish(dataTopic.c_str(), 0, false, (const char*)buf, DPX_ICON_BYTES);
+            }
+        }
         return true;
     }
 
