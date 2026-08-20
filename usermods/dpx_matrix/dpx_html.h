@@ -695,6 +695,12 @@ select option{background:#222}
 </div>
 
 <div class="card">
+<h2>Notification History <span style="font-size:11px;opacity:0.7;font-weight:normal">GH #75 &mdash; outer-button replay backlog</span> <button class="sm" style="margin-top:0;margin-left:6px" onclick="loadNotifHistory()">&#8635;</button></h2>
+<div id="notifh_list" style="font-size:12px;margin-bottom:8px">Loading&hellip;</div>
+<button class="red sm" onclick="fetch('/api/notify/history/clear',{method:'POST'}).then(function(){loadNotifHistory();toast('History cleared');})">&#10006; Clear History</button>
+</div>
+
+<div class="card">
 <h2>Configure Channel</h2>
 <div class="row" style="margin-bottom:8px">
   <select id="ch_type" style="flex:0.6" onchange="updateChType(this.value)">
@@ -1212,10 +1218,29 @@ function loadNotifQueue(){
 function deleteNotifQueueItem(id){
   fetch("/api/notify/queue/delete?id="+id,{method:"POST"}).then(loadNotifQueue);
 }
+// GH #75 — history backlog panel, same list/delete pattern as the queue panel above.
+function loadNotifHistory(){
+  fetch("/api/notify/history").then(function(r){return r.json();}).then(function(d){
+    var el=document.getElementById("notifh_list");if(!el)return;
+    var html="";
+    d.history.forEach(function(n){
+      html+='<div style="padding:6px;background:#1a1a2a;border-radius:4px;margin-bottom:4px;display:flex;align-items:center;gap:6px">'+
+        '<span style="opacity:0.6">#'+n.id+'</span> <span style="flex:1">"'+notifqEsc(n.text)+'"</span>'+
+        '<button class="red sm" style="margin-top:0" onclick="deleteNotifHistoryItem('+n.id+')">Delete</button></div>';
+    });
+    if(d.history.length===0) html='<div style="opacity:0.5;padding:6px">Empty &mdash; nothing shown yet, or already cleared</div>';
+    el.innerHTML=html;
+  }).catch(function(){var el=document.getElementById("notifh_list");if(el)el.textContent="(error loading)";});
+}
+function deleteNotifHistoryItem(id){
+  fetch("/api/notify/history/delete?id="+id,{method:"POST"}).then(loadNotifHistory);
+}
 loadStatus();
 loadNotifQueue();
+loadNotifHistory();
 setInterval(loadStatus,15000);
 setInterval(loadNotifQueue,15000);
+setInterval(loadNotifHistory,15000);
 </script></body></html>
 )EOF";
 

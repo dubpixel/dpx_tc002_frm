@@ -243,6 +243,15 @@ static void dpxRegisterRoutes() {
     server.on("/api/notify/history", HTTP_GET, [](AsyncWebServerRequest* r) {
         r->send(200, F("application/json"), dpxNotifHistoryJson());
     });
+    server.on("/api/notify/history/clear", HTTP_POST, [](AsyncWebServerRequest* r) {
+        dpxNotifHistoryClear();
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    });
+    server.on("/api/notify/history/delete", HTTP_POST, [](AsyncWebServerRequest* r) {
+        if (!r->hasParam("id")) { r->send(400, F("text/plain"), F("id required")); return; }
+        bool ok = dpxNotifHistoryDelete((unsigned long)r->getParam("id")->value().toInt());
+        r->send(ok ? 200 : 404, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"not found\"}"));
+    });
     server.on("/api/notify", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
         if (body.length()) dpxPushNotification(body.c_str());

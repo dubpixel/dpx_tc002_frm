@@ -212,6 +212,22 @@ static void dpxRenderHistoryItem() {
     dpxRenderApp(dpxNotifHistory[dpxHistoryIndex].data);
 }
 
+// Clear the history buffer (/ctrl "Clear History" button). Also exits
+// browsing if it was showing a now-gone item.
+static void dpxNotifHistoryClear() {
+    dpxNotifHistory.clear();
+    dpxHistoryExit();
+}
+
+// Delete one specific history item by id, same id-not-index reasoning as
+// dpxNotifQueueDelete(). Exits browsing if it was showing the deleted item.
+static bool dpxNotifHistoryDelete(unsigned long id) {
+    for (auto it = dpxNotifHistory.begin(); it != dpxNotifHistory.end(); ++it) {
+        if (it->id == id) { dpxNotifHistory.erase(it); dpxHistoryExit(); return true; }
+    }
+    return false;
+}
+
 // Debug/verification (GH #75): JSON snapshot of the history ring buffer,
 // same pattern as dpxNotifQueueJson() (GH #72). front-most = most recent.
 static String dpxNotifHistoryJson() {
