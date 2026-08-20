@@ -10,21 +10,21 @@
  * Rather than hand-author a second copy of this content (which would drift
  * the moment either one is edited), this script extracts the *exact* HTML
  * body the firmware serves and re-skins it with the site's own look
- * (web-installer/index.html's purple/dark theme + a sidebar nav). All ids,
+ * (site/index.html's purple/dark theme + a sidebar nav). All ids,
  * table content, and inline <script> logic (copy buttons, live effects
  * fetch) are left untouched — only the <style> block and outer chrome
  * change, so this can never silently diverge from what's actually
  * implemented in dpx_html.h.
  *
  * Usage: node tools/build_pages_api_docs.js
- * Output: web-installer/api/index.html
+ * Output: site/api/index.html
  */
 
 const fs = require("node:fs");
 const path = require("node:path");
 
 const SRC = path.join(__dirname, "..", "usermods", "dpx_matrix", "dpx_html.h");
-const OUT_DIR = path.join(__dirname, "..", "web-installer", "api");
+const OUT_DIR = path.join(__dirname, "..", "site", "api");
 const OUT_FILE = path.join(OUT_DIR, "index.html");
 
 const src = fs.readFileSync(SRC, "utf8");

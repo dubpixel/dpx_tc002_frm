@@ -1,9 +1,9 @@
 name: Web Flash Deploy
 
 # Rebuilds the Ulanzi TC001 (dpx_tc002) firmware and republishes the
-# GitHub Pages site (web-installer/) — a project landing page at the root
-# (web-installer/index.html) plus the browser-flash install page at /flash/
-# (web-installer/flash/index.html, GH #77 moved it out of the root so first-
+# GitHub Pages site (site/) — a project landing page at the root
+# (site/index.html) plus the browser-flash install page at /flash/
+# (site/flash/index.html, GH #77 moved it out of the root so first-
 # time visitors land on project info, not straight into "flash a device").
 # The flash page uses ESP Web Tools (esphome/esp-web-tools), same mechanism
 # install.wled.me uses. Desktop Chrome/Edge only (Web Serial).
@@ -27,7 +27,7 @@ on:
       - 'pio-scripts/**'
       - 'platformio.ini'
       - 'platformio_override.ini'
-      - 'web-installer/**'
+      - 'site/**'
       - '.github/workflows/web-flash-deploy.yml'
     tags:
       - '*'
@@ -89,11 +89,11 @@ jobs:
       - name: Stage this run's channel
         run: |
           CH="${{ steps.channel.outputs.name }}"
-          mkdir -p "web-installer/firmware/$CH"
-          cp build_output/release/manifest.json "web-installer/firmware/$CH/"
-          cp build_output/release/dpx_tc002_*_TC001*.bin "web-installer/firmware/$CH/"
+          mkdir -p "site/firmware/$CH"
+          cp build_output/release/manifest.json "site/firmware/$CH/"
+          cp build_output/release/dpx_tc002_*_TC001*.bin "site/firmware/$CH/"
           echo "Staged $CH channel:"
-          ls -la "web-installer/firmware/$CH/"
+          ls -la "site/firmware/$CH/"
 
       - name: Build API docs page
         run: node tools/build_pages_api_docs.js
@@ -102,18 +102,18 @@ jobs:
         run: |
           OTHER="${{ steps.channel.outputs.other }}"
           BASE="https://dubpixel.github.io/dpx_tc002_frm/firmware/$OTHER"
-          mkdir -p "web-installer/firmware/$OTHER"
-          if curl -sf "$BASE/manifest.json" -o "web-installer/firmware/$OTHER/manifest.json"; then
+          mkdir -p "site/firmware/$OTHER"
+          if curl -sf "$BASE/manifest.json" -o "site/firmware/$OTHER/manifest.json"; then
             python3 -c "
           import json
-          d = json.load(open('web-installer/firmware/$OTHER/manifest.json'))
+          d = json.load(open('site/firmware/$OTHER/manifest.json'))
           for p in d['builds'][0]['parts']:
               print(p['path'])
           " | while read -r f; do
-              curl -sf "$BASE/$f" -o "web-installer/firmware/$OTHER/$f" || echo "warning: failed to fetch $f, $OTHER channel may be incomplete this deploy"
+              curl -sf "$BASE/$f" -o "site/firmware/$OTHER/$f" || echo "warning: failed to fetch $f, $OTHER channel may be incomplete this deploy"
             done
             echo "Preserved $OTHER channel:"
-            ls -la "web-installer/firmware/$OTHER/"
+            ls -la "site/firmware/$OTHER/"
           else
             echo "No live $OTHER channel yet (expected on the very first release build before any tag existed) — skipping preservation, that channel just won't be selectable until it's built once."
           fi
@@ -121,7 +121,7 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: web-installer
+          path: site
 
       - name: Deploy to GitHub Pages
         id: deployment
