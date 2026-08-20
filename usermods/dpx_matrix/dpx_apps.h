@@ -405,7 +405,6 @@ static void dpxSetCustomApp(const String& name, const char* json) {
         if (app.valid) {
             dpxCustom[name] = app;
             dpxHiddenApps.erase(name);
-            dpxActivateEffect();  // incoming app — switch display to dpx Matrix
             if (app.save) {
                 LittleFS.mkdir("/CUSTOMAPPS");
                 File f = LittleFS.open("/CUSTOMAPPS/" + name + ".json", "w");
@@ -414,6 +413,13 @@ static void dpxSetCustomApp(const String& name, const char* json) {
         }
     }
     dpxRebuildLoop();
+    // Refresh display against up-to-date app data — was dpxActivateEffect(),
+    // which unconditionally forced dpx Matrix's own render mode and never
+    // handed off to the WLED FX engine for type:"wled_fx" apps (GH #67).
+    // Calling this after dpxRebuildLoop() (not before) also means an update
+    // to the currently-showing pattern app takes effect immediately instead
+    // of activating against stale effectId/speed/intensity.
+    dpxActivateCurrentApp();
 }
 
 // Advance to next unmuted app
