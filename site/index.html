@@ -155,7 +155,7 @@
         <li><strong>8&times;8 icon rendering</strong> — LaMetric PNG&rarr;raw pipeline, icon browser built into <code>/ctrl</code></li>
         <li><strong>Timecode display</strong> (LTC via OSC) with frame progress bar</li>
         <li><strong>Notifications</strong> — one-shot priority messages, with a recall/history backlog</li>
-        <li><strong>Text overlay + 15 pixel effects</strong> (weather, decorative, full-screen) composited on top of any WLED effect &mdash; 13 of 15 dodge lit text, 2 don't yet (<a href="https://github.com/dubpixel/dpx_tc002_frm/issues/69" style="color:inherit">GH #69</a>)</li>
+        <li><strong>Text overlay + 15 dpx-native pixel effects</strong> (weather, decorative, full-screen) composited live with text &mdash; 13 of 15 dodge lit text, 2 don't yet (<a href="https://github.com/dubpixel/dpx_tc002_frm/issues/69" style="color:inherit">GH #69</a>). Separate from WLED's own 200+ built-in effects, which run via full-screen "pattern slot" dwells (no text shown during them) rather than simultaneous compositing &mdash; true text-over-any-WLED-effect is tracked as a bigger, unimplemented overhaul (<a href="https://github.com/dubpixel/dpx_tc002_frm/issues/14" style="color:inherit">GH #14</a>)</li>
         <li><strong>Device-claim PIN pairing</strong> — full-screen PIN for the friendster/cuemaster server's device-claim flow</li>
         <li><strong>OSC receiver</strong> (UDP 4210), compatible with dpx_tc001 and AWTRIX OSC senders</li>
         <li><strong>MQTT</strong> — commands, device presence, icon fetch over WLED's broker connection</li>
