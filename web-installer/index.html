@@ -4,50 +4,132 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>dpx_tc002 — Web Install</title>
+<link rel="icon" href="logo.png">
 <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
 <style>
-  :root { color-scheme: light dark; }
+  :root {
+    color-scheme: dark;
+    --purple: #b76ce7;
+    --purple-dim: #8a4fb8;
+    --bg: #14121a;
+    --panel: #1d1a26;
+    --panel-border: #322d40;
+    --text: #eee9f5;
+    --text-dim: #a89fbc;
+  }
+  * { box-sizing: border-box; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    max-width: 640px;
-    margin: 3rem auto;
-    padding: 0 1.5rem;
+    background: radial-gradient(ellipse at top, #201c2b 0%, var(--bg) 55%);
+    color: var(--text);
+    margin: 0;
+    min-height: 100vh;
+    padding: 3rem 1.5rem 4rem;
+  }
+  .wrap { max-width: 620px; margin: 0 auto; }
+  .brand { margin-bottom: 2rem; }
+  .brand img { height: 32px; display: block; margin-bottom: 0.6rem; }
+  .brand span {
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  h1 {
+    font-size: 1.7rem;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .lede { color: var(--text-dim); margin: 0 0 1.75rem; line-height: 1.55; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 14px;
+    padding: 1.5rem 1.5rem 1.75rem;
+    margin-bottom: 1.5rem;
+  }
+  .panel h2 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--purple);
+    margin: 0 0 1rem;
+  }
+
+  .warn {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    background: rgba(183, 108, 231, 0.08);
+    border: 1px solid rgba(183, 108, 231, 0.25);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font-size: 0.9rem;
+    color: var(--text-dim);
     line-height: 1.5;
   }
-  h1 { font-size: 1.5rem; }
-  .warn {
-    background: #fff3cd;
-    color: #664d03;
-    border: 1px solid #ffe69c;
+  .warn strong { color: var(--text); }
+
+  ol { margin: 1.1rem 0 0; padding-left: 1.2rem; color: var(--text-dim); line-height: 1.7; }
+  ol li::marker { color: var(--purple); font-weight: 600; }
+  ol strong { color: var(--text); }
+
+  esp-web-install-button { display: block; margin-top: 1.5rem; }
+  esp-web-install-button::part(activate-button) {
+    background: var(--purple);
+    color: #1a1421;
+    font-weight: 600;
+    border: none;
     border-radius: 8px;
-    padding: 0.75rem 1rem;
-    margin: 1rem 0;
-    font-size: 0.95rem;
+    padding: 0.7rem 1.4rem;
+    cursor: pointer;
   }
-  @media (prefers-color-scheme: dark) {
-    .warn { background: #3a2f0b; color: #ffe69c; border-color: #665419; }
+
+  code {
+    background: rgba(255,255,255,0.07);
+    padding: 0.12em 0.4em;
+    border-radius: 5px;
+    font-size: 0.9em;
   }
-  esp-web-install-button { display: block; margin: 1.5rem 0; }
-  ol { padding-left: 1.25rem; }
-  code { background: rgba(127,127,127,0.15); padding: 0.1em 0.35em; border-radius: 4px; }
+  footer {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    text-align: center;
+    margin-top: 2rem;
+  }
+  footer a { color: var(--purple); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
-  <h1>dpx_tc002 firmware — browser install</h1>
-  <p>Flash the Ulanzi TC001 LED matrix firmware directly from this page over USB — no PlatformIO, no drivers, no serial terminal.</p>
+  <div class="wrap">
+    <div class="brand">
+      <img src="logo.png" alt="dubpixel">
+      <span>dpx_tc002</span>
+    </div>
 
-  <div class="warn">
-    Requires desktop <strong>Chrome</strong> or <strong>Edge</strong> (Web Serial API). Safari, Firefox, and mobile browsers can't do this — use the PlatformIO CLI instead on those.
+    <h1>Flash your matrix from the browser</h1>
+    <p class="lede">Install the Ulanzi TC001 firmware directly over USB — no PlatformIO, no drivers, no serial terminal. Just this page.</p>
+
+    <div class="panel">
+      <h2>Before you start</h2>
+      <div class="warn">
+        <span>⚠️</span>
+        <span>Requires desktop <strong>Chrome</strong> or <strong>Edge</strong> (Web Serial API). Safari, Firefox, and mobile browsers can't do this — use the PlatformIO CLI instead on those.</span>
+      </div>
+      <ol>
+        <li>Plug the device into this computer via USB.</li>
+        <li>Click <strong>Connect</strong> below and select the correct serial port when prompted.</li>
+        <li>If this is a factory-fresh or non-WLED device, choose <strong>erase device</strong> when offered — a device already running this firmware doesn't need it.</li>
+      </ol>
+
+      <esp-web-install-button manifest="./firmware/manifest.json"></esp-web-install-button>
+    </div>
+
+    <footer>
+      Firmware source: <a href="https://github.com/dubpixel/dpx_tc002_frm">dubpixel/dpx_tc002_frm</a> — rebuilt automatically from <code>main</code>.
+    </footer>
   </div>
-
-  <ol>
-    <li>Plug the device into this computer via USB.</li>
-    <li>Click the button below and select the correct serial port when prompted.</li>
-    <li>If this is a factory-fresh or non-WLED device, choose "erase device" when offered — a device already running this firmware doesn't need it.</li>
-  </ol>
-
-  <esp-web-install-button manifest="./firmware/manifest.json"></esp-web-install-button>
-
-  <p><small>Firmware: <a href="https://github.com/dubpixel/dpx_tc002_frm">dubpixel/dpx_tc002_frm</a> — rebuilt automatically from <code>main</code>.</small></p>
 </body>
 </html>
