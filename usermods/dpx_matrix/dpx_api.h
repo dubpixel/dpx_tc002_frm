@@ -224,6 +224,19 @@ static void dpxRegisterRoutes() {
         dpxNotifQueue.clear();
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
+    // GH #72 debug/recovery panel — list the queue + active notification, and
+    // delete one specific queued item by its stable id (not array index,
+    // which shifts as items are consumed). /queue/delete is POST and shares
+    // the "/api/notify/" prefix, so — same reasoning as dismiss/clear above —
+    // it MUST also be registered before the general POST /api/notify route.
+    server.on("/api/notify/queue", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), dpxNotifQueueJson());
+    });
+    server.on("/api/notify/queue/delete", HTTP_POST, [](AsyncWebServerRequest* r) {
+        if (!r->hasParam("id")) { r->send(400, F("text/plain"), F("id required")); return; }
+        bool ok = dpxNotifQueueDelete((unsigned long)r->getParam("id")->value().toInt());
+        r->send(ok ? 200 : 404, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"not found\"}"));
+    });
     server.on("/api/notify", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
         if (body.length()) dpxPushNotification(body.c_str());

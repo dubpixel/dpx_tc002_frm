@@ -19,12 +19,15 @@ struct DpxNotification {
     DpxCustomApp data;
     bool         hold = false;    // true = hold until explicit dismiss
     bool         stack = true;    // true = queue, false = replace current
+    unsigned long id   = 0;       // stable id for debug UI (GH #72) — NOT array
+                                   // index, which shifts as items are consumed
 };
 
 static std::vector<DpxNotification> dpxNotifQueue;
 static bool dpxNotifActive = false;
 static DpxNotification dpxCurrentNotif;
 static unsigned long dpxNotifStartMs = 0;
+static unsigned long dpxNotifNextId  = 1; // 0 reserved for "no active notification"
 
 // Parse and enqueue a notification from JSON body (SPEC.md §5 POST /api/notify)
 static bool dpxPushNotification(const char* json) {
@@ -40,6 +43,7 @@ static bool dpxPushNotification(const char* json) {
     }
     notif.hold  = doc.containsKey("hold")  ? doc["hold"].as<bool>()  : false;
     notif.stack = doc.containsKey("stack") ? doc["stack"].as<bool>() : true;
+    notif.id    = dpxNotifNextId++;
 
     if (!notif.stack) {
         // Replace: clear queue and active
@@ -49,6 +53,40 @@ static bool dpxPushNotification(const char* json) {
     dpxNotifQueue.push_back(notif);
     dpxActivateEffect();  // ensure dpx Matrix effect is showing
     return true;
+}
+
+// Debug/recovery (GH #72): JSON snapshot of the active notification (if any)
+// plus everything still queued, for a /ctrl panel to render.
+static String dpxNotifQueueJson() {
+    DynamicJsonDocument doc(2048);
+    if (dpxNotifActive) {
+        JsonObject a = doc.createNestedObject("active");
+        a["id"]     = dpxCurrentNotif.id;
+        a["text"]   = dpxCurrentNotif.data.text;
+        a["hold"]   = dpxCurrentNotif.hold;
+        a["repeat"] = dpxCurrentNotif.data.repeat;
+    } else {
+        doc["active"] = nullptr;
+    }
+    JsonArray q = doc.createNestedArray("queue");
+    for (auto& n : dpxNotifQueue) {
+        JsonObject o = q.createNestedObject();
+        o["id"]     = n.id;
+        o["text"]   = n.data.text;
+        o["hold"]   = n.hold;
+        o["repeat"] = n.data.repeat;
+    }
+    String s; serializeJson(doc, s); return s;
+}
+
+// Debug/recovery (GH #72): remove one specific queued item by id, leaving the
+// rest of the queue and the currently-active notification untouched. Returns
+// false if no queued item has that id (already consumed, or never existed).
+static bool dpxNotifQueueDelete(unsigned long id) {
+    for (auto it = dpxNotifQueue.begin(); it != dpxNotifQueue.end(); ++it) {
+        if (it->id == id) { dpxNotifQueue.erase(it); return true; }
+    }
+    return false;
 }
 
 // Dismiss the currently active notification and advance to the next queued one.

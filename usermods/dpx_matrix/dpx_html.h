@@ -689,6 +689,11 @@ select option{background:#222}
 </div>
 
 <div class="card">
+<h2>Notification Queue <span style="font-size:11px;opacity:0.7;font-weight:normal">debug</span> <button class="sm" style="margin-top:0;margin-left:6px" onclick="loadNotifQueue()">&#8635;</button></h2>
+<div id="notifq_list" style="font-size:12px">Loading&hellip;</div>
+</div>
+
+<div class="card">
 <h2>Configure Channel</h2>
 <div class="row" style="margin-bottom:8px">
   <select id="ch_type" style="flex:0.6" onchange="updateChType(this.value)">
@@ -1150,8 +1155,41 @@ function loadStatus(){
     if(qc){var n=d.notif||0;qc.textContent=n>0?'('+n+' queued)':'';}
   }).catch(function(){});
 }
+// GH #72 — notification-queue debug panel: shows the currently-active
+// notification plus everything queued, with per-item skip/delete so a stuck
+// or unwanted item doesn't require clearing/losing the whole queue.
+function notifqEsc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function loadNotifQueue(){
+  fetch("/api/notify/queue").then(function(r){return r.json();}).then(function(d){
+    var el=document.getElementById("notifq_list");if(!el)return;
+    var html="";
+    if(d.active){
+      html+='<div style="padding:6px;background:#1a2a1a;border-radius:4px;margin-bottom:4px;display:flex;align-items:center;gap:6px">'+
+        '<b style="color:#8f8">ACTIVE</b> <span style="opacity:0.6">#'+d.active.id+'</span> <span style="flex:1">"'+notifqEsc(d.active.text)+'"</span>'+
+        (d.active.hold?'<span style="opacity:0.6">[hold]</span> ':'')+
+        (d.active.repeat>=0?'<span style="opacity:0.6">[repeat:'+d.active.repeat+']</span> ':'')+
+        '<button class="red sm" style="margin-top:0" onclick="apiPost(\'/api/notify/dismiss\',{}).then(loadNotifQueue)">Skip</button></div>';
+    } else {
+      html+='<div style="opacity:0.5;padding:6px">Nothing active</div>';
+    }
+    d.queue.forEach(function(n){
+      html+='<div style="padding:6px;background:#1a1a2a;border-radius:4px;margin-bottom:4px;display:flex;align-items:center;gap:6px">'+
+        '<span style="opacity:0.6">#'+n.id+'</span> <span style="flex:1">"'+notifqEsc(n.text)+'"</span>'+
+        (n.hold?'<span style="opacity:0.6">[hold]</span> ':'')+
+        (n.repeat>=0?'<span style="opacity:0.6">[repeat:'+n.repeat+']</span> ':'')+
+        '<button class="red sm" style="margin-top:0" onclick="deleteNotifQueueItem('+n.id+')">Delete</button></div>';
+    });
+    if(!d.active && d.queue.length===0) html='<div style="opacity:0.5;padding:6px">Empty</div>';
+    el.innerHTML=html;
+  }).catch(function(){var el=document.getElementById("notifq_list");if(el)el.textContent="(error loading)";});
+}
+function deleteNotifQueueItem(id){
+  fetch("/api/notify/queue/delete?id="+id,{method:"POST"}).then(loadNotifQueue);
+}
 loadStatus();
+loadNotifQueue();
 setInterval(loadStatus,15000);
+setInterval(loadNotifQueue,15000);
 </script></body></html>
 )EOF";
 
