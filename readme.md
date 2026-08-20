@@ -57,6 +57,17 @@
     <a href="https://github.com/dubpixel/dpx_tc002_frm/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
     </p>
 </div>
+
+<div align="center">
+  <a href="https://friendster.dubpixel.tv/about">
+    <img alt="matrix_blaster companion server" src="https://img.shields.io/badge/companion%20server-matrix__blaster-7ee787?style=for-the-badge&labelColor=0a0a0d">
+  </a>
+  <p>
+    <a href="https://friendster.dubpixel.tv/about"><strong>friendster.dubpixel.tv</strong></a> —
+    account/device management, PIN device-claim, and a buddy-list-style way to message your devices.
+    Optional; this firmware works standalone without it.
+  </p>
+</div>
    <br />
 <!-- TABLE OF CONTENTS -->
 <details>
@@ -141,7 +152,7 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 - **Timecode display** (LTC via OSC) with frame progress bar
 - **Notifications** — one-shot priority messages
 - **Text overlay** + 15 dpx-native pixel effects (weather, decorative, and full-screen) composited live with text. 13 of the 15 dodge lit text pixels so it stays readable; `colorwaves` and `pacifica` still blend over text uniformly ([GH #69](https://github.com/dubpixel/dpx_tc002_frm/issues/69)). This is separate from WLED's own 200+ built-in effects — those run via "pattern slot" apps (`type:"wled_fx"`), a full-screen dwell with no text/icon shown during it, not simultaneous compositing; true simultaneous text-over-any-WLED-effect compositing is tracked separately as unimplemented ([GH #14](https://github.com/dubpixel/dpx_tc002_frm/issues/14))
-- **Device-claim PIN pairing** — full-screen PIN display for the `dpx_friendster` (working title) companion server's device-claim flow — see [Companion Server](#companion-server) below
+- **Device-claim PIN pairing** — full-screen PIN display for [matrix_blaster](https://friendster.dubpixel.tv/about) (working title) companion server's device-claim flow
 - **OSC receiver** (UDP 4210) — compatible with dpx_tc001 and AWTRIX OSC senders
 - **MQTT** via WLED's broker connection — commands, device presence, and icon fetch over MQTT
 - **Browser-flashable firmware** — install directly over USB from Chrome/Edge, no PlatformIO needed (see [Getting Started](#getting-started))
@@ -150,13 +161,6 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 *author: [Joshua Fleitell](https://www.dubpixel.tv) — i@dubpixel.tv*
 
 > ⚠️ If you are prone to photosensitive epilepsy, avoid strobe/lightning effects and high speed settings.
-
-### Companion Server
-
-dpx_tc002_frm pairs with **`dpx_friendster`** (working title) — a companion account/device-management
-server. It drives the full-screen PIN device-claim flow (`POST /api/pair`), fetches icons over MQTT for
-cross-network device setup, and gives each user a roster of their claimed devices. The firmware works
-standalone over OSC/MQTT/HTTP without it — friendster is optional, for multi-device/multi-user setups.
 
 ### Images
 

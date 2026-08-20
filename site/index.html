@@ -82,6 +82,32 @@
   .shots img { width: 100%; border-radius: 8px; border: 1px solid var(--panel-border); display: block; }
   .shots-note { font-size: 0.8rem; color: var(--text-dim); margin: 0.6rem 0 0; }
 
+  /* friendster brand colors (matches friendster.dubpixel.tv's own palette),
+     used only for the companion-server callout so it visually reads as a
+     link to a distinct product, not more of this site's own purple theme */
+  .friendster-callout {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: #12131a;
+    border: 1px solid #262a3a;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 2rem;
+    text-decoration: none;
+  }
+  .friendster-callout:hover { border-color: #7ee787; }
+  .friendster-callout .fdot {
+    width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, #7ee787 0%, #58a6ff 100%);
+  }
+  .friendster-callout .ftext { color: #eceef5; font-size: 0.9rem; line-height: 1.5; }
+  .friendster-callout .ftext strong {
+    background: linear-gradient(135deg, #7ee787 0%, #58a6ff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .friendster-callout .farrow { margin-left: auto; color: #8b93b0; flex-shrink: 0; }
+
   .links { display: flex; flex-wrap: wrap; gap: 0.75rem; }
   .links a {
     color: var(--text);
@@ -145,6 +171,15 @@
     </div>
     <p class="shots-note" style="margin:0 0 2rem">Every endpoint is documented and open — HTTP, OSC, and MQTT. Grab the <a href="./api/llms.txt" style="color:var(--purple)">plain-markdown digest</a> if you're an agent or just want it offline.</p>
 
+    <a class="friendster-callout" href="https://friendster.dubpixel.tv/about">
+      <span class="fdot"></span>
+      <span class="ftext">
+        Pairs with <strong>matrix_blaster</strong> — account/device management, PIN device-claim,
+        and a buddy-list-style way to message your devices. Optional; this firmware works standalone.
+      </span>
+      <span class="farrow">&rarr;</span>
+    </a>
+
     <div class="panel">
       <h2>Action shots</h2>
       <div class="shots">
@@ -162,7 +197,7 @@
         <li><strong>Timecode display</strong> (LTC via OSC) with frame progress bar</li>
         <li><strong>Notifications</strong> — one-shot priority messages, with a recall/history backlog</li>
         <li><strong>Text overlay + 15 dpx-native pixel effects</strong> (weather, decorative, full-screen) composited live with text &mdash; 13 of 15 dodge lit text, 2 don't yet (<a href="https://github.com/dubpixel/dpx_tc002_frm/issues/69" style="color:inherit">GH #69</a>). Separate from WLED's own 200+ built-in effects, which run via full-screen "pattern slot" dwells (no text shown during them) rather than simultaneous compositing &mdash; true text-over-any-WLED-effect is tracked as a bigger, unimplemented overhaul (<a href="https://github.com/dubpixel/dpx_tc002_frm/issues/14" style="color:inherit">GH #14</a>)</li>
-        <li><strong>Device-claim PIN pairing</strong> — full-screen PIN for the friendster/cuemaster server's device-claim flow</li>
+        <li><strong>Device-claim PIN pairing</strong> — full-screen PIN for <a href="https://friendster.dubpixel.tv/about" style="color:inherit">matrix_blaster</a>'s device-claim flow</li>
         <li><strong>OSC receiver</strong> (UDP 4210), compatible with dpx_tc001 and AWTRIX OSC senders</li>
         <li><strong>MQTT</strong> — commands, device presence, icon fetch over WLED's broker connection</li>
         <li><strong>Browser-flashable firmware</strong> — no PlatformIO needed, see above</li>
@@ -263,17 +298,6 @@
         <img src="images/ui_shot_apiref.png" alt="/api-ref API reference page">
       </div>
       <p class="shots-note">Live off the device — <code>/ctrl</code> control panel and <code>/api-ref</code>. (<code>/browse</code> icon picker is up in the Icons section above.)</p>
-    </div>
-
-    <div class="panel">
-      <h2>Companion server</h2>
-      <p style="color:var(--text-dim);line-height:1.6">
-        dpx_tc002_frm pairs with <strong style="color:var(--text)">dpx_friendster</strong> (working title) —
-        a companion account/device-management server. It drives the full-screen PIN device-claim flow
-        (<code>POST /api/pair</code>), fetches icons over MQTT for cross-network device setup, and gives
-        each user a roster of their claimed devices. The firmware works standalone over OSC/MQTT/HTTP
-        without it — friendster is optional, for multi-device/multi-user setups.
-      </p>
     </div>
 
     <div class="panel">
