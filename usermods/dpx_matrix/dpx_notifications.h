@@ -71,9 +71,14 @@ static bool dpxNotifTick() {
     }
 
     // Check duration expiry (hold notifications never auto-dismiss).
-    // When repeat >= 0, scroll count governs the end — duration is ignored
-    // so the two mechanisms don't compete.
-    if (!dpxCurrentNotif.hold && dpxCurrentNotif.data.repeat < 0) {
+    // Duration is always an upper-bound safety net, even when repeat >= 0
+    // (which normally ends things early via dpxRenderNotification() once the
+    // scroll cycle completes). Without this, text short enough to fit on
+    // screen without scrolling never generates a "scroll complete" signal —
+    // dpxRenderApp() treats it as a static app that never completes — so a
+    // repeat>=0 notification with non-scrolling text would otherwise get
+    // stuck on screen forever.
+    if (!dpxCurrentNotif.hold) {
         unsigned long dur = dpxCurrentNotif.data.durationMs();
         if (dur == 0) dur = 5000; // default 5s
         if (millis() - dpxNotifStartMs >= dur) {
