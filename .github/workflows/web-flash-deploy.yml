@@ -1,0 +1,77 @@
+name: Web Flash Deploy
+
+# Rebuilds the Ulanzi TC001 (dpx_tc002) firmware on every push to main that
+# touches firmware code, and republishes the browser-flash install page
+# (web-installer/) to GitHub Pages with the freshly built binaries + manifest.
+# See web-installer/index.html — uses ESP Web Tools (esphome/esp-web-tools),
+# same mechanism install.wled.me uses. Desktop Chrome/Edge only (Web Serial).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'usermods/**'
+      - 'wled00/**'
+      - 'pio-scripts/**'
+      - 'platformio.ini'
+      - 'platformio_override.ini'
+      - 'web-installer/**'
+      - '.github/workflows/web-flash-deploy.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build_and_deploy:
+    name: Build firmware + deploy install page
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+      - name: Install PlatformIO
+        run: pip install -r requirements.txt
+
+      - name: Build ulanzi_tc001
+        run: pio run -e ulanzi_tc001
+
+      - name: Verify web-flash artifacts were produced
+        run: |
+          test -f build_output/release/manifest.json || { echo "manifest.json missing — dpx_web_flash_bins.py didn't run or failed"; exit 1; }
+          test -n "$(ls build_output/release/dpx_tc002_*_TC001*.bin 2>/dev/null)" || { echo "no TC001 .bin files found"; exit 1; }
+
+      - name: Stage install page
+        run: |
+          mkdir -p web-installer/firmware
+          cp build_output/release/manifest.json web-installer/firmware/
+          cp build_output/release/dpx_tc002_*_TC001*.bin web-installer/firmware/
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web-installer
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
