@@ -109,14 +109,15 @@ static void mode_dpx_matrix() {
     // PIN stays legible (no rain/frost etc. drawn over it).
     if (!pairActive) dpxRenderOverlays();
     // Corner indicator pixels (topmost layer) — L-shape at each corner, AWTRIX3 style
-    // ind[0]=top-left (0,0)(1,0)(0,1)  ind[1]=top-right (31,0)(30,0)(31,1)  ind[2]=bottom-left (0,7)(1,7)(0,6)
+    // ind[0]=top-left (0,0)(1,0)(0,1)  ind[1]=top-right (31,0)(30,0)(31,1)
+    // ind[2]=bottom-left (0,7)(1,7)(0,6)  ind[3]=bottom-right (31,7)(30,7)(31,6) (GH #74)
     {
-        static const int8_t IND_PX[3][3] = {{0,1,0}, {31,30,31}, {0,1,0}};
-        static const int8_t IND_PY[3][3] = {{0,0,1}, { 0, 0, 1}, {7,7,6}};
-        extern uint32_t dpxIndicatorBlink[3];
-        extern uint32_t dpxIndicatorFade[3];
+        static const int8_t IND_PX[4][3] = {{0,1,0}, {31,30,31}, {0,1,0}, {31,30,31}};
+        static const int8_t IND_PY[4][3] = {{0,0,1}, { 0, 0, 1}, {7,7,6}, { 7, 7, 6}};
+        extern uint32_t dpxIndicatorBlink[4];
+        extern uint32_t dpxIndicatorFade[4];
         unsigned long now = millis();
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             if (!dpxIndicator[i]) continue;
             if (dpxIndicatorBlink[i] > 0 && (now / dpxIndicatorBlink[i]) % 2) continue;
             uint32_t col = dpxIndicator[i];
@@ -492,7 +493,7 @@ public:
         }
 
         // Indicators
-        for (int i = 1; i <= 3; i++) {
+        for (int i = 1; i <= 4; i++) {
             String key = String(F("indicator")) + i;
             if (dpx.containsKey(key)) {
                 JsonArray a = dpx[key].as<JsonArray>();

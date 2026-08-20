@@ -72,7 +72,7 @@ code,.snip{background:#1a1a2e;color:#8cf;padding:1px 4px;border-radius:3px;font-
 <tr><td><span class="pill post">POST</span></td><td><code>/api/sleep</code></td><td><code>{"sleep":60}</code> — seconds</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/settings</code></td><td>Settings JSON — see keys below</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/moodlight</code></td><td><code>{"color":[255,80,0],"brightness":170}</code></td></tr>
-<tr><td><span class="pill post">POST</span></td><td><code>/api/indicator1</code> <code>/2</code> <code>/3</code></td><td><code>{"color":[255,0,0],"blink":500}</code></td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/indicator1</code> <code>/2</code> <code>/3</code> <code>/4</code></td><td><code>{"color":[255,0,0],"blink":500}</code></td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/rtttl</code></td><td>Raw RTTTL string as plain body</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/sound</code></td><td><code>{"sound":"alarm"}</code> or <code>{"rtttl":"..."}</code> — loads <code>/MELODIES/&lt;name&gt;.txt</code></td></tr>
 <tr><td><span class="pill get">GET</span></td><td><code>/api/time</code></td><td>Current device time: <code>{"local":"2026-07-14T15:30:00","utc":1752506200}</code></td></tr>
@@ -246,6 +246,7 @@ c.send_message("/dpx_tc002/custom/tc", "00:59:59:24")<button class="cp" onclick=
 <tr><td><code>[PREFIX]/indicator1</code></td><td><code>{"color":[r,g,b],"blink":500}</code></td><td>Indicator 1</td></tr>
 <tr><td><code>[PREFIX]/indicator2</code></td><td>same</td><td>Indicator 2</td></tr>
 <tr><td><code>[PREFIX]/indicator3</code></td><td>same</td><td>Indicator 3</td></tr>
+<tr><td><code>[PREFIX]/indicator4</code></td><td>same</td><td>Indicator 4</td></tr>
 <tr><td><code>[PREFIX]/sound</code></td><td><code>{"sound":"alarm"}</code></td><td>Play sound file from /MELODIES/</td></tr>
 <tr><td><code>[PREFIX]/rtttl</code></td><td>raw RTTTL string</td><td>Play inline RTTTL melody</td></tr>
 <tr><td><code>[PREFIX]/apps</code></td><td>JSON array</td><td>Update app loop order</td></tr>
@@ -876,6 +877,14 @@ select option{background:#222}
   <div><label>Fade ms</label><input type="number" id="i3f" value="0" min="0"></div>
   <button style="width:100%;margin-top:6px" onclick="sendInd(3)">Set</button>
   <button class="red" style="width:100%;margin-top:3px" onclick="apiPost('/api/indicator3',{color:[0,0,0]})">Off</button>
+</div>
+<div class="ibox">
+  <b>4</b>
+  <div><label>Color</label><input type="color" id="i4c" value="#ff00ff"></div>
+  <div><label>Blink ms</label><input type="number" id="i4b" value="0" min="0"></div>
+  <div><label>Fade ms</label><input type="number" id="i4f" value="0" min="0"></div>
+  <button style="width:100%;margin-top:6px" onclick="sendInd(4)">Set</button>
+  <button class="red" style="width:100%;margin-top:3px" onclick="apiPost('/api/indicator4',{color:[0,0,0]})">Off</button>
 </div>
 </div>
 </div>

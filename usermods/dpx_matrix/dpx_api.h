@@ -26,7 +26,7 @@
 //   POST     /api/nextapp          advance loop
 //   POST     /api/previousapp      go back in loop
 //   POST     /api/power            {"power":true/false}
-//   POST     /api/indicator1|2|3   {"color":[r,g,b],"blink":ms}
+//   POST     /api/indicator1|2|3|4 {"color":[r,g,b],"blink":ms}
 //   GET/POST /api/time             get/set device time
 //   POST     /api/syncntp          re-trigger NTP sync
 //   GET/POST /api/settings         DPX + WLED settings
@@ -48,9 +48,9 @@
 #include "dpx_html.h"
 
 // dpxIndicator is declared extern in dpx_osc.h; defined in dpx_matrix.cpp.
-extern uint32_t dpxIndicator[3];
-extern uint32_t dpxIndicatorBlink[3];
-extern uint32_t dpxIndicatorFade[3];
+extern uint32_t dpxIndicator[4];
+extern uint32_t dpxIndicatorBlink[4];
+extern uint32_t dpxIndicatorFade[4];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -350,6 +350,7 @@ static void dpxRegisterRoutes() {
     server.on("/api/indicator1", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 0); });
     server.on("/api/indicator2", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 1); });
     server.on("/api/indicator3", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 2); });
+    server.on("/api/indicator4", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 3); }); // GH #74
 
     // ── Time ──────────────────────────────────────────────────────────────────
     server.on("/api/time", HTTP_ANY, [](AsyncWebServerRequest* r) {

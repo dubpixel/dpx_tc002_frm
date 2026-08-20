@@ -18,9 +18,10 @@
 
 // ── Global definitions ────────────────────────────────────────────────────────
 // dpxIndicator is declared extern in dpx_osc.h; one definition here.
-uint32_t dpxIndicator[3]      = {0, 0, 0};
-uint32_t dpxIndicatorBlink[3] = {0, 0, 0};  // blink interval ms, 0 = solid
-uint32_t dpxIndicatorFade[3]  = {0, 0, 0};  // fade period ms (triangle wave), 0 = solid
+// GH #74 — 4 slots (one per matrix corner) rather than the original 3.
+uint32_t dpxIndicator[4]      = {0, 0, 0, 0};
+uint32_t dpxIndicatorBlink[4] = {0, 0, 0, 0};  // blink interval ms, 0 = solid
+uint32_t dpxIndicatorFade[4]  = {0, 0, 0, 0};  // fade period ms (triangle wave), 0 = solid
 
 // ── Usermod registration ──────────────────────────────────────────────────────
 static DpxMatrix dpxMatrixMod;

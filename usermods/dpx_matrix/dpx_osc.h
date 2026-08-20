@@ -171,15 +171,15 @@ static void dpxHandleOSC(const uint8_t* buf, int len) {
     } else if (addr.startsWith("/indicator/")) {
         // Indicator dots — stored as corner pixels
         int num = addr.substring(11).toInt();
-        if (num >= 1 && num <= 3 && tags.length() >= 4) {
+        if (num >= 1 && num <= 4 && tags.length() >= 4) {
             int r = constrain(dpxOscNum(buf, pos, tags[1]), 0, 255);
             int g = constrain(dpxOscNum(buf, pos, tags[2]), 0, 255);
             int b = constrain(dpxOscNum(buf, pos, tags[3]), 0, 255);
             // Store indicator colors (rendered in handleOverlayDraw)
             // Indicator 1 = pixel 0 (top-left), 2 = pixel 31, 3 = pixel 224
             uint32_t col = ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
-            extern uint32_t dpxIndicator[3];
-            if (num >= 1 && num <= 3) dpxIndicator[num - 1] = col;
+            extern uint32_t dpxIndicator[4];
+            if (num >= 1 && num <= 4) dpxIndicator[num - 1] = col;
         }
     } else {
         // Dynamic OSC listener registry (d3 monitoring paths)

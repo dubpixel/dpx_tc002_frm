@@ -63,9 +63,9 @@
 #include "../../wled00/dpx_build_id.h"
 
 // dpxIndicator is defined in dpx_matrix.cpp; declared extern in dpx_osc.h
-extern uint32_t dpxIndicator[3];
-extern uint32_t dpxIndicatorBlink[3];
-extern uint32_t dpxIndicatorFade[3];
+extern uint32_t dpxIndicator[4];
+extern uint32_t dpxIndicatorBlink[4];
+extern uint32_t dpxIndicatorFade[4];
 
 // Relative sub-path we attach to mqttDeviceTopic. Must match what senders use.
 static const char DPX_MQTT_SUB[] PROGMEM = "/dpx/#";
@@ -177,7 +177,7 @@ static bool dpxMqttMessage(char* topic, char* payload) {
     // MQTT only supported a static "color" while HTTP also had blink/fade.
     if (cmd.startsWith(F("indicator/"))) {
         int num = cmd.charAt(10) - '0';
-        if (num >= 1 && num <= 3) {
+        if (num >= 1 && num <= 4) {
             int idx = num - 1;
             String p(payload); p.trim();
             if (!p.length() || p == "0" || p == "off") {
