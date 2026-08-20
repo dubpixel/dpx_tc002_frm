@@ -192,16 +192,18 @@
     <div class="panel">
       <h2>What dpx_matrix adds over stock WLED</h2>
       <ul>
-        <li><strong>Text app loop</strong> — scrolling/static custom apps, clocks, WLED pattern slots, multiple instances per app</li>
-        <li><strong>8&times;8 icon rendering</strong> — LaMetric PNG&rarr;raw pipeline, icon browser built into <code>/ctrl</code></li>
-        <li><strong>Timecode display</strong> (LTC via OSC) with frame progress bar</li>
-        <li><strong>Notifications</strong> — one-shot priority messages, with a recall/history backlog</li>
-        <li><strong>Text overlay + 15 dpx-native pixel effects</strong> (weather, decorative, full-screen) composited live with text &mdash; 13 of 15 dodge lit text, 2 don't yet (<a href="https://github.com/dubpixel/dpx_tc002_frm/issues/69" style="color:inherit">GH #69</a>). Separate from WLED's own 200+ built-in effects, which run via full-screen "pattern slot" dwells (no text shown during them) rather than simultaneous compositing &mdash; true text-over-any-WLED-effect is tracked as a bigger, unimplemented overhaul (<a href="https://github.com/dubpixel/dpx_tc002_frm/issues/14" style="color:inherit">GH #14</a>)</li>
-        <li><strong>Device-claim PIN pairing</strong> — full-screen PIN for <a href="https://friendster.dubpixel.tv/about" style="color:inherit">matrix_blaster</a>'s device-claim flow</li>
         <li><strong>OSC receiver</strong> (UDP 4210), compatible with dpx_tc001 and AWTRIX OSC senders</li>
         <li><strong>MQTT</strong> — commands, device presence, icon fetch over WLED's broker connection</li>
-        <li><strong>Browser-flashable firmware</strong> — no PlatformIO needed, see above</li>
+        <li><strong>Timecode display</strong> (LTC via OSC) with frame progress bar</li>
+        <li><strong>Notifications</strong> — one-shot priority messages, with a recall/history backlog</li>
+        <li><strong>8&times;8 icon rendering</strong> — LaMetric PNG&rarr;raw pipeline, icon browser built into <code>/ctrl</code></li>
+        <li><strong>Text app loop</strong> — scrolling/static custom apps, clocks, WLED pattern slots, multiple instances per app</li>
+        <li><strong>World clock</strong> — customizable per-instance clocks with their own timezone offset, color, and icon; add as many as you want</li>
+        <li><strong>OTA updates</strong> — inherited from the WLED base: HTTP + ArduinoOTA, password-protectable, no cable after the first flash</li>
         <li><strong>First-boot config</strong> — usable out of the box, no wizard required</li>
+        <li><strong>Text overlay + 15 dpx-native pixel effects</strong> (weather, decorative, full-screen) composited live with text &mdash; 13 of 15 dodge lit text, 2 don't yet (<a href="https://github.com/dubpixel/dpx_tc002_frm/issues/69" style="color:inherit">GH #69</a>). Separate from WLED's own 200+ built-in effects, which run via full-screen "pattern slot" dwells (no text shown during them) rather than simultaneous compositing &mdash; true text-over-any-WLED-effect is tracked as a bigger, unimplemented overhaul (<a href="https://github.com/dubpixel/dpx_tc002_frm/issues/14" style="color:inherit">GH #14</a>)</li>
+        <li><strong>Device-claim PIN pairing</strong> — full-screen PIN for <a href="https://friendster.dubpixel.tv/about" style="color:inherit">matrix_blaster</a>'s device-claim flow</li>
+        <li><strong>Browser-flashable firmware</strong> — no PlatformIO needed, see above</li>
       </ul>
     </div>
 
