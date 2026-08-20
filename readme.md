@@ -66,6 +66,8 @@
     <li><a href="#getting-started">Getting Started</a></li>
     <li><a href="#first-boot-defaults">First Boot Defaults</a></li>
     <li><a href="#usage">Usage</a></li>
+    <li><a href="#icons--media-browser">Icons &amp; Media Browser</a></li>
+    <li><a href="#osc-control">OSC Control</a></li>
     <li><a href="#roadmap">Roadmap</a></li>
     <li><a href="#contributing">Contributing</a></li>
     <li><a href="#license">License</a></li>
@@ -311,6 +313,53 @@ POST /json
 ```
 
 See [First Boot Defaults](#first-boot-defaults) for all control interfaces.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- ICONS -->
+## Icons & Media Browser
+
+Not just an 8×8 pixel renderer — `/browse` on the device is a built-in browser across three icon/media sources, no external tools needed:
+
+- **LaMetric Icons** — thousands of free icons from LaMetric's public gallery, searchable by ID, paginated thumbnail grid. Click **Get** to install one to `/ICONS/`, click **Use** to copy its ID straight into an `icon` field.
+- **Bigtime GIFs** — Blueforcer/awtrix3's animated GIF collection, one-click install from GitHub.
+- **On-Device Files** — a small file manager for `/ICONS/`, `/MELODIES/`, and device root (list, delete).
+
+![Icon browser][ui-shot-browse]
+
+Once installed, reference an icon by name in any notify/custom-app call:
+```
+curl -X POST http://[IP]/api/notify \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  --data-urlencode 'plain={"text":"Hi!","icon":"87","pushIcon":0}'
+```
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+<!-- OSC CONTROL -->
+## OSC Control
+
+The firmware's OSC receiver (UDP 4210) accepts timecode, notifications, app switching, brightness, and indicator colors — see the [full OSC address list](https://dubpixel.github.io/dpx_tc002_frm/api/#osc) in the API docs. Both bare addresses (`/notify`, `/tc`) and namespaced ones (`/dpx_tc002/notify`, `/awtrix/notify`) are accepted.
+
+### `tools/ltc_osc_bridge/` — LTC timecode & show-control bridge
+
+A standalone Python tool (CLI + local web GUI) that goes well beyond just feeding this device timecode:
+
+- **LTC → OSC** — decodes real SMPTE linear timecode from a system audio input (or a WAV file) and forwards it to any OSC receiver, this device included
+- **Test/generator mode** — sends a fake incrementing timecode with no LTC hardware needed (`--test`), for trying things out before you have real audio gear connected
+- **Arbitrary OSC sender** — `--send "01:00:00:00" --address /dpx_tc001/notify` fires any string to any address, useful for scripting/testing without touching the LTC decoder at all
+- **disguise (d3) show-control** — a second feature area, separate from LTC: play/stop, cue triggering, volume/brightness, track name/id, and a listener registry for d3's own OSC feedback — `--d3-play`, `--d3-cue 1 2 5`, `--d3-volume 0.8`, etc.
+- **Web GUI** — `python ltc_osc_bridge_gui.py` opens a two-tab local web app at `http://localhost:8765` (LTC→OSC / d3 Control) — no CLI flags to remember. Mac/Windows launcher scripts included (`Launch LTC Bridge.command` / `.bat`) for double-click use.
+
+```bash
+cd tools/ltc_osc_bridge
+pip install -r requirements.txt
+
+python ltc_osc_bridge.py --list-devices                                    # find your audio input
+python ltc_osc_bridge.py --target 192.168.1.100 --device 2                 # decode real LTC audio
+python ltc_osc_bridge.py --test --start-tc 01:00:00:00 --fps 25 --target 192.168.1.100
+python ltc_osc_bridge_gui.py                                               # or just use the GUI
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

@@ -171,6 +171,39 @@
     </div>
 
     <div class="panel">
+      <h2>Icons &amp; media browser</h2>
+      <p style="color:var(--text-dim);line-height:1.6;margin:0 0 1rem">
+        <code>/browse</code> is a built-in browser across three sources, no external tools needed:
+        <strong style="color:var(--text)">LaMetric Icons</strong> (thousands of free icons, searchable,
+        one-click install), <strong style="color:var(--text)">Bigtime GIFs</strong> (Blueforcer/awtrix3's
+        animated collection), and an <strong style="color:var(--text)">on-device file manager</strong> for
+        <code>/ICONS/</code> and <code>/MELODIES/</code>.
+      </p>
+      <div class="shots" style="grid-template-columns:1fr">
+        <img src="images/ui_shot_browse.png" alt="/browse icon browser">
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>OSC control</h2>
+      <p style="color:var(--text-dim);line-height:1.6;margin:0 0 1rem">
+        The firmware's OSC receiver (UDP 4210) handles timecode, notifications, app switching,
+        brightness, and indicator colors. Paired with the included
+        <a href="https://github.com/dubpixel/dpx_tc002_frm/tree/main/tools/ltc_osc_bridge" style="color:var(--purple)"><code>tools/ltc_osc_bridge/</code></a>
+        toolkit &mdash; a standalone Python app (CLI + local web GUI) that decodes real SMPTE LTC
+        timecode from audio (or a WAV file) and forwards it over OSC, generates fake test timecode
+        with no hardware needed, sends arbitrary OSC messages for scripting, and separately drives
+        <strong style="color:var(--text)">disguise (d3) show control</strong> &mdash; play/stop, cue
+        triggering, volume/brightness, track name/id.
+      </p>
+      <ul>
+        <li>Two-tab web GUI at <code>localhost:8765</code> &mdash; no CLI flags to remember</li>
+        <li>Mac/Windows double-click launchers included</li>
+        <li>Full OSC address list in the <a href="./api/#osc" style="color:var(--purple)">API docs</a></li>
+      </ul>
+    </div>
+
+    <div class="panel">
       <h2>Plus everything WLED already does</h2>
       <div class="cols">
         <div>
@@ -228,9 +261,8 @@
       <div class="shots" style="grid-template-columns:1fr">
         <img src="images/ui_shot_ctrl.png" alt="/ctrl control panel">
         <img src="images/ui_shot_apiref.png" alt="/api-ref API reference page">
-        <img src="images/ui_shot_browse.png" alt="/browse icon browser">
       </div>
-      <p class="shots-note">Live off the device — <code>/ctrl</code> control panel, <code>/api-ref</code>, and <code>/browse</code> icon picker.</p>
+      <p class="shots-note">Live off the device — <code>/ctrl</code> control panel and <code>/api-ref</code>. (<code>/browse</code> icon picker is up in the Icons section above.)</p>
     </div>
 
     <div class="panel">
