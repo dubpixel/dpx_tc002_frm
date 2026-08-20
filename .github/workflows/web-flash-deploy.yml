@@ -95,6 +95,9 @@ jobs:
           echo "Staged $CH channel:"
           ls -la "web-installer/firmware/$CH/"
 
+      - name: Build API docs page
+        run: node tools/build_pages_api_docs.js
+
       - name: Preserve the other channel's currently-live files
         run: |
           OTHER="${{ steps.channel.outputs.other }}"

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>API Reference — dpx_tc002_frm</title>
+<link rel="icon" href="../fav_icon.png">
+<style>
+:root {
+  color-scheme: dark;
+  --purple: #b76ce7;
+  --bg: #14121a;
+  --panel: #1d1a26;
+  --panel-border: #322d40;
+  --text: #eee9f5;
+  --text-dim: #a89fbc;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:radial-gradient(ellipse at top,#201c2b 0%,var(--bg) 55%);
+  color:var(--text);
+  display:flex;
+  min-height:100vh;
+}
+aside{
+  width:220px;
+  flex-shrink:0;
+  padding:2rem 1.25rem;
+  position:sticky;
+  top:0;
+  height:100vh;
+  overflow-y:auto;
+  border-right:1px solid var(--panel-border);
+}
+aside .back{display:block;color:var(--text-dim);text-decoration:none;font-size:0.85rem;margin-bottom:1.5rem}
+aside .back:hover{color:var(--text)}
+aside .brand{font-weight:600;margin-bottom:1.25rem;font-size:0.95rem}
+aside nav a{display:block;color:var(--text-dim);text-decoration:none;font-size:0.85rem;line-height:2.1;padding:0.1rem 0}
+aside nav a:hover{color:var(--purple)}
+main{flex:1;padding:2.5rem 2.5rem 5rem;min-width:0;font-family:monospace;font-size:13px;line-height:1.6;max-width:900px}
+h1{color:var(--purple);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:1.6rem;margin:0 0 1.5rem}
+h2{color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:1.05rem;margin:2.25rem 0 0.75rem;padding-bottom:0.5rem;border-bottom:1px solid var(--panel-border)}
+h2:first-of-type{margin-top:0}
+h3{color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:0.9rem;margin:1rem 0 0.4rem}
+table{width:100%;border-collapse:collapse;margin-bottom:0.75rem;font-size:12px;background:var(--panel);border:1px solid var(--panel-border);border-radius:8px;overflow:hidden}
+th{background:rgba(183,108,231,0.08);color:var(--purple);text-align:left;padding:0.5rem 0.7rem;font-weight:600}
+td{padding:0.4rem 0.7rem;border-top:1px solid var(--panel-border);vertical-align:top;color:var(--text-dim)}
+code,.snip{background:rgba(255,255,255,0.07);color:var(--purple);padding:1px 5px;border-radius:4px;font-family:monospace}
+.block{position:relative;background:var(--panel);border:1px solid var(--panel-border);border-radius:8px;padding:0.7rem 2.4rem 0.7rem 0.8rem;margin:0.4rem 0;white-space:pre-wrap;font-size:12px;color:var(--text-dim)}
+.cp{position:absolute;top:0.5rem;right:0.5rem;background:var(--purple);color:#1a1421;border:none;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:10px;font-weight:600}
+.cp:hover{opacity:0.85}
+.pill{display:inline-block;padding:1px 7px;border-radius:4px;font-size:10px;margin-right:3px;font-weight:600}
+.get{background:rgba(80,220,120,0.15);color:#7f6}
+.post{background:rgba(255,160,80,0.15);color:#fb8}
+.tag{color:#6b6478;font-size:10px}
+.toast{position:fixed;bottom:1rem;right:1rem;background:var(--purple);color:#1a1421;padding:0.5rem 1rem;border-radius:6px;display:none;font-size:12px;font-weight:600;z-index:999}
+@media (max-width:800px){body{flex-direction:column}aside{position:relative;width:100%;height:auto;border-right:none;border-bottom:1px solid var(--panel-border)}}
+</style>
+</head>
+<body>
+<aside>
+  <a class="back" href="../">&larr; dpx_tc002_frm</a>
+  <div class="brand">API Reference</div>
+  <nav>
+<a href="#endpoints">HTTP Endpoints</a>
+<a href="#notify">Notify / Custom App JSON</a>
+<a href="#settings">Settings Keys</a>
+<a href="#wled">WLED JSON API</a>
+<a href="#effects">Effects &amp; Overlays</a>
+<a href="#draw">Draw Commands</a>
+<a href="#osc">OSC Addresses</a>
+<a href="#mqtt">MQTT Topics</a>
+</nav>
+</aside>
+<main>
+<h1>&#128196; API Reference</h1>
+<p style="color:var(--text-dim);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:-1rem 0 1.5rem;font-size:0.9rem">
+  Generated from the firmware's own <code>/api-ref</code> page — always matches what's actually implemented.
+  Point <code>[IP]</code> at your device's address (<code>dpx-tc002.local</code> or its IP).
+</p>
+
+<h1>&#128196; API Reference</h1>
+<!-- ── ENDPOINTS ── -->
+<h2 id="endpoints">HTTP Endpoints</h2>
+<table>
+<tr><th>Method</th><th>URL</th><th>Body / Notes</th></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/api/stats</code></td><td>Device stats (RAM, uptime, battery…)</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/api/screen</code></td><td>Current matrix as 256× 24-bit int array</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/api/effects</code></td><td>Array of effect name strings</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/api/transitions</code></td><td>Array of transition name strings</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/api/loop</code></td><td>Ordered app list</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/api/apps</code></td><td>App list with icons</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/api/settings</code></td><td>Current settings JSON</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/notify</code></td><td>One-shot notification — see JSON keys below</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/notify/dismiss</code></td><td>Dismiss held notification (empty body)</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/pair</code></td><td><code>{"pin":"482913","duration":60,"scale":1}</code> — full-screen PIN display for device-claim pairing; highest render priority. <code>scale</code> 1 (default) or 2 (larger, may clip vertically). Empty body clears early.</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/custom?name=<i>appname</i>[&amp;slot=<i>id</i>]</code></td><td>Create/update persistent custom app. Optional <code>slot</code> lets the same <code>name</code> occupy multiple rotation positions — the real key is <code>name#slot</code> everywhere (switch/mute/delete too).</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/switch</code></td><td><code>{"name":"Time"}</code> — jump to app</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/nextapp</code></td><td>empty body</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/previousapp</code></td><td>empty body</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/power</code></td><td><code>{"power":true}</code></td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/sleep</code></td><td><code>{"sleep":60}</code> — seconds</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/settings</code></td><td>Settings JSON — see keys below</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/moodlight</code></td><td><code>{"color":[255,80,0],"brightness":170}</code></td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/indicator1</code> <code>/2</code> <code>/3</code> <code>/4</code></td><td><code>{"color":[255,0,0],"blink":500}</code></td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/rtttl</code></td><td>Raw RTTTL string as plain body</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/sound</code></td><td><code>{"sound":"alarm"}</code> or <code>{"rtttl":"..."}</code> — loads <code>/MELODIES/&lt;name&gt;.txt</code></td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/api/time</code></td><td>Current device time: <code>{"local":"2026-07-14T15:30:00","utc":1752506200}</code></td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/time</code></td><td><code>{"utc":1752506200}</code> — set clock via settimeofday()</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/syncntp</code></td><td>Re-trigger NTP sync with current server + timezone settings</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/rename</code></td><td><code>{"from":"/ICONS/old.raw","to":"/ICONS/new.raw"}</code></td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/api/reboot</code></td><td>Reboot device</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/screen</code></td><td>Live view page</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/ctrl</code></td><td>Control panel</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/browse</code></td><td>Community browser</td></tr>
+</table>
+
+<h3>Quick curl examples</h3>
+<div class="block">curl -X POST http://[IP]/api/notify \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello!","color":[255,200,0],"icon":"87","duration":8}'<button class="cp" onclick="cp(this)">copy</button></div>
+<div class="block">curl -X POST http://[IP]/api/custom?name=myapp \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Always on","rainbow":true,"scrollSpeed":80}'<button class="cp" onclick="cp(this)">copy</button></div>
+
+<!-- ── NOTIFY JSON ── -->
+<h2 id="notify">Notify &amp; Custom App — JSON Keys</h2>
+<p style="color:#666;margin-bottom:6px">All keys optional. <span class="tag">N=notify only &nbsp; C=custom app only &nbsp; B=both</span></p>
+<table>
+<tr><th>Key</th><th>Type</th><th>Description</th><th>Default</th><th></th></tr>
+<tr><td><code>text</code></td><td>string/array</td><td>Text to display. Array = colored fragments: <code>[{"t":"Hi","c":"FF0000"}]</code></td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>textCase</code></td><td>int</td><td>0=global, 1=UPPER, 2=as-sent</td><td>0</td><td class="tag">B</td></tr>
+<tr><td><code>topText</code></td><td>bool</td><td>Draw text on top row</td><td>false</td><td class="tag">B</td></tr>
+<tr><td><code>textOffset</code></td><td>int</td><td>X-offset for text start</td><td>0</td><td class="tag">B</td></tr>
+<tr><td><code>center</code></td><td>bool</td><td>Center short non-scrolling text</td><td>true</td><td class="tag">B</td></tr>
+<tr><td><code>color</code></td><td>str/[r,g,b]</td><td>Text/bar/line color</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>gradient</code></td><td>[c1,c2]</td><td>Two-color text gradient</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>background</code></td><td>str/[r,g,b]</td><td>Background fill color</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>rainbow</code></td><td>bool</td><td>RGB rainbow per letter</td><td>false</td><td class="tag">B</td></tr>
+<tr><td><code>blinkText</code></td><td>int</td><td>Blink text every N ms</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>fadeText</code></td><td>int</td><td>Fade text in/out every N ms</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>icon</code></td><td>string</td><td>Installed icon name (no ext) — install via /browse, saved as /ICONS/&lt;name&gt;.raw</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>pushIcon</code></td><td>int</td><td>0=fixed, 1=scroll+gone, 2=scroll+loop</td><td>0</td><td class="tag">B</td></tr>
+<tr><td><code>type</code></td><td>string</td><td>"text" (default) | "wled_fx" (pattern slot) | "time" | "date" (custom clock)</td><td>text</td><td class="tag">B</td></tr>
+<tr><td><code>effect</code></td><td>int</td><td>type=wled_fx: WLED mode ID (index into GET /api/effects)</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>palette</code></td><td>int</td><td>type=wled_fx: WLED palette ID (index into GET /json/pal), -1=leave as-is</td><td>-1</td><td class="tag">B</td></tr>
+<tr><td><code>speed</code></td><td>int</td><td>type=wled_fx: WLED FX speed (0-255)</td><td>128</td><td class="tag">B</td></tr>
+<tr><td><code>intensity</code></td><td>int</td><td>type=wled_fx: WLED FX intensity (0-255)</td><td>128</td><td class="tag">B</td></tr>
+<tr><td><code>offset</code></td><td>int</td><td>type=time/date: minutes offset from WLED's configured local time</td><td>0</td><td class="tag">B</td></tr>
+<tr><td><code>noScroll</code></td><td>bool</td><td>Disable text scrolling</td><td>false</td><td class="tag">B</td></tr>
+<tr><td><code>scrollSpeed</code></td><td>int</td><td>Scroll speed % of default</td><td>100</td><td class="tag">B</td></tr>
+<tr><td><code>duration</code></td><td>int</td><td>Display time in seconds</td><td>5</td><td class="tag">B</td></tr>
+<tr><td><code>repeat</code></td><td>int</td><td>Times to scroll before ending (-1=forever)</td><td>-1</td><td class="tag">B</td></tr>
+<tr><td><code>hold</code></td><td>bool</td><td>Hold notification until dismissed</td><td>false</td><td class="tag">N</td></tr>
+<tr><td><code>stack</code></td><td>bool</td><td>Stack notification; false=replace current</td><td>true</td><td class="tag">N</td></tr>
+<tr><td><code>wakeup</code></td><td>bool</td><td>Wake matrix from sleep for notification</td><td>false</td><td class="tag">N</td></tr>
+<tr><td><code>sound</code></td><td>string</td><td>RTTTL filename (no ext) or DFPlayer 4-digit number</td><td>—</td><td class="tag">N</td></tr>
+<tr><td><code>rtttl</code></td><td>string</td><td>Inline RTTTL string</td><td>—</td><td class="tag">N</td></tr>
+<tr><td><code>loopSound</code></td><td>bool</td><td>Loop sound for notification duration</td><td>false</td><td class="tag">N</td></tr>
+<tr><td><code>effect</code></td><td>string</td><td>Background effect name (see Effects)</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>effectSettings</code></td><td>object</td><td><code>{"speed":3,"palette":"Rainbow","blend":true}</code></td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>overlay</code></td><td>string</td><td>Per-app overlay effect — weather: snow/rain/drizzle/storm/thunder/frost; decorative: sparkle/twinkle/strobe/blink; background: colorwaves/plasma/twinklingstars/theatrechase/pacifica; or clear</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>bar</code></td><td>int[]</td><td>Bar chart data (max 16 values, 11 with icon)</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>line</code></td><td>int[]</td><td>Line chart data (same limits)</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>autoscale</code></td><td>bool</td><td>Autoscale bar/line chart</td><td>true</td><td class="tag">B</td></tr>
+<tr><td><code>barBC</code></td><td>str/[r,g,b]</td><td>Bar background color</td><td>0</td><td class="tag">B</td></tr>
+<tr><td><code>progress</code></td><td>int</td><td>Progress bar 0–100 (-1=off)</td><td>-1</td><td class="tag">B</td></tr>
+<tr><td><code>progressC</code></td><td>str/[r,g,b]</td><td>Progress bar fill color</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>progressBC</code></td><td>str/[r,g,b]</td><td>Progress bar background color</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>draw</code></td><td>object[]</td><td>Drawing instructions array — see Draw Commands</td><td>—</td><td class="tag">B</td></tr>
+<tr><td><code>lifetime</code></td><td>int</td><td>Remove custom app if no update after N seconds</td><td>0</td><td class="tag">C</td></tr>
+<tr><td><code>pos</code></td><td>int</td><td>Loop position (0-based, set on first push)</td><td>—</td><td class="tag">C</td></tr>
+<tr><td><code>save</code></td><td>bool</td><td>Persist custom app across reboots (avoid for high-freq updates)</td><td>false</td><td class="tag">C</td></tr>
+<tr><td><code>clients</code></td><td>string[]</td><td>Forward notification to other devices (IP or MQTT prefix)</td><td>—</td><td class="tag">N</td></tr>
+</table>
+
+<!-- ── SETTINGS ── -->
+<h2 id="settings">Settings Keys  <span class="tag">— POST /api/settings or GET to read</span></h2>
+<table>
+<tr><th>Key</th><th>Type</th><th>Description</th><th>Range/Default</th></tr>
+<tr><td><code>BRI</code></td><td>int</td><td>Brightness — applied to WLED main brightness</td><td>0–255</td></tr>
+<tr><td><code>ATIME</code></td><td>int</td><td>App display duration per rotation slot (seconds)</td><td>&gt;0</td></tr>
+<tr><td><code>ATRANS</code></td><td>bool</td><td>Auto-advance through app rotation</td><td>true/false</td></tr>
+<tr><td><code>SSPEED</code></td><td>int</td><td>Global scroll speed (% of default)</td><td>1–200</td></tr>
+<tr><td><code>UPPERCASE</code></td><td>bool</td><td>Force all text to uppercase globally</td><td>true/false</td></tr>
+<tr><td><code>Timezone</code></td><td>string</td><td>POSIX timezone string e.g. <code>PST8PDT,M3.2.0,M11.1.0</code></td><td>—</td></tr>
+<tr><td><code>MQTT_PREFIX</code></td><td>string</td><td>Read-only — MQTT device topic prefix</td><td>—</td></tr>
+<tr><td><code>SOUND</code></td><td>bool</td><td>Buzzer/piezo enabled</td><td>true</td></tr>
+<tr><td><code>VOL</code></td><td>int</td><td>Volume (passive piezo — no-op)</td><td>0–30</td></tr>
+<tr><td><code>TIM</code></td><td>bool</td><td>Include Time app in rotation</td><td>true</td></tr>
+<tr><td><code>DAT</code></td><td>bool</td><td>Include Date app in rotation</td><td>false</td></tr>
+</table>
+<p style="color:#555;font-size:10px;margin-top:4px">Phase 1.8: <code>ABRI</code>, <code>CEL</code>, <code>TEMP</code>, <code>HUM</code>, <code>BAT</code> — pending SHT3x / battery ADC / LDR firmware support.</p>
+
+<!-- ── WLED JSON API ── -->
+<h2 id="wled">WLED JSON API  <span class="tag">— native WLED endpoints, always available</span></h2>
+<p style="color:#666;font-size:11px;margin-bottom:6px">WLED's built-in REST API. Use these for brightness, effects, segments, and colours. Full docs at <a href="https://kno.wled.ge/interfaces/json-api/" target="_blank" style="color:#4af">kno.wled.ge/interfaces/json-api</a>.</p>
+<table>
+<tr><th>Method</th><th>URL</th><th>Body / Notes</th></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/json</code></td><td>Full state + info + effect/palette lists combined</td></tr>
+<tr><td><span class="pill get">GET</span><span class="pill post">POST</span></td><td><code>/json/state</code></td><td>WLED state: <code>{"on":true,"bri":128,"seg":[{"fx":0,"col":[[255,0,0]]}]}</code></td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/json/info</code></td><td>Device info: firmware version, LED count, WiFi, etc.</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/json/eff</code></td><td>Effect name array (also available as <code>GET /api/effects</code>)</td></tr>
+<tr><td><span class="pill get">GET</span></td><td><code>/json/palettes</code></td><td>Palette name array</td></tr>
+</table>
+
+<!-- ── EFFECTS ── -->
+<h2 id="effects">Effects &amp; Overlays  <span class="tag">— fetched live from device</span></h2>
+<div class="row" style="display:flex;gap:16px;flex-wrap:wrap">
+<div style="flex:1;min-width:180px">
+  <h3>Background Effects</h3>
+  <div id="fx_list" style="color:#666">Loading...</div>
+</div>
+<div style="flex:1;min-width:180px">
+  <h3>Overlay Effects</h3>
+  <div style="color:#8cf">clear · snow · rain · drizzle · storm · thunder · frost · sparkle · twinkle · strobe · blink · colorwaves · plasma · twinklingstars · theatrechase · pacifica</div>
+</div>
+<div style="flex:1;min-width:180px">
+  <h3>App Transitions</h3>
+  <div id="tr_list" style="color:#666">Loading...</div>
+</div>
+</div>
+
+<!-- ── DRAW ── -->
+<h2 id="draw">Draw Commands  <span class="tag">— "draw":[...] in notify/custom</span></h2>
+<table>
+<tr><th>Command</th><th>Values</th><th>Description</th></tr>
+<tr><td><code>dp</code></td><td><code>[x,y,color]</code></td><td>Draw pixel</td></tr>
+<tr><td><code>dl</code></td><td><code>[x0,y0,x1,y1,color]</code></td><td>Draw line</td></tr>
+<tr><td><code>dr</code></td><td><code>[x,y,w,h,color]</code></td><td>Rectangle outline</td></tr>
+<tr><td><code>df</code></td><td><code>[x,y,w,h,color]</code></td><td>Filled rectangle</td></tr>
+<tr><td><code>dc</code></td><td><code>[x,y,r,color]</code></td><td>Circle outline</td></tr>
+<tr><td><code>dfc</code></td><td><code>[x,y,r,color]</code></td><td>Filled circle</td></tr>
+<tr><td><code>dt</code></td><td><code>[x,y,"text",color]</code></td><td>Draw text</td></tr>
+<tr><td><code>db</code></td><td><code>[x,y,w,h,[rgb888array]]</code></td><td>Bitmap array</td></tr>
+</table>
+<div class="block">{"draw":[{"df":[0,0,8,8,"#1a1aff"]},{"dt":[9,1,"Hi","#ffffff"]}]}<button class="cp" onclick="cp(this)">copy</button></div>
+
+<!-- ── OSC ── -->
+<h2 id="osc">OSC (UDP port 4210)</h2>
+<p style="color:#666;margin-bottom:6px">Send OSC UDP packets to port <b style="color:#fff">4210</b>. Both bare addresses and <code>/dpx_tc002/</code> or <code>/awtrix/</code> namespace prefixes are accepted.</p>
+<table>
+<tr><th>Address</th><th>Args</th><th>Action</th></tr>
+<tr><td><code>/notify</code> or <code>/text</code></td><td>(s) text</td><td>One-shot notification</td></tr>
+<tr><td><code>/custom/&lt;name&gt;</code></td><td>(s) text</td><td>Update/create persistent app</td></tr>
+<tr><td><code>/switch</code></td><td>(s) appname</td><td>Switch to named app</td></tr>
+<tr><td><code>/nextapp</code></td><td>none</td><td>Next app</td></tr>
+<tr><td><code>/previousapp</code></td><td>none</td><td>Previous app</td></tr>
+<tr><td><code>/power</code></td><td>(i|f) 0/1</td><td>Power off/on</td></tr>
+<tr><td><code>/brightness</code></td><td>(i|f) 0–255</td><td>Set brightness</td></tr>
+<tr><td><code>/indicator/1</code> <code>/2</code> <code>/3</code></td><td>(i i i) r g b</td><td>Set indicator color</td></tr>
+</table>
+<div class="block"># python-osc example
+from pythonosc import udp_client
+c = udp_client.SimpleUDPClient("192.168.x.x", 4210)
+c.send_message("/notify", "01:23:45:12")
+c.send_message("/dpx_tc002/custom/tc", "00:59:59:24")<button class="cp" onclick="cp(this)">copy</button></div>
+
+<!-- ── MQTT ── -->
+<h2 id="mqtt">MQTT  <span class="tag">— broker configured in /setup · prefix set per device</span></h2>
+<p style="color:#666;margin-bottom:6px">All topics use your configured prefix (default: device hostname, e.g. <code>awtrix_a1b2c3</code>). Format: <code>[PREFIX]/topic</code>.</p>
+
+<h3>Inbound — device subscribes, you publish</h3>
+<table>
+<tr><th>Topic</th><th>Payload</th><th>Action</th></tr>
+<tr><td><code>[PREFIX]/notify</code></td><td>JSON</td><td>One-shot notification — same JSON keys as HTTP notify</td></tr>
+<tr><td><code>[PREFIX]/notify/dismiss</code></td><td>empty</td><td>Dismiss held notification</td></tr>
+<tr><td><code>[PREFIX]/custom/[appname]</code></td><td>JSON or empty</td><td>Create/update custom app; empty payload = delete</td></tr>
+<tr><td><code>[PREFIX]/settings</code></td><td>JSON</td><td>Update settings — same keys as HTTP settings</td></tr>
+<tr><td><code>[PREFIX]/switch</code></td><td><code>{"name":"Time"}</code></td><td>Switch to named app</td></tr>
+<tr><td><code>[PREFIX]/nextapp</code></td><td>any</td><td>Next app</td></tr>
+<tr><td><code>[PREFIX]/previousapp</code></td><td>any</td><td>Previous app</td></tr>
+<tr><td><code>[PREFIX]/power</code></td><td><code>{"power":true}</code></td><td>Power on/off</td></tr>
+<tr><td><code>[PREFIX]/sleep</code></td><td><code>{"sleep":60}</code></td><td>Deep sleep for N seconds</td></tr>
+<tr><td><code>[PREFIX]/moodlight</code></td><td>JSON or empty</td><td>Set moodlight; empty = disable</td></tr>
+<tr><td><code>[PREFIX]/indicator1</code></td><td><code>{"color":[r,g,b],"blink":500}</code></td><td>Indicator 1</td></tr>
+<tr><td><code>[PREFIX]/indicator2</code></td><td>same</td><td>Indicator 2</td></tr>
+<tr><td><code>[PREFIX]/indicator3</code></td><td>same</td><td>Indicator 3</td></tr>
+<tr><td><code>[PREFIX]/indicator4</code></td><td>same</td><td>Indicator 4</td></tr>
+<tr><td><code>[PREFIX]/sound</code></td><td><code>{"sound":"alarm"}</code></td><td>Play sound file from /MELODIES/</td></tr>
+<tr><td><code>[PREFIX]/rtttl</code></td><td>raw RTTTL string</td><td>Play inline RTTTL melody</td></tr>
+<tr><td><code>[PREFIX]/apps</code></td><td>JSON array</td><td>Update app loop order</td></tr>
+<tr><td><code>[PREFIX]/sendscreen</code></td><td>any</td><td>Request device to publish current screen state</td></tr>
+<tr><td><code>[PREFIX]/doupdate</code></td><td>any</td><td>Trigger OTA firmware update</td></tr>
+<tr><td><code>[PREFIX]/reboot</code></td><td>any</td><td>Reboot device</td></tr>
+<tr><td><code>[PREFIX]/r2d2</code></td><td>any</td><td>Play R2D2 sound effect</td></tr>
+</table>
+
+<h3>Outbound — device publishes, you subscribe</h3>
+<table>
+<tr><th>Topic</th><th>Payload</th><th>When</th></tr>
+<tr><td><code>[PREFIX]/stats</code></td><td>JSON</td><td>Periodic stats: battery, RAM, uptime, temp, humidity, lux, RSSI, IP, version</td></tr>
+<tr><td><code>[PREFIX]/stats/currentApp</code></td><td>string</td><td>App name each time display switches</td></tr>
+<tr><td><code>[PREFIX]/stats/effects</code></td><td>JSON array</td><td>Published on connect — list of effect names</td></tr>
+<tr><td><code>[PREFIX]/stats/transitions</code></td><td>JSON array</td><td>Published on connect — list of transition names</td></tr>
+<tr><td><code>[PREFIX]/stats/device</code></td><td><code>online</code></td><td>Published on connect</td></tr>
+<tr><td><code>[PREFIX]/screen</code></td><td>JSON array (256× 24-bit int)</td><td>Response to <code>/sendscreen</code></td></tr>
+<tr><td><code>[PREFIX]/buttonLeft</code></td><td><code>true</code>/<code>false</code></td><td>Physical button press/release</td></tr>
+<tr><td><code>[PREFIX]/buttonRight</code></td><td><code>true</code>/<code>false</code></td><td>Physical button press/release</td></tr>
+<tr><td><code>[PREFIX]/buttonSelect</code></td><td><code>true</code>/<code>false</code></td><td>Middle button press/release</td></tr>
+</table>
+
+<div class="block"># mosquitto example — send notification
+mosquitto_pub -h 192.168.x.x -t "awtrix_a1b2c3/notify" \
+  -m '{"text":"hello","rainbow":true,"duration":8}'
+
+# create a persistent app
+mosquitto_pub -h 192.168.x.x -t "awtrix_a1b2c3/custom/myticker" \
+  -m '{"text":"LIVE","color":[255,0,0],"scrollSpeed":80}'
+
+# subscribe to button presses
+mosquitto_sub -h 192.168.x.x -t "awtrix_a1b2c3/button+"<button class="cp" onclick="cp(this)">copy</button></div>
+
+<div class="toast" id="toast"></div>
+<script>
+function cp(btn){
+  var txt=btn.parentElement.textContent.replace(/copy$/,"").trim();
+  navigator.clipboard.writeText(txt).then(function(){
+    var t=document.getElementById("toast");
+    t.textContent="Copied!";t.style.display="block";
+    clearTimeout(t._t);t._t=setTimeout(function(){t.style.display="none";},1800);
+  });
+}
+fetch("/api/effects").then(function(r){return r.json();}).then(function(fx){
+  document.getElementById("fx_list").innerHTML=fx.map(function(e){return '<span style="color:#8cf">'+e+'</span>';}).join(" &middot; ");
+}).catch(function(){document.getElementById("fx_list").textContent="(connect device to see)";});
+fetch("/api/transitions").then(function(r){return r.json();}).then(function(tr){
+  document.getElementById("tr_list").innerHTML=tr.map(function(e){return '<span style="color:#8cf">'+e+'</span>';}).join(" &middot; ");
+}).catch(function(){document.getElementById("tr_list").textContent="(connect device to see)";});
+</script>
+</main>
+</body>
+</html>

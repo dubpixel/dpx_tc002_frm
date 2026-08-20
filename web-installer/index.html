@@ -139,6 +139,15 @@
     <a class="cta" href="./flash/">Flash a device &rarr;</a>
 
     <div class="panel">
+      <h2>Action shots</h2>
+      <div class="shots">
+        <img src="images/action_shot_placeholder.svg" alt="Action shot placeholder 1">
+        <img src="images/action_shot_placeholder_2.svg" alt="Action shot placeholder 2">
+      </div>
+      <p class="shots-note">🚧 Placeholders — real photos coming later.</p>
+    </div>
+
+    <div class="panel">
       <h2>What dpx_matrix adds over stock WLED</h2>
       <ul>
         <li><strong>Text app loop</strong> — scrolling/static custom apps, clocks, WLED pattern slots, multiple instances per app</li>
@@ -208,12 +217,22 @@
     </div>
 
     <div class="panel">
-      <h2>Action shots</h2>
+      <h2>UI shots</h2>
       <div class="shots">
-        <img src="images/action_shot_placeholder.svg" alt="Action shot placeholder 1">
-        <img src="images/action_shot_placeholder_2.svg" alt="Action shot placeholder 2">
+        <img src="images/ui_shot_placeholder.svg" alt="UI screenshot placeholder">
       </div>
-      <p class="shots-note">🚧 Placeholders — real photos coming later.</p>
+      <p class="shots-note">🚧 Placeholder — real screenshots of <code>/ctrl</code> and <code>/api-ref</code> coming later.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Companion server</h2>
+      <p style="color:var(--text-dim);line-height:1.6">
+        dpx_tc002_frm pairs with <strong style="color:var(--text)">dpx_friendster</strong> (working title) —
+        a companion account/device-management server. It drives the full-screen PIN device-claim flow
+        (<code>POST /api/pair</code>), fetches icons over MQTT for cross-network device setup, and gives
+        each user a roster of their claimed devices. The firmware works standalone over OSC/MQTT/HTTP
+        without it — friendster is optional, for multi-device/multi-user setups.
+      </p>
     </div>
 
     <div class="panel">
@@ -241,6 +260,7 @@
         <a href="https://github.com/dubpixel/dpx_tc002_frm/issues">Issues</a>
         <a href="https://github.com/dubpixel/dpx_tc002_frm#roadmap">Roadmap</a>
         <a href="./flash/">Flash tool</a>
+        <a href="./api/">API Docs</a>
       </div>
     </div>
 

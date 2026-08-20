@@ -138,7 +138,7 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 - **Timecode display** (LTC via OSC) with frame progress bar
 - **Notifications** — one-shot priority messages
 - **Text overlay** + 15 pixel effects (weather, decorative, and full-screen) on top of any WLED effect, additively composited so text stays readable
-- **Device-claim PIN pairing** — full-screen PIN display for the friendster/cuemaster server's device-claim flow
+- **Device-claim PIN pairing** — full-screen PIN display for the `dpx_friendster` (working title) companion server's device-claim flow — see [Companion Server](#companion-server) below
 - **OSC receiver** (UDP 4210) — compatible with dpx_tc001 and AWTRIX OSC senders
 - **MQTT** via WLED's broker connection — commands, device presence, and icon fetch over MQTT
 - **Browser-flashable firmware** — install directly over USB from Chrome/Edge, no PlatformIO needed (see [Getting Started](#getting-started))
@@ -147,6 +147,13 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 *author: [Joshua Fleitell](https://www.dubpixel.tv) — i@dubpixel.tv*
 
 > ⚠️ If you are prone to photosensitive epilepsy, avoid strobe/lightning effects and high speed settings.
+
+### Companion Server
+
+dpx_tc002_frm pairs with **`dpx_friendster`** (working title) — a companion account/device-management
+server. It drives the full-screen PIN device-claim flow (`POST /api/pair`), fetches icons over MQTT for
+cross-network device setup, and gives each user a roster of their claimed devices. The firmware works
+standalone over OSC/MQTT/HTTP without it — friendster is optional, for multi-device/multi-user setups.
 
 ### Images
 
@@ -166,6 +173,12 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 
 ![Action shot 1][action-shot-1]
 ![Action shot 2][action-shot-2]
+
+### UI Shots
+
+> 🚧 Placeholder below — real screenshots of `/ctrl` and `/api-ref` coming later.
+
+![UI shot][ui-shot]
 </details>
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -382,6 +395,7 @@ AwtrixFont (`dpx_font.h`) is BSD 3-Clause — see file header for full attributi
 [product-rear-rendering]: images/rear_render.png
 [action-shot-1]: images/action_shot_placeholder.svg
 [action-shot-2]: images/action_shot_placeholder_2.svg
+[ui-shot]: images/ui_shot_placeholder.svg
 [WLED-badge]: https://img.shields.io/badge/WLED-17.0.0--dev-blue?style=flat-square
 [WLED-url]: https://github.com/wled/WLED
 [PlatformIO-badge]: https://img.shields.io/badge/PlatformIO-ESP32-orange?style=flat-square
