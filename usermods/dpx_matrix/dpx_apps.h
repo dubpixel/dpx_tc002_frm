@@ -241,38 +241,11 @@ static void dpxExecDraw(const std::vector<DpxDrawCmd>& cmds) {
     }
 }
 
-// ── Native app rendering ──────────────────────────────────────────────────────
-static void dpxRenderNativeTime() {
-    // localTime is WLED's timezone-adjusted Unix epoch. Respect WLED's useAMPM setting.
-    // Wrong time → set timezone in WLED: Config → Time & NTP → select timezone.
-    char buf[9];
-    if (localTime < 100000UL) {
-        strncpy(buf, "--:--", sizeof(buf));  // NTP not synced yet
-    } else if (useAMPM) {
-        // 12h format with AM/PM indicator
-        uint8_t h = hourFormat12(localTime);
-        snprintf(buf, sizeof(buf), "%d:%02d%s", h, minute(localTime),
-                 (hour(localTime) < 12) ? "a" : "p");
-    } else {
-        snprintf(buf, sizeof(buf), "%02d:%02d", hour(localTime), minute(localTime));
-    }
-    int w = dpxTextPixelWidth(buf);
-    int x = (DPX_MATRIX_W - w) / 2;
-    dpxRenderText(x, DPX_FONT_BASELINE, buf, 0xFFFFFF);
-}
-
-static void dpxRenderNativeDate() {
-    char buf[9];
-    if (localTime < 100000UL) {
-        strncpy(buf, "--.--.--", sizeof(buf));
-    } else {
-        snprintf(buf, sizeof(buf), "%02d.%02d.%02d",
-                 day(localTime), month(localTime), year(localTime) % 100);
-    }
-    int w = dpxTextPixelWidth(buf);
-    int x = (DPX_MATRIX_W - w) / 2;
-    dpxRenderText(x, DPX_FONT_BASELINE, buf, 0x8888FF);
-}
+// Native Time/Date rendering (GH #76): removed in favor of natives sharing
+// the same dpxUpdateTimeDateText()+dpxRenderApp() pipeline as any custom
+// clock — see dpxRebuildLoop() and dpxRenderCurrentApp(). No behavior change
+// (colors match what these functions used to hardcode), but natives now get
+// icon/label support for free if that's ever exposed for them in /ctrl.
 
 // ── Customizable clock/date instances (GH #31) ────────────────────────────────
 // type=="time"|"date" apps regenerate .text every frame from
@@ -381,6 +354,16 @@ static void dpxRebuildLoop() {
     for (auto n : natives) {
         if (dpxHiddenApps.find(String(n)) == dpxHiddenApps.end()) {
             DpxApp a; a.name = n; a.isNative = true;
+            // GH #76 — natives render through the same rich pipeline as any
+            // custom clock (dpxUpdateTimeDateText + dpxRenderApp) instead of
+            // a separate, feature-poor dpxRenderNativeTime()/Date(). Colors
+            // match the old hardcoded native defaults exactly, so this is
+            // purely additive — no visual change unless/until someone edits
+            // a native's color/icon (not yet exposed in /ctrl, future work).
+            a.data.valid  = true;
+            a.data.type   = (String(n) == "Date") ? "date" : "time";
+            a.data.color  = (String(n) == "Date") ? 0x8888FF : 0xFFFFFF;
+            a.data.center = true; // old dpxRenderNativeTime/Date always centered horizontally
             newList.push_back(a);
         }
     }
@@ -487,7 +470,7 @@ static String dpxGetAppsJson() {
         o["name"]   = a.name;
         o["native"] = a.isNative;
         o["muted"]  = a.muted;
-        o["type"]   = a.isNative ? "text" : a.data.type;
+        o["type"]   = a.data.type;
     }
     String s; serializeJson(doc, s); return s;
 }
@@ -569,12 +552,8 @@ static void dpxRenderCurrentApp() {
         dpxActivateCurrentApp();
         return;
     }
-    if (app.isNative) {
-        dpxClear();
-        if (app.name == "Time") dpxRenderNativeTime();
-        else if (app.name == "Date") dpxRenderNativeDate();
-    } else {
-        if (app.data.type == "time" || app.data.type == "date") dpxUpdateTimeDateText(app.data);
-        dpxRenderApp(app.data);
-    }
+    // GH #76 — natives render through the exact same pipeline as any custom
+    // clock now; isNative only affects deletion/hiding semantics elsewhere.
+    if (app.data.type == "time" || app.data.type == "date") dpxUpdateTimeDateText(app.data);
+    dpxRenderApp(app.data);
 }

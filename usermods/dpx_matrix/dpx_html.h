@@ -720,7 +720,7 @@ select option{background:#222}
   <div class="row">
     <div style="flex:1"><label>Show</label><select id="ch_cc_kind"><option value="time">Time</option><option value="date">Date</option></select></div>
     <div><label>Color</label><input type="color" id="ch_cc_color" value="#ffffff"></div>
-    <div style="flex:1"><label>Offset (min from local)</label><input type="number" id="ch_cc_offset" value="0" step="15"></div>
+    <div style="flex:1"><label>Offset from local</label><select id="ch_cc_offset"></select></div>
   </div>
   <label>Label (optional, scrolls before the time — e.g. "TOKYO")</label>
   <input type="text" id="ch_cc_label" placeholder="e.g. TOKYO" maxlength="16">
@@ -961,6 +961,20 @@ fetch("/api/effects").then(function(r){return r.json();}).then(function(fx){var 
 fetch("/json/pal").then(function(r){return r.json();}).then(function(pal){var s=document.getElementById("ch_fx_palette");if(!s)return;pal.forEach(function(p,i){var o=document.createElement("option");o.value=i;o.textContent=p;s.appendChild(o);});}).catch(function(){});
 function loadIcons(){fetch("/api/list?dir=/ICONS/").then(function(r){return r.json();}).then(function(files){var names=files.filter(function(f){return f.type==="file";}).map(function(f){return f.name.replace(/\.[^.]+$/,"");});["n_icon_sel","ca_icon_sel","ch_cc_icon_sel"].forEach(function(id){var s=document.getElementById(id);if(!s)return;s.innerHTML="<option value=''>&#8212; installed icons &#8212;</option>";names.forEach(function(n){var o=document.createElement("option");o.value=n;o.textContent=n;s.appendChild(o);});});}).catch(function(){});}
 loadIcons();
+// GH #76 — timezone offset as a picker of common UTC offsets (minutes, incl.
+// the real-world 30/45-min zones) instead of a raw "minutes from local" box.
+function populateOffsetSelect(){
+  var s=document.getElementById("ch_cc_offset");if(!s)return;
+  var mins=[];for(var m=-12*60;m<=14*60;m+=30)mins.push(m);
+  [-9*60-30,5*60+45,8*60+45,12*60+45].forEach(function(m){if(mins.indexOf(m)<0)mins.push(m);});
+  mins.sort(function(a,b){return a-b;});
+  mins.forEach(function(m){
+    var h=Math.trunc(m/60), mm=Math.abs(m%60);
+    var lbl=(m===0?"Local (no offset)":"UTC"+(m>0?"+":"-")+Math.abs(h)+(mm?":"+String(mm).padStart(2,"0"):":00"));
+    var o=document.createElement("option");o.value=m;o.textContent=lbl;if(m===0)o.selected=true;s.appendChild(o);
+  });
+}
+populateOffsetSelect();
 var mqttPrefix="[prefix]";
 function loadLoop(){
   var el=document.getElementById("loop_list");
