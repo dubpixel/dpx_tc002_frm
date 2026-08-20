@@ -63,8 +63,29 @@ static inline uint32_t dpxRainbowColor(int charIdx, int totalChars) {
 // scale     = integer pixel-doubling factor (GH #19/#63 "bigger font"; no new
 //             font data — each source pixel becomes a scale x scale block).
 //             Most glyphs are 5px tall, so scale=2 (10px) is taller than the
-//             8-row matrix and clips — but symmetrically, centered on the
-//             glyph's own scale=1 vertical midpoint, not shoved to one edge.
+//             8-row matrix and clips.
+//
+//             IMPORTANT: yOffset is scaled but measured from a SHARED
+//             baseline anchor for every glyph (not each glyph's own
+//             midpoint) — this is what keeps x-height letters, ascenders,
+//             and descenders (p/q/j/y) correctly positioned *relative to
+//             each other* on the same line at any scale. An earlier attempt
+//             centered each glyph independently on its own bounding box,
+//             which looked "fixed" for a single character in isolation but
+//             broke cross-glyph alignment badly — descenders no longer hung
+//             below the baseline relative to x-height letters, ascenders
+//             and descenders drifted to different vertical offsets from
+//             each other, and the resulting unevenness read as letters
+//             being oddly spaced/"too wide" even though xAdvance itself was
+//             untouched and correct (audited: E/W/N/L vs A/H/T all have the
+//             same 1px trailing gap past their actual bitmap content —
+//             W/N/E are just inherently wider letterforms by design).
+//
+//             The baseline itself shifts down as scale grows (see
+//             effBaseline below) so a scale=2 typical caps-height glyph
+//             (yOffset=-5, height=5 unscaled) clips symmetrically ~1px off
+//             both top and bottom instead of ~4px off the top only with 2px
+//             of unused space at the bottom (the pre-this-fix behavior).
 //             dpxSetPixel's own bounds check handles the actual clipping.
 // Returns the next cursor X (x + xAdvance*scale).
 // Glyphs that land partially off-left are clipped pixel-by-pixel.
@@ -78,14 +99,14 @@ static int dpxDrawChar(int x, int baseline, char c, uint32_t color, int minX = 0
 
     // Each row of the glyph is ceil(g.width/8) bytes; here always 1 byte (width=8)
     int bytesPerRow = (g.width + 7) / 8;
-    // Scale grows the glyph symmetrically around its own scale=1 vertical
-    // midpoint, rather than just multiplying yOffset (which pushed the glyph
-    // upward disproportionately as scale increased — e.g. a 5px glyph at
-    // scale=2 used to clip ~4 rows off the top while leaving 2 rows of dead
-    // space at the bottom, instead of centering).
-    int origTop    = baseline + g.yOffset;      // scale=1 top row (unchanged math)
-    int scaledH    = (int)g.height * scale;
-    int glyphTop   = (2 * origTop + (int)g.height - scaledH) / 2; // top pixel row on matrix
+    // Shift the baseline down as scale grows so a typical full-height glyph
+    // (yOffset=-5, height=5 at scale=1) clips symmetrically top/bottom
+    // instead of running off the top. Derived from centering that typical
+    // glyph's scaled span in the 8-row matrix: effBaseline(S) = 4 + 2.5*S,
+    // expressed as an integer delta from the scale=1 baseline so scale=1
+    // is untouched (delta=0). scale=2 -> effBaseline = baseline+3.
+    int effBaseline = baseline + (5 * (scale - 1) + 1) / 2;
+    int glyphTop    = effBaseline + g.yOffset * scale; // shared-anchor scaling, top pixel row on matrix
 
     for (int row = 0; row < (int)g.height; row++) {
         for (int b = 0; b < bytesPerRow; b++) {
