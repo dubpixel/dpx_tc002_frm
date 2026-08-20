@@ -87,6 +87,7 @@ static String dpxStatsJson() {
     doc[F("app")]       = (dpxCurrentApp < (int)dpxApps.size())
                           ? dpxApps[dpxCurrentApp].name : String();
     doc[F("notif")]     = (int)dpxNotifQueue.size();
+    doc[F("notifActive")] = dpxNotifActive;
     doc[F("autoTrans")] = dpxAutoTrans;
     doc[F("enabled")]   = dpxEnabled;
     String s; serializeJson(doc, s); return s;
@@ -173,6 +174,19 @@ static void dpxRegisterRoutes() {
         r->send_P(200, PSTR("text/html"), screenfull_html);
     });
 
+    // ── Screen dump ───────────────────────────────────────────────────────────
+    // Registered before /dpx below — same reasoning as the notify block: /dpx
+    // (registered first, GET) would otherwise swallow every /dpx/screen
+    // request as a canHandle() prefix match (see notify comment for detail).
+    // This was a real bug — /dpx/screen always returned stats JSON, never the
+    // screen buffer. /api/screen is unaffected (no prefix relationship).
+    server.on("/dpx/screen", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), dpxScreenJson());
+    });
+    server.on("/api/screen", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), dpxScreenJson());
+    });
+
     // ── Stats ─────────────────────────────────────────────────────────────────
     // Legacy endpoint kept for back-compat
     server.on("/dpx", HTTP_GET, [](AsyncWebServerRequest* r) {
@@ -180,14 +194,6 @@ static void dpxRegisterRoutes() {
     });
     server.on("/api/stats", HTTP_GET, [](AsyncWebServerRequest* r) {
         r->send(200, F("application/json"), dpxStatsJson());
-    });
-
-    // ── Screen dump ───────────────────────────────────────────────────────────
-    server.on("/dpx/screen", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, F("application/json"), dpxScreenJson());
-    });
-    server.on("/api/screen", HTTP_GET, [](AsyncWebServerRequest* r) {
-        r->send(200, F("application/json"), dpxScreenJson());
     });
 
     // ── App loop ──────────────────────────────────────────────────────────────
@@ -199,11 +205,16 @@ static void dpxRegisterRoutes() {
     });
 
     // ── Notifications ─────────────────────────────────────────────────────────
-    server.on("/api/notify", HTTP_POST, [](AsyncWebServerRequest* r) {
-        String body = dpxBody(r);
-        if (body.length()) dpxPushNotification(body.c_str());
-        r->send(200, F("application/json"), F("{\"ok\":true}"));
-    });
+    // dismiss/clear MUST be registered before the base /api/notify route.
+    // AsyncWebServer's canHandle() matches a registered URI against both an
+    // exact match AND any request path starting with "<uri>/" — so
+    // "/api/notify" alone also matches "/api/notify/dismiss" and
+    // "/api/notify/clear". The server picks the FIRST handler (in
+    // registration order) whose canHandle() returns true, so if the general
+    // /api/notify route were registered first, it would silently swallow
+    // every dismiss/clear request as a phantom empty-text push instead —
+    // this was a real, previously-undiscovered bug (dismiss/clear never
+    // actually ran over HTTP, always returned {"ok":true} anyway).
     server.on("/api/notify/dismiss", HTTP_POST, [](AsyncWebServerRequest* r) {
         dpxDismissNotification();
         r->send(200, F("application/json"), F("{\"ok\":true}"));
@@ -211,6 +222,11 @@ static void dpxRegisterRoutes() {
     server.on("/api/notify/clear", HTTP_POST, [](AsyncWebServerRequest* r) {
         // Clear ALL queued notifications at once
         dpxNotifQueue.clear();
+        r->send(200, F("application/json"), F("{\"ok\":true}"));
+    });
+    server.on("/api/notify", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        if (body.length()) dpxPushNotification(body.c_str());
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
 

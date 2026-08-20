@@ -237,6 +237,28 @@ _wait 1
 vis "Cyan text scrolling — watch it scroll EXACTLY 2 times then disappear on its own" '_post /api/notify/dismiss {}'
 _wait 2  # let dismiss settle before next notify
 
+# 3b. GH #71 regression (automated, not visual) — a short `duration` must NOT cut
+# repeat-mode scrolling short. Text long enough that 2 passes take well over 3s;
+# checking mid-scroll (past the deliberately-short 2s duration) that it's still
+# active proves duration lost the race to repeat/scroll-count, as intended.
+# These sleeps are unconditional (not _wait) — they're the actual regression
+# check, not pacing, so --fast must not skip them.
+_post /api/notify '{"text":"THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG","repeat":2,"duration":2}' > /dev/null
+sleep 3
+resp=$(_get /dpx); assert_key "$resp" '.notifActive' "true" "GH #71: repeat-mode scroll not cut short by short duration"
+_post /api/notify/dismiss '{}' > /dev/null
+_wait 1
+
+# 3c. GH #70 regression (automated) — short text that fits on screen without
+# scrolling, with repeat set, must still be a normal, dismissible notification
+# (previously got stuck on screen forever with no recovery but a reboot).
+_post /api/notify '{"text":"hi","repeat":1}' > /dev/null
+_wait 1
+resp=$(_get /dpx); assert_key "$resp" '.notifActive' "true" "GH #70: short+repeat notification is showing"
+resp=$(_post /api/notify/dismiss '{}'); assert_ok "$resp" "GH #70: dismiss short+repeat notification"
+sleep 1  # unconditional — this is the actual regression check, not pacing; --fast must not skip it
+resp=$(_get /dpx); assert_key "$resp" '.notifActive' "false" "GH #70: short+repeat notification actually cleared"
+
 # 4. Rainbow
 _post /api/notify '{"text":"RAINBOW COLORS","rainbow":true,"duration":5}' > /dev/null
 _wait 1

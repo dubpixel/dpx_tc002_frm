@@ -71,16 +71,26 @@ static bool dpxNotifTick() {
     }
 
     // Check duration expiry (hold notifications never auto-dismiss).
-    // Duration is always an upper-bound safety net, even when repeat >= 0
-    // (which normally ends things early via dpxRenderNotification() once the
-    // scroll cycle completes). Without this, text short enough to fit on
-    // screen without scrolling never generates a "scroll complete" signal —
-    // dpxRenderApp() treats it as a static app that never completes — so a
-    // repeat>=0 notification with non-scrolling text would otherwise get
-    // stuck on screen forever.
     if (!dpxCurrentNotif.hold) {
-        unsigned long dur = dpxCurrentNotif.data.durationMs();
-        if (dur == 0) dur = 5000; // default 5s
+        unsigned long dur;
+        if (dpxCurrentNotif.data.repeat >= 0) {
+            // Scroll-count mode: repeat/dpxRenderNotification() is the real
+            // completion signal (ends things early once the requested number
+            // of passes finishes). `duration` here is NOT "how long to show
+            // it" — it's purely a safety net against dpxRenderApp() never
+            // reporting completion (e.g. text short enough to fit on screen
+            // without scrolling at all, which the renderer treats as a
+            // static app that never completes — GH #70). That safety net
+            // must stay generous and ignore the caller's `duration` value
+            // entirely: a caller-supplied short duration (or the 5s default)
+            // would otherwise race ahead of legitimate multi-pass scrolling
+            // and cut it off early (GH #71) — the whole point of repeat mode
+            // is that scroll-count governs, not a clock.
+            dur = 5UL * 60UL * 1000UL; // 5 min
+        } else {
+            dur = dpxCurrentNotif.data.durationMs();
+            if (dur == 0) dur = 5000; // default 5s, time-based mode
+        }
         if (millis() - dpxNotifStartMs >= dur) {
             dpxNotifActive = false;
             return false;
