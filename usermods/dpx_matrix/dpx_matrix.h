@@ -296,12 +296,18 @@ public:
                         Serial.printf("\n─── %s ───\n", path);
                         File f = LittleFS.open(path, "r");
                         if (!f) { Serial.println(F("  (not found)")); return; }
-                        DynamicJsonDocument doc(2048);
-                        if (!deserializeJson(doc, f)) {
+                        // WLED's own cfg.json (wifi/mqtt/segments/usermod config)
+                        // routinely exceeds 2048 bytes on a configured device —
+                        // confirmed 2272 bytes on hardware, silently produced
+                        // "(parse error)" (ArduinoJson NoMemory) with the old
+                        // 2048 buffer. 8192 gives real headroom for growth.
+                        DynamicJsonDocument doc(8192);
+                        DeserializationError err = deserializeJson(doc, f);
+                        if (!err) {
                             serializeJsonPretty(doc, Serial);
                             Serial.println();
                         } else {
-                            Serial.println(F("  (parse error)"));
+                            Serial.printf("  (parse error: %s)\n", err.c_str());
                         }
                         f.close();
                     };
@@ -309,7 +315,7 @@ public:
                     dumpFile("/cfg.json");
                     dumpFile("/osc_listeners.json");
                     Serial.println(F("\n─── runtime globals ───"));
-                    Serial.printf("  DPX_TIMEZONE    : %d\n", DPX_TIMEZONE);
+                    Serial.printf("  DPX_TIMEZONE    : %s\n", DPX_TIMEZONE.length() ? DPX_TIMEZONE.c_str() : "(unset)");
                     Serial.printf("  DPX_ATIME       : %d s\n", DPX_ATIME);
                     Serial.printf("  DPX_SHOW_TIME   : %s\n", DPX_SHOW_TIME ? "true" : "false");
                     Serial.printf("  DPX_SHOW_DATE   : %s\n", DPX_SHOW_DATE ? "true" : "false");
