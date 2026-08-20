@@ -5,6 +5,9 @@ on:
     tags:
       - '*'
 
+permissions:
+  contents: write # required by softprops/action-gh-release to create/update releases — the release job was failing with 403 without this
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
