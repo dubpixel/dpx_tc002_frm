@@ -9,6 +9,10 @@
       "path": "../dpx_tc001/dpx_reference"
     },
     {
+      "name": "⊘ dpx_showsite_ops",
+      "path": "/Users/yourmom/Code/DPX_SHOWSITE_OPS"
+    },
+    {
       "path": "../../_...CODE/dpx_friendster"
     },
     {
@@ -20,6 +24,7 @@
     "files.readonlyInclude": {
       "**/dpx_reference/**": true,
       "**/wled00/**": true,
+      "**/DPX_SHOWSITE_OPS/**": true,
       "**/dpx_server_operations/**": true
     },
     "platformio-ide.activeProjectPioEnv": "ulanzi_tc001"
