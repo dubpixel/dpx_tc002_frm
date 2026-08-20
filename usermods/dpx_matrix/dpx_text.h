@@ -152,9 +152,77 @@ static int dpxRenderText(int x, int baseline, const char* text, uint32_t color, 
     return curX;
 }
 
+// ── Token substitution (GH #18) ─────────────────────────────────────────────
+// PixelForge-compatible time/date tokens — same syntax as WLED's own FX #122
+// clock effect (see FX.cpp's segment-name token expander), so it's familiar
+// to anyone who already uses PixelForge. Any app/notification text field can
+// become a live clock: {"text":"#HHMM","rainbow":true}.
+// Suffix '0' = leading zeros (#HH0 -> "09" instead of "9").
+// Only call when text.indexOf('#') >= 0 — zero cost otherwise (see call site
+// in dpxRenderApp()).
+static void dpxExpandTokens(String& text) {
+    int  AmPmHour = hour(localTime);
+    bool isAM     = true;
+    char sec[5];
+    if (useAMPM) {
+        if (AmPmHour > 11) { AmPmHour -= 12; isAM = false; }
+        if (AmPmHour == 0) AmPmHour = 12;
+        snprintf(sec, sizeof(sec), " %2s", isAM ? "AM" : "PM");
+    } else {
+        snprintf(sec, sizeof(sec), ":%02d", second(localTime));
+    }
+
+    String out;
+    out.reserve(text.length() + 16);
+    size_t len = text.length();
+    size_t i = 0;
+    while (i < len) {
+        if (text[i] != '#') { out += text[i++]; continue; }
+        char token[7];
+        bool zero = false;
+        size_t j = 0;
+        while (j < 6 && i + j < len) {
+            char c = text[i + j];
+            if (c >= 'a' && c <= 'z') c -= 32; // toupper, no <ctype.h> dependency
+            token[j] = c;
+            if (c == '0') zero = true; // trailing '0' suffix -> leading zeros
+            j++;
+        }
+        token[j] = '\0';
+        int  advance = 5;
+        char temp[24];
+        if      (!strncmp(token, "#DATE", 5)) snprintf(temp, sizeof(temp), zero ? "%02d.%02d.%04d" : "%d.%d.%d", day(localTime), month(localTime), year(localTime));
+        else if (!strncmp(token, "#DDMM", 5)) snprintf(temp, sizeof(temp), zero ? "%02d.%02d" : "%d.%d", day(localTime), month(localTime));
+        else if (!strncmp(token, "#MMDD", 5)) snprintf(temp, sizeof(temp), zero ? "%02d/%02d" : "%d/%d", month(localTime), day(localTime));
+        else if (!strncmp(token, "#TIME", 5)) snprintf(temp, sizeof(temp), zero ? "%02d:%02d%s" : "%2d:%02d%s", AmPmHour, minute(localTime), sec);
+        else if (!strncmp(token, "#HHMM", 5)) snprintf(temp, sizeof(temp), zero ? "%02d:%02d" : "%d:%02d", AmPmHour, minute(localTime));
+        else if (!strncmp(token, "#YYYY", 5)) snprintf(temp, sizeof(temp), "%04d", year(localTime));
+        else if (!strncmp(token, "#MONL", 5)) snprintf(temp, sizeof(temp), "%s", monthStr(month(localTime)));
+        else if (!strncmp(token, "#DDDD", 5)) snprintf(temp, sizeof(temp), "%s", dayStr(weekday(localTime)));
+        else if (!strncmp(token, "#YY", 3))  { snprintf(temp, sizeof(temp), "%02d", year(localTime) % 100); advance = 3; }
+        else if (!strncmp(token, "#HH", 3))  { snprintf(temp, sizeof(temp), zero ? "%02d" : "%d", AmPmHour); advance = 3; }
+        else if (!strncmp(token, "#MM", 3))  { snprintf(temp, sizeof(temp), zero ? "%02d" : "%d", minute(localTime)); advance = 3; }
+        else if (!strncmp(token, "#SS", 3))  { snprintf(temp, sizeof(temp), zero ? "%02d" : "%d", second(localTime)); advance = 3; }
+        else if (!strncmp(token, "#MON", 4)) { snprintf(temp, sizeof(temp), "%s", monthShortStr(month(localTime))); advance = 4; }
+        else if (!strncmp(token, "#MO", 3))  { snprintf(temp, sizeof(temp), zero ? "%02d" : "%d", month(localTime)); advance = 3; }
+        else if (!strncmp(token, "#DAY", 4)) { snprintf(temp, sizeof(temp), "%s", dayShortStr(weekday(localTime))); advance = 4; }
+        else if (!strncmp(token, "#DD", 3))  { snprintf(temp, sizeof(temp), zero ? "%02d" : "%d", day(localTime)); advance = 3; }
+        else { temp[0] = '#'; temp[1] = '\0'; zero = false; advance = 1; } // unknown token, just copy the '#'
+        if (zero) advance++; // skip the trailing '0' suffix char
+        out += temp;
+        i += advance;
+    }
+    text = out;
+}
+
 // ── Scroll state (one active scroll per display) ───────────────────────────────
 struct DpxScrollState {
     String  text;
+    String  sourceText; // raw un-expanded template text, for change detection
+                         // when text contains live tokens (GH #18) — without
+                         // this, a #SS-style token would restart the scroll
+                         // every second since the expanded text differs frame
+                         // to frame even though the underlying app didn't change.
     uint32_t color     = 0xFFFFFF;
     bool    rainbow    = false;
     int     y          = DPX_FONT_BASELINE; // baseline row (centred in 8-row display)
@@ -170,6 +238,7 @@ struct DpxScrollState {
 
     void start(const String& t, uint32_t col, bool rb, int y_, int speedPct, int16_t rep, int scale_ = 1) {
         text       = t;
+        sourceText = t;
         color      = col;
         rainbow    = rb;
         y          = (y_ == 0) ? DPX_FONT_BASELINE : y_; // default to centred baseline

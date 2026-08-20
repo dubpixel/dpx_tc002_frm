@@ -294,7 +294,15 @@ static bool dpxRenderApp(DpxCustomApp& app) {
 
     int textY = app.topText ? (DPX_FONT_BASELINE - 1) : DPX_FONT_BASELINE; // proper AwtrixFont baselines
     int scale = app.fontScale;
-    int textW = dpxTextPixelWidth(app.text.c_str(), scale);
+
+    // GH #18 — token substitution (#HHMM, #DATE, etc). app.text stays the raw
+    // template (so a scroll in progress doesn't restart every second as the
+    // clock ticks — see DpxScrollState::sourceText); renderText is what
+    // actually gets drawn/measured this frame.
+    String renderText = app.text;
+    if (renderText.indexOf('#') >= 0) dpxExpandTokens(renderText);
+
+    int textW = dpxTextPixelWidth(renderText.c_str(), scale);
     const uint32_t* icon = app.icon.length() ? dpxGetIcon(app.icon) : nullptr;
 
     if (!icon) {
@@ -302,11 +310,12 @@ static bool dpxRenderApp(DpxCustomApp& app) {
         if (app.noScroll || textW <= DPX_MATRIX_W) {
             int x = 0;
             if (app.center && textW < DPX_MATRIX_W) x = (DPX_MATRIX_W - textW) / 2;
-            dpxRenderText(x, textY, app.text.c_str(), app.color, app.rainbow, 0, scale);
+            dpxRenderText(x, textY, renderText.c_str(), app.color, app.rainbow, 0, scale);
             return true; // static apps never "complete"
         }
-        if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.text != app.text) {
-            dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
+        if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.sourceText != app.text) {
+            dpxScroll.start(renderText, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
+            dpxScroll.sourceText = app.text;
         }
         bool done = dpxScroll.tick();
         dpxScroll.render();
@@ -320,11 +329,12 @@ static bool dpxRenderApp(DpxCustomApp& app) {
         if (app.noScroll || textW <= areaW) {
             int x = areaX;
             if (app.center && textW < areaW) x = areaX + (areaW - textW) / 2;
-            dpxRenderText(x, textY, app.text.c_str(), app.color, app.rainbow, areaX, scale);
+            dpxRenderText(x, textY, renderText.c_str(), app.color, app.rainbow, areaX, scale);
             return true;
         }
-        if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.text != app.text) {
-            dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
+        if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.sourceText != app.text) {
+            dpxScroll.start(renderText, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
+            dpxScroll.sourceText = app.text;
         }
         bool done = dpxScroll.tick();
         dpxScroll.render(areaX);
@@ -332,8 +342,9 @@ static bool dpxRenderApp(DpxCustomApp& app) {
     }
 
     // pushIcon 1/2 — icon rides along with the scrolling text as one unit.
-    if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.text != app.text) {
-        dpxScroll.start(app.text, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
+    if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.sourceText != app.text) {
+        dpxScroll.start(renderText, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
+        dpxScroll.sourceText = app.text;
     }
     bool done = dpxScroll.tick();
     bool showIcon = (app.pushIcon == 2) || dpxScroll.repeatsDone == 0;
