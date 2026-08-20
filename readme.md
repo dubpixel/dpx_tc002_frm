@@ -137,7 +137,7 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 - **8×8 icon rendering** — LaMetric PNG→raw pipeline, icon browser built into `/ctrl`
 - **Timecode display** (LTC via OSC) with frame progress bar
 - **Notifications** — one-shot priority messages
-- **Text overlay** + 15 pixel effects (weather, decorative, and full-screen) on top of any WLED effect, additively composited so text stays readable
+- **Text overlay** + 15 pixel effects (weather, decorative, and full-screen) on top of any WLED effect. 13 of the 15 dodge lit text pixels so it stays readable; `colorwaves` and `pacifica` still blend over text uniformly ([GH #69](https://github.com/dubpixel/dpx_tc002_frm/issues/69))
 - **Device-claim PIN pairing** — full-screen PIN display for the `dpx_friendster` (working title) companion server's device-claim flow — see [Companion Server](#companion-server) below
 - **OSC receiver** (UDP 4210) — compatible with dpx_tc001 and AWTRIX OSC senders
 - **MQTT** via WLED's broker connection — commands, device presence, and icon fetch over MQTT
