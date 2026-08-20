@@ -28,8 +28,10 @@ required C headers for firmware compilation.
 
 ### Upload Command
 
+Run from the repo root:
+
 ```bash
-cd "/Users/yourmom/Library/CloudStorage/GoogleDrive-i@dubpixel.tv/My Drive/_.DUBPIXEL/_...CIRCUIT_PROJECTS/dpx_tc002_frm" && ~/.platformio/penv/bin/pio run -t upload -e ulanzi_tc001
+pio run -t upload -e ulanzi_tc001
 ```
 
 - **Never use `--upload-port`** — breaks auto-detection
@@ -205,10 +207,10 @@ contract defined in `SPEC.md`.
 | Web UI | HTML/JS / `wled00/data/` | WLED interface + dpx_matrix custom pages | `npm run build` required after any edit |
 | SPEC.md | Markdown / `dpx_reference/` | Behavioral contract: API schema, all JSON keys | **Source of truth** |
 | dpx_tc002.md | Markdown / `dpx_reference/` | Build plan: phase order, usermod structure, GPIO map | Read before firmware work |
-| dpx_tc002_server.md | Markdown / `dpx_reference/` | Companion server plan (Friendster/CueMaster) | Read before any server work |
+| dpx_tc002_server.md | Markdown / `dpx_friendster/docs/` | Companion server plan (Friendster/CueMaster) — lives in the sibling `dpx_friendster` repo, not this one | Read before any server work |
 | HANDOFF_TODO.md | Markdown / `docs/` | Feature roadmap: 6 items, status, implementation notes | Read before starting new features |
 
-> Reference docs absolute path: `/Users/yourmom/Library/CloudStorage/GoogleDrive-i@dubpixel.tv/My Drive/_.DUBPIXEL/_...CIRCUIT_PROJECTS/dpx_tc001/dpx_reference/`
+> Reference docs live in the sibling repo `../dpx_tc001/dpx_reference/` (relative to this repo's root) — clone `dpx_tc001` alongside `dpx_tc002_frm` for these paths to resolve.
 
 ### dpx_matrix Usermod Files
 
