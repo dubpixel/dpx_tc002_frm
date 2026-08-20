@@ -1,9 +1,12 @@
 name: Web Flash Deploy
 
 # Rebuilds the Ulanzi TC001 (dpx_tc002) firmware and republishes the
-# browser-flash install page (web-installer/) to GitHub Pages.
-# See web-installer/index.html — uses ESP Web Tools (esphome/esp-web-tools),
-# same mechanism install.wled.me uses. Desktop Chrome/Edge only (Web Serial).
+# GitHub Pages site (web-installer/) — a project landing page at the root
+# (web-installer/index.html) plus the browser-flash install page at /flash/
+# (web-installer/flash/index.html, GH #77 moved it out of the root so first-
+# time visitors land on project info, not straight into "flash a device").
+# The flash page uses ESP Web Tools (esphome/esp-web-tools), same mechanism
+# install.wled.me uses. Desktop Chrome/Edge only (Web Serial).
 #
 # Two channels, published side by side (neither overwrites the other):
 #   nightly  — rebuilt on every push to main that touches firmware code.

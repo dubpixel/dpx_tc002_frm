@@ -3,14 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>dpx_tc002 — Web Install</title>
+<title>dpx_tc002_frm — WLED for the Ulanzi TC001</title>
 <link rel="icon" href="fav_icon.png">
-<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
 <style>
   :root {
     color-scheme: dark;
     --purple: #b76ce7;
-    --purple-dim: #8a4fb8;
     --bg: #14121a;
     --panel: #1d1a26;
     --panel-border: #322d40;
@@ -26,21 +24,30 @@
     min-height: 100vh;
     padding: 3rem 1.5rem 4rem;
   }
-  .wrap { max-width: 620px; margin: 0 auto; }
-  .brand { margin-bottom: 2rem; }
-  .brand img { height: 32px; display: block; margin-bottom: 0.6rem; }
+  .wrap { max-width: 680px; margin: 0 auto; }
+  .brand { margin-bottom: 1.5rem; }
+  .brand img { height: 40px; display: block; margin-bottom: 0.6rem; }
   .brand span {
     font-size: 0.85rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-dim);
   }
-  h1 {
-    font-size: 1.7rem;
-    margin: 0 0 0.5rem;
-    letter-spacing: -0.01em;
+  h1 { font-size: 1.9rem; margin: 0 0 0.4rem; letter-spacing: -0.01em; }
+  .tagline { color: var(--purple); font-size: 1rem; margin: 0 0 1.5rem; font-style: italic; }
+  .lede { color: var(--text-dim); margin: 0 0 2rem; line-height: 1.6; }
+
+  .cta {
+    display: inline-block;
+    background: var(--purple);
+    color: #1a1421;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: 8px;
+    padding: 0.8rem 1.6rem;
+    margin-bottom: 2rem;
   }
-  .lede { color: var(--text-dim); margin: 0 0 1.75rem; line-height: 1.55; }
+  .cta:hover { opacity: 0.9; }
 
   .panel {
     background: var(--panel);
@@ -56,54 +63,22 @@
     color: var(--purple);
     margin: 0 0 1rem;
   }
+  ul { margin: 0; padding-left: 1.2rem; color: var(--text-dim); line-height: 1.7; }
+  ul li::marker { color: var(--purple); }
+  ul strong { color: var(--text); }
 
-  .warn {
-    display: flex;
-    gap: 0.6rem;
-    align-items: flex-start;
-    background: rgba(183, 108, 231, 0.08);
-    border: 1px solid rgba(183, 108, 231, 0.25);
-    border-radius: 10px;
-    padding: 0.85rem 1rem;
-    font-size: 0.9rem;
-    color: var(--text-dim);
-    line-height: 1.5;
-  }
-  .warn strong { color: var(--text); }
-
-  ol { margin: 1.1rem 0 0; padding-left: 1.2rem; color: var(--text-dim); line-height: 1.7; }
-  ol li::marker { color: var(--purple); font-weight: 600; }
-  ol strong { color: var(--text); }
-
-  .channel-row { display: flex; align-items: center; gap: 0.6rem; margin: 1.25rem 0 0.25rem; }
-  .channel-row label { font-size: 0.85rem; color: var(--text-dim); }
-  select#channel {
-    background: var(--bg);
+  .links { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+  .links a {
     color: var(--text);
+    text-decoration: none;
+    background: rgba(255,255,255,0.06);
     border: 1px solid var(--panel-border);
-    border-radius: 6px;
-    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    padding: 0.55rem 1rem;
     font-size: 0.9rem;
   }
-  #channel_note { font-size: 0.8rem; color: var(--text-dim); margin: 0.35rem 0 0; }
+  .links a:hover { background: rgba(255,255,255,0.1); }
 
-  esp-web-install-button { display: block; margin-top: 1.5rem; }
-  esp-web-install-button::part(activate-button) {
-    background: var(--purple);
-    color: #1a1421;
-    font-weight: 600;
-    border: none;
-    border-radius: 8px;
-    padding: 0.7rem 1.4rem;
-    cursor: pointer;
-  }
-
-  code {
-    background: rgba(255,255,255,0.07);
-    padding: 0.12em 0.4em;
-    border-radius: 5px;
-    font-size: 0.9em;
-  }
   footer {
     color: var(--text-dim);
     font-size: 0.85rem;
@@ -118,58 +93,44 @@
   <div class="wrap">
     <div class="brand">
       <img src="logo.png" alt="dubpixel">
-      <span>dpx_tc002</span>
+      <span>dpx_tc002_frm</span>
     </div>
 
-    <h1>Install the dpx_tc002 firmware</h1>
-    <p class="lede">This loads the dpx_tc002 firmware — compatible with Matrix Blaster hardware (Ulanzi TC001 LED matrix) — directly onto your device over USB. No PlatformIO, no drivers, no serial terminal. Just this page.</p>
+    <h1>WLED for your wrist-worn pixel clock</h1>
+    <p class="tagline">Flash it from a browser, drive it from OSC/MQTT/HTTP.</p>
+    <p class="lede">
+      dpx_tc002_frm turns the <a href="https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882" style="color:inherit">Ulanzi TC001</a>
+      into a networked 32&times;8 status display — notifications, timecode, custom clocks, and 200+ WLED
+      effects, all controllable without touching a soldering iron. Built on <a href="https://github.com/wled/WLED" style="color:inherit">WLED</a>
+      plus the original <code>dpx_matrix</code> usermod.
+    </p>
+
+    <a class="cta" href="./flash/">Flash a device &rarr;</a>
 
     <div class="panel">
-      <h2>Before you start</h2>
-      <div class="warn">
-        <span>⚠️</span>
-        <span>Requires desktop <strong>Chrome</strong> or <strong>Edge</strong> (Web Serial API). Safari, Firefox, and mobile browsers can't do this — use the PlatformIO CLI instead on those.</span>
-      </div>
-      <ol>
-        <li>Plug the device into this computer via USB.</li>
-        <li>Click <strong>Connect</strong> below and select the correct serial port when prompted.</li>
-        <li>If this is a factory-fresh or non-WLED device, choose <strong>erase device</strong> when offered — a device already running this firmware doesn't need it.</li>
-      </ol>
+      <h2>What it adds over stock WLED</h2>
+      <ul>
+        <li><strong>Text app loop</strong> — scrolling/static custom apps, clocks, WLED pattern slots</li>
+        <li><strong>Notifications</strong> — one-shot priority messages, with a recall/history backlog</li>
+        <li><strong>Timecode display</strong> (LTC via OSC) with frame progress bar</li>
+        <li><strong>Pixel overlay effects</strong> — weather, decorative, full-screen — composited on top of any WLED effect</li>
+        <li><strong>OSC + MQTT + HTTP</strong> control, all first-class</li>
+        <li><strong>Browser-flashable</strong> — no PlatformIO needed, see above</li>
+      </ul>
+    </div>
 
-      <div class="channel-row">
-        <label for="channel">Build</label>
-        <select id="channel" onchange="setChannel(this.value)">
-          <option value="nightly">Nightly (latest <code>main</code>)</option>
-          <option value="release">Latest Release (stable)</option>
-        </select>
+    <div class="panel">
+      <h2>Links</h2>
+      <div class="links">
+        <a href="https://github.com/dubpixel/dpx_tc002_frm">Full README &amp; source</a>
+        <a href="https://github.com/dubpixel/dpx_tc002_frm/issues">Issues</a>
+        <a href="./flash/">Flash tool</a>
       </div>
-      <p id="channel_note"></p>
-
-      <esp-web-install-button id="install_btn" manifest="./firmware/nightly/manifest.json"></esp-web-install-button>
     </div>
 
     <footer>
-      Firmware source: <a href="https://github.com/dubpixel/dpx_tc002_frm">dubpixel/dpx_tc002_frm</a> —
-      nightly rebuilds on every push to <code>main</code>, release rebuilds on each tagged version.
+      by <a href="https://www.dubpixel.tv">Joshua Fleitell</a> — EUPL v1.2, fork of <a href="https://github.com/wled/WLED">WLED</a>
     </footer>
   </div>
-  <script>
-    function setChannel(ch) {
-      var btn = document.getElementById('install_btn');
-      var note = document.getElementById('channel_note');
-      var manifestUrl = './firmware/' + ch + '/manifest.json';
-      note.textContent = 'Checking ' + ch + ' build…';
-      fetch(manifestUrl, { method: 'HEAD' }).then(function (r) {
-        if (r.ok) {
-          btn.setAttribute('manifest', manifestUrl);
-          note.textContent = '';
-        } else {
-          note.textContent = 'No ' + ch + ' build published yet' + (ch === 'release' ? ' (no tagged version pushed yet — use Nightly for now).' : '.');
-        }
-      }).catch(function () {
-        note.textContent = 'Could not check ' + ch + ' build availability.';
-      });
-    }
-  </script>
 </body>
 </html>

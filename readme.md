@@ -39,9 +39,10 @@
     <img src="images/logo.png" alt="Logo" height="120">
   </a>
 <h1 align="center">dpx_tc002_frm</h1>
-<h3 align="center"><i>a sassy project tag line here</i></h3>
+<h3 align="center"><i>WLED for your wrist-worn pixel clock — flash it from a browser, drive it from OSC/MQTT/HTTP</i></h3>
   <p align="center">
-    ...a short description to tease interest
+    Turns the Ulanzi TC001 into a networked 32×8 status display: notifications, timecode,
+    custom clocks, and 200+ WLED effects, all controllable without touching a soldering iron.
         <br />
      »  
      <a href="https://github.com/dubpixel/dpx_tc002_frm/tree/main/"><strong>Project Here!</strong></a>
@@ -157,6 +158,14 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 ![FRONT][product-front-rendering]
 ### REAR Rendering
 ![REAR][product-rear-rendering]
+
+### Action Shots
+
+> 🚧 Placeholders below — real photos coming later. Swap `images/action_shot_placeholder*.svg`
+> for actual shots of the device running (a notification scrolling, a custom clock, etc.).
+
+![Action shot 1][action-shot-1]
+![Action shot 2][action-shot-2]
 </details>
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -172,9 +181,10 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 
   ### Just want to flash a device? No dev setup needed.
   Flash the latest firmware directly from your browser over USB — no PlatformIO, no
-  Node, no drivers: **[dubpixel.github.io/dpx_tc002_frm](https://dubpixel.github.io/dpx_tc002_frm/)**
-  (Chrome or Edge only — Web Serial API isn't supported elsewhere). The page always
-  serves the latest build from `main`, rebuilt automatically on every push.
+  Node, no drivers: **[dubpixel.github.io/dpx_tc002_frm/flash](https://dubpixel.github.io/dpx_tc002_frm/flash/)**
+  (Chrome or Edge only — Web Serial API isn't supported elsewhere). Pick the **nightly**
+  channel (latest `main`, rebuilt on every push) or **release** (pinned to the latest
+  tagged version).
 
   ### Prerequisites (for firmware development)
   * PlatformIO (VS Code extension or CLI)
@@ -370,6 +380,8 @@ AwtrixFont (`dpx_font.h`) is BSD 3-Clause — see file header for full attributi
 [product-rear]: images/rear.png
 [product-front-rendering]: images/front_render.png
 [product-rear-rendering]: images/rear_render.png
+[action-shot-1]: images/action_shot_placeholder.svg
+[action-shot-2]: images/action_shot_placeholder_2.svg
 [WLED-badge]: https://img.shields.io/badge/WLED-17.0.0--dev-blue?style=flat-square
 [WLED-url]: https://github.com/wled/WLED
 [PlatformIO-badge]: https://img.shields.io/badge/PlatformIO-ESP32-orange?style=flat-square
