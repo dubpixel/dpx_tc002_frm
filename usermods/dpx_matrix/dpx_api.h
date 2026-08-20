@@ -237,6 +237,12 @@ static void dpxRegisterRoutes() {
         bool ok = dpxNotifQueueDelete((unsigned long)r->getParam("id")->value().toInt());
         r->send(ok ? 200 : 404, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"not found\"}"));
     });
+    // GH #75 — read-only debug view of the history ring buffer (outer-button
+    // replay backlog). Registered before base /api/notify for the same
+    // sub-path-prefix reason as /queue above.
+    server.on("/api/notify/history", HTTP_GET, [](AsyncWebServerRequest* r) {
+        r->send(200, F("application/json"), dpxNotifHistoryJson());
+    });
     server.on("/api/notify", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
         if (body.length()) dpxPushNotification(body.c_str());

@@ -49,6 +49,9 @@ static void mode_dpx_matrix() {
     // timer start) so calling it twice per frame caused overlay state flicker
     // and could affect notification timing. Fix: call once, reuse. (#45)
     const bool notifActive = dpxNotifTick();
+    // GH #75 — a real notification always wins over history browsing.
+    if (notifActive && dpxHistoryBrowsing) dpxHistoryExit();
+    const bool histActive = notifActive ? false : dpxHistoryTick();
 
     // ── Per-app pixel effect activation ──────────────────────────────────
     // When the active app changes, push or clear its overlay field.
@@ -102,6 +105,8 @@ static void mode_dpx_matrix() {
         dpxRenderPair();
     } else if (notifActive) {
         dpxRenderNotification();
+    } else if (histActive) {
+        dpxRenderHistoryItem();
     } else {
         dpxRenderCurrentApp();
     }
@@ -350,7 +355,8 @@ public:
         // Advance app pointer when duration expires.
         // Guard: skip while notification is active — dpxNextApp() resets dpxScroll
         // which would restart a completing notification scroll indefinitely.
-        if (!dpxNotifActive) dpxAppLoopTick();
+        // Also skip while browsing history (GH #75), same reasoning.
+        if (!dpxNotifActive && !dpxHistoryBrowsing) dpxAppLoopTick();
 
         // TC dwell timeout — restore auto-transition after TC signal stops
         dpxTcDwellTick();
@@ -368,9 +374,11 @@ public:
     // We use WLED's APIs (toggleOnOff, stateUpdated) for WLED-level actions.
     //
     // Button layout (TC001 front, left→right):
-    //   b=0  GPIO DPX_BTN_LEFT   short=prev app    long=dismiss notification
+    //   b=0  GPIO DPX_BTN_LEFT   short=prev app    long=dismiss notif, or (GH #75)
+    //                                                   browse notif history when idle
     //   b=1  GPIO DPX_BTN_MID    short=next app    long=cycle WLED effect
-    //   b=2  GPIO DPX_BTN_RIGHT  short=power tog   long=show IP
+    //   b=2  GPIO DPX_BTN_RIGHT  short=power tog, or exit history browse (GH #75)
+    //                            long=show IP
     bool handleButton(uint8_t b) override {
         if (!_initDone || b > 2) return false;
 
@@ -390,7 +398,15 @@ public:
                 bool lng = (dur > 800);
                 switch (b) {
                     case 0:  // LEFT
-                        lng ? dpxDismissNotification() : dpxPrevApp();
+                        if (lng) {
+                            // GH #75 — long-press was already a no-op when idle
+                            // (nothing to dismiss); repurpose that dead case to
+                            // step back through recent notification history.
+                            if (dpxNotifActive) dpxDismissNotification();
+                            else dpxHistoryNext();
+                        } else {
+                            dpxPrevApp();
+                        }
                         break;
                     case 1:  // MIDDLE — next app / long=cycle effect
                         if (lng) {
@@ -408,6 +424,10 @@ public:
                             doc["text"] = ip; doc["color"] = "#00FF88";
                             String s; serializeJson(doc, s);
                             dpxPushNotification(s.c_str());
+                        } else if (dpxHistoryBrowsing) {
+                            // GH #75 — short RIGHT exits history browsing instead
+                            // of toggling power, while browsing is active.
+                            dpxHistoryExit();
                         } else {
                             toggleOnOff();
                             stateUpdated(CALL_MODE_BUTTON);

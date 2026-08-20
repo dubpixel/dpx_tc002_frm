@@ -13,6 +13,7 @@
 // ================================================================================
 
 #pragma once
+#include <deque>
 #include "dpx_apps.h"
 
 struct DpxNotification {
@@ -28,6 +29,21 @@ static bool dpxNotifActive = false;
 static DpxNotification dpxCurrentNotif;
 static unsigned long dpxNotifStartMs = 0;
 static unsigned long dpxNotifNextId  = 1; // 0 reserved for "no active notification"
+
+// ── History ring buffer (GH #75) ────────────────────────────────────────────
+// Small RAM-only backlog of recently-*shown* notifications so the outer
+// buttons can replay something you missed. Archived only when a notification
+// stops being current (natural completion or manual dismiss) — never on
+// push, so a rapid-fire burst doesn't just show the newest item twice.
+// front() = most recently shown.
+static const size_t DPX_NOTIF_HISTORY_MAX = 8;
+static std::deque<DpxNotification> dpxNotifHistory;
+
+static void dpxArchiveCurrentNotif() {
+    if (!dpxNotifActive) return;
+    dpxNotifHistory.push_front(dpxCurrentNotif);
+    if (dpxNotifHistory.size() > DPX_NOTIF_HISTORY_MAX) dpxNotifHistory.pop_back();
+}
 
 // Parse and enqueue a notification from JSON body (SPEC.md §5 POST /api/notify)
 static bool dpxPushNotification(const char* json) {
@@ -92,6 +108,7 @@ static bool dpxNotifQueueDelete(unsigned long id) {
 // Dismiss the currently active notification and advance to the next queued one.
 // Does NOT clear the rest of the queue — use /api/notify/clear for that.
 static void dpxDismissNotification() {
+    dpxArchiveCurrentNotif();
     dpxNotifActive = false;
     dpxScroll.stop();  // clear scroll state so it doesn't bleed into next app/notif
 }
@@ -130,6 +147,7 @@ static bool dpxNotifTick() {
             if (dur == 0) dur = 5000; // default 5s, time-based mode
         }
         if (millis() - dpxNotifStartMs >= dur) {
+            dpxArchiveCurrentNotif();
             dpxNotifActive = false;
             return false;
         }
@@ -143,6 +161,68 @@ static bool dpxNotifTick() {
 static void dpxRenderNotification() {
     bool done = !dpxRenderApp(dpxCurrentNotif.data);
     if (done && dpxCurrentNotif.data.repeat >= 0 && !dpxCurrentNotif.hold) {
+        dpxArchiveCurrentNotif();
         dpxNotifActive = false;  // scroll cycle complete — end early
     }
+}
+
+// ── History browsing (GH #75) ───────────────────────────────────────────────
+// LEFT long-press with nothing currently active steps back through
+// dpxNotifHistory (see dpx_matrix.h handleButton() — that slot is otherwise
+// a no-op, since "dismiss notification" has nothing to do when idle).
+// Auto-exits after DPX_HISTORY_ITEM_MS so you never get stuck showing an old
+// message; RIGHT short-press also exits explicitly while browsing.
+static bool dpxHistoryBrowsing = false;
+static int  dpxHistoryIndex    = -1;
+static unsigned long dpxHistoryShownMs = 0;
+static const unsigned long DPX_HISTORY_ITEM_MS = 8000;
+
+static void dpxHistoryExit() {
+    dpxHistoryBrowsing = false;
+    dpxHistoryIndex = -1;
+    dpxScroll.stop();
+}
+
+// Enter browsing (show most recent) or step to the next-older item, wrapping
+// around. No-op if there's nothing to show.
+static bool dpxHistoryNext() {
+    if (dpxNotifHistory.empty()) return false;
+    if (!dpxHistoryBrowsing) {
+        dpxHistoryBrowsing = true;
+        dpxHistoryIndex = 0;
+    } else {
+        dpxHistoryIndex = (dpxHistoryIndex + 1) % (int)dpxNotifHistory.size();
+    }
+    dpxHistoryShownMs = millis();
+    dpxScroll.stop();
+    return true;
+}
+
+// Call once per frame alongside dpxNotifTick(). Returns true while an item
+// should be shown. A real notification arriving always wins — dpx_matrix.h's
+// mode_dpx_matrix() calls dpxHistoryExit() when notifActive becomes true.
+static bool dpxHistoryTick() {
+    if (!dpxHistoryBrowsing) return false;
+    if (millis() - dpxHistoryShownMs >= DPX_HISTORY_ITEM_MS) { dpxHistoryExit(); return false; }
+    return true;
+}
+
+static void dpxRenderHistoryItem() {
+    if (dpxHistoryIndex < 0 || dpxHistoryIndex >= (int)dpxNotifHistory.size()) { dpxHistoryExit(); return; }
+    dpxRenderApp(dpxNotifHistory[dpxHistoryIndex].data);
+}
+
+// Debug/verification (GH #75): JSON snapshot of the history ring buffer,
+// same pattern as dpxNotifQueueJson() (GH #72). front-most = most recent.
+static String dpxNotifHistoryJson() {
+    DynamicJsonDocument doc(2048);
+    doc["browsing"] = dpxHistoryBrowsing;
+    doc["index"]    = dpxHistoryIndex;
+    JsonArray h = doc.createNestedArray("history");
+    for (auto& n : dpxNotifHistory) {
+        JsonObject o = h.createNestedObject();
+        o["id"]   = n.id;
+        o["text"] = n.data.text;
+    }
+    String s; serializeJson(doc, s); return s;
 }
