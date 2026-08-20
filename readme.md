@@ -132,12 +132,15 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 
 ### What dpx_matrix adds
 
-- Scrolling/static **text app loop** (Time, Date, custom apps) with AwtrixFont
+- Scrolling/static **text app loop** (Time, Date, custom apps, WLED pattern slots) with AwtrixFont — including multiple instances of the same app and customizable per-instance clocks
+- **8×8 icon rendering** — LaMetric PNG→raw pipeline, icon browser built into `/ctrl`
 - **Timecode display** (LTC via OSC) with frame progress bar
 - **Notifications** — one-shot priority messages
-- **Text overlay** + pixel effects (sparkle, strobe, rain, twinkle, blink) on top of any WLED effect
+- **Text overlay** + 15 pixel effects (weather, decorative, and full-screen) on top of any WLED effect, additively composited so text stays readable
+- **Device-claim PIN pairing** — full-screen PIN display for the friendster/cuemaster server's device-claim flow
 - **OSC receiver** (UDP 4210) — compatible with dpx_tc001 and AWTRIX OSC senders
-- **MQTT** via WLED's broker connection
+- **MQTT** via WLED's broker connection — commands, device presence, and icon fetch over MQTT
+- **Browser-flashable firmware** — install directly over USB from Chrome/Edge, no PlatformIO needed (see [Getting Started](#getting-started))
 - **First-boot config** — device is usable out of the box, no wizard required
 
 *author: [Joshua Fleitell](https://www.dubpixel.tv) — i@dubpixel.tv*
@@ -167,7 +170,13 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 
 ## Getting Started
 
-  ### Prerequisites
+  ### Just want to flash a device? No dev setup needed.
+  Flash the latest firmware directly from your browser over USB — no PlatformIO, no
+  Node, no drivers: **[dubpixel.github.io/dpx_tc002_frm](https://dubpixel.github.io/dpx_tc002_frm/)**
+  (Chrome or Edge only — Web Serial API isn't supported elsewhere). The page always
+  serves the latest build from `main`, rebuilt automatically on every push.
+
+  ### Prerequisites (for firmware development)
   * PlatformIO (VS Code extension or CLI)
   * Node.js 20+ (`npm ci` before first build)
 
@@ -196,7 +205,9 @@ bash tools/dpx_test.sh --auto --fast --suite=overlay 192.168.2.33
 bash tools/dpx_test.sh --reboot 192.168.2.33
 ```
 
-Available suites: `connectivity` · `apps` · `notify` · `overlay` · `indicators` · `tc` · `sound` · `settings` · `persist`
+Available suites: `connectivity` · `apps` · `notify` · `overlay` · `indicators` · `tc` · `sound` · `settings` · `icons` · `lint` · `persist`
+
+`persist` is manual-only (gated behind `--reboot`, skipped by `--auto`/CI runs) — run it before a release, not routinely.
 
 Requires: `curl`, `jq`, a device on the network.
 

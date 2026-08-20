@@ -1,11 +1,20 @@
 # dpx_tc002_frm — Master Roadmap & TODO
 
-Last updated: 2026-07-23
+Last updated: 2026-08-20
+
+> **Since the last update (v0.2.0):** icon rendering, WLED pattern slots (real
+> WLED FX in the app rotation), multi-instance custom apps, customizable clock
+> instances, 2x font scale, device-claim PIN pairing, MQTT icon fetch, and
+> browser-flashable firmware (ESP Web Tools, auto-deployed to GitHub Pages) all
+> shipped. This pass updates the checkboxes below to match — several items in
+> Phase 1/2/4 were marked incomplete but are actually done.
 
 Reference files (read before working on this project):
 - `⊘ dpx_reference/SPEC.md` — full behavioral spec, API contract, all JSON keys
 - `⊘ dpx_reference/dpx_tc002.md` — firmware build plan, phase order, GPIO map
-- `⊘ dpx_reference/dpx_tc002_server.md` — Friendster/CueMaster server plan
+- `dpx_friendster/docs/dpx_tc002_server.md` — Friendster/CueMaster server plan (moved
+  out of `dpx_reference/` into the sibling `dpx_friendster` repo — clone it alongside
+  this one for the path to resolve)
 
 ---
 
@@ -31,12 +40,9 @@ See Part 2 of this file.
 - [x] **1.7** `/api/sleep` not implemented — added ESP32 deep sleep with optional timer wakeup (`{"sleep":N}`)
 - [x] **1.8** `save` flag — `save: true` in custom app JSON now persists to `/CUSTOMAPPS/<name>.json` on LittleFS; delete also removes the file
 - [x] **1.9** Per-app overlay activation — originally added to `handleOverlayDraw()`; **see 1.11 below — needs re-port to `mode_dpx_matrix()`**
-- [ ] **1.10** Serial config dump `dpx_matrix.h`
-  - Add `c` command to the serial debug handler that dumps key LittleFS config files to serial
-  - Print `/dev.json`, `/cfg.json` (WLED wifi/mqtt config), `/osc_listeners.json` — pretty-printed with section headers
-  - Format: `─── /dev.json ───` header, then indented JSON, then a separator line
-  - Also print active runtime globals (DPX_TIMEZONE, DPX_ATIME, DPX_SHOW_TIME, etc.) below the raw file
-  - Update help string: `s=status  c=config dump  r=reboot  h=help`
+- [x] **1.10** Serial config dump `dpx_matrix.h` — done (GH #10). Not yet visually
+  verified over a real USB serial connection this cycle (no cable available), only
+  build-verified — flag for a hardware check next time a cable's on hand.
 
 - [x] **1.11** Port per-app overlay activation to `mode_dpx_matrix()` `dpx_matrix.h`
   - **Context:** the 1.9 activation hook was written for the old `handleOverlayDraw()` which no longer exists.
@@ -60,48 +66,27 @@ See Part 2 of this file.
 
 - [ ] **1.15** TC takeover forces dpx_matrix effect ✅ *implemented in feature/overlay-tc-fixes*
 
-- [ ] **1.16** WLED pattern slots in app rotation `dpx_apps.h` + `dpx_html.h`
-  - Allow a WLED effect (by effect ID or name) to be added as a channel in the dpx_matrix app loop
-  - When the loop advances to a pattern slot: call `strip.getMainSegment().setMode(effectId)` +
-    `stateUpdated()` — display hands off to the WLED FX engine for the slot's dwell duration
-  - When dwell expires: restore dpx_matrix effect via `dpxActivateEffect()`, advance to next channel
-  - JSON schema for a pattern slot: `{"type":"wled_fx","effect":53,"palette":0,"speed":128,"intensity":128,"dur":10}`
-  - `GET /api/apps` response includes type field so UI can distinguish channel types
-  - Add "Add Pattern Slot" section to App Channels card in `/ctrl` — effect picker (populated from
-    `GET /json/effects`), palette picker, dwell duration, then Add button
-  - Pattern slots persist in `dpxCustom` map like regular custom apps (same LittleFS storage)
+- [x] **1.16** WLED pattern slots in app rotation `dpx_apps.h` + `dpx_html.h` — done
+  (GH #11). A real WLED FX effect can occupy a rotation slot; JSON schema
+  `{"type":"wled_fx","effect":53,"palette":0,"speed":128,"intensity":128,"dur":10}`
+  matches the original design exactly. (A regression where the effect never
+  actually activated on create/update was found and fixed post-ship — GH #67.)
 
-- [ ] **1.17** Overlay additive compositing (text shows through) `dpx_overlay.h`
-  - **Context:** AWTRIX3 only draws an overlay pixel if it is non-black, so rain/snow/effects appear
-    *in front of* text without overwriting it. Currently our overlays overwrite text pixels entirely.
-  - Change `dpxRenderPixelEffect()` to skip writing a pixel if the effect color is black (0x000000).
-    For effects that blend (twinkle/strobe), only write the blend result if the result is non-trivially
-    different from black.
-  - Check WLED's `SEGMENT.getPixelColorXY()` to see if WLED already handles additive compositing
-    natively at the SEGMENT level before adding logic here — avoid duplicating what WLED already does.
-  - Behavior: `overlay=rain` on an app — rain drops fall *over* text, text remains readable.
-  - **This is permanent behavior, not a user toggle** — additive compositing is strictly better for
-    overlay effects and there is no use case for the current full-overwrite behavior.
+- [x] **1.17** Overlay additive compositing (text shows through) `dpx_overlay.h` — done (GH #12, hardware-verified).
 
-- [ ] **1.18** Persistent pixel state buffer for rain/snow/storm `dpx_overlay.h`
-  - **Context:** AWTRIX3 uses a `static CRGB leds[32][8]` buffer — the full 32×8 state persists
-    across frames. When rain falls, the *entire buffer* shifts down one row each tick, giving every
-    drop a trailing history. Our code tracks only a Y position per column with no trail/fade.
-  - Replace `dpxPixelEffect.rain[x]` (column Y position) with a full `static uint32_t _ovBuf[DPX_MATRIX_W][DPX_MATRIX_H]` buffer.
-  - Rain: each tick, shift buffer down one row; spawn new drops at row 0; apply `fadeToBlackBy`-style
-    dimming to tail pixels for trail effect.
-  - Snow: same shift logic but slower tick, trail dims to white rather than black.
-  - Storm: shift down + shift *right* (wind) — horizontal drift per tick alongside vertical fall.
-  - Frost: each tick, randomly activate new pixels using `OceanColors_p`-like palette cycling;
-    decay existing pixels — animated, not static.
-  - Buffer is reset when effect changes (`dpxClearPixelEffect()`).
+- [x] **1.18** Persistent pixel state buffer for rain/snow/storm `dpx_overlay.h` — done.
 
-- [ ] **1.19** Storm wind effect `dpx_overlay.h`
-  - Storm should horizontally shift pixels right by 1 column every ~3 ticks in addition to falling.
-  - Simple: after the vertical shift in 1.18's buffer, do `leds[x][y] = leds[x-1][y]` sweep.
-  - Thunder = same as storm but with periodic full-white flash frame instead of rain color.
+- [x] **1.19** Storm wind effect `dpx_overlay.h` — done.
 
 - [ ] **1.20** Background effects system (full-screen animated canvases) `dpx_overlay.h`
+  - **Status:** Partially resolved without new code — 1.16 (pattern slots) lets any WLED
+    FX (Matrix, Fireworks, Ripple, Plasma, Pacifica, etc.) occupy a rotation slot, matching
+    the "routing through WLED's FX engine" option below. What's still genuinely unbuilt is
+    a *literal* WLED effect rendering simultaneously with text on the same frame — WLED only
+    calls one mode function per segment per frame, so that needs real work (tracked as GH #14,
+    explicitly deferred: "we can do 14 later"). The existing hand-written overlay effects
+    (colorwaves/plasma/twinklingstars/theatrechase/pacifica in `dpx_overlay.h`) already
+    achieve the visual goal via additive compositing and don't need this.
   - **Context:** AWTRIX3 has a separate `effect` JSON field (distinct from `overlay`) for full-screen
     animated effects that render *behind* text: Fireworks, TwinklingStars, Matrix code rain, Ripple,
     Pacifica ocean, PlasmaCloud, PingPong, Radar, ColorWaves, etc.
@@ -201,35 +186,18 @@ See Part 2 of this file.
 
 ---
 
-### Phase 1.9 — WLED Pattern Slots in App Rotation
-
-- [ ] Allow a WLED effect (by effect ID or name) to be added as a channel in the dpx_matrix app loop
-- [ ] When the loop advances to a pattern slot: `strip.getMainSegment().setMode(effectId)` + `stateUpdated()` — display hands off to WLED FX engine for the slot's dwell duration
-- [ ] When dwell expires: restore dpx_matrix via `dpxActivateEffect()`, advance to next channel
-- [ ] JSON schema: `{"type":"wled_fx","effect":53,"palette":0,"speed":128,"intensity":128,"dur":10}`
-- [ ] `GET /api/apps` includes `type` field so UI can distinguish channel types
-- [ ] `/ctrl` App Channels card: "Add Pattern Slot" section — effect picker (from `GET /json/effects`), palette, dwell, Add button
-- [ ] Pattern slots persist in `dpxCustom` map alongside regular apps
+### Phase 1.9 — WLED Pattern Slots in App Rotation ✅ DONE (duplicate of 1.16 above, GH #11)
 
 ---
 
-### Phase 2 — Icon Rendering
+### Phase 2 — Icon Rendering ✅ DONE (GH #16)
 
-> **Key insight:** pre-convert PNG→raw in-browser using a Canvas at download time. No PNGdec library needed on device.
+> Shipped via browser-side PNG→raw conversion (no on-device PNG decoder needed),
+> exactly per the original plan below. `dpx_icons.h` exists and does 2.2/2.3 as speced.
 
-- [ ] **2.1** Browser-side PNG→raw conversion `dpx_html.h`
-  - At download time in the icon browser, convert PNG to raw RGB888 using `<canvas>`
-  - Upload as `<name>.raw` to `/ICONS/` instead of PNG
-  - Update the "installed icons" dropdown loader to look for `.raw` files
-
-- [ ] **2.2** Icon load + render — new `dpx_icons.h`
-  - `dpxLoadIcon(name)` — reads `/ICONS/<name>.raw`, returns 64-byte (8×8 RGB888) array
-  - `dpxRenderIcon(pixels, x, y)` — blits 8×8 to matrix at column x
-
-- [ ] **2.3** Text layout with icon `dpx_apps.h` + `dpx_text.h`
-  - When `icon` is set: render icon in cols 0–7, scroll/render text in cols 8–31 (24px wide)
-  - `pushIcon` modes: 0=icon fixed, 1=icon scrolls with text and disappears, 2=icon scrolls and loops
-  - Apply to both custom apps and notifications
+- [x] **2.1** Browser-side PNG→raw conversion `dpx_html.h`
+- [x] **2.2** Icon load + render — `dpx_icons.h`
+- [x] **2.3** Text layout with icon `dpx_apps.h` + `dpx_text.h`
 
 ---
 
@@ -255,20 +223,17 @@ See Part 2 of this file.
 
 ---
 
-### Phase 4 — Font Scaling / Larger Font
+### Phase 4 — Font Scaling / Larger Font ✅ DONE (GH #19, #63)
 
-> Check `wled00/src/fonts/` for existing GFX-format fonts before writing a new one.
+> Shipped via the 4.2 "textScale:2 pixel-doubling" option (simpler, no new font
+> bitmap needed) rather than 4.1's second-font approach. `fontScale`/`"font":"large"`
+> JSON field, threaded through `dpxDrawChar`/`dpxRenderText`/`dpxTextPixelWidth`.
+> **Known risk, not yet visually confirmed:** most `AwtrixFont` glyphs are 5px
+> tall, so 2x scale (10px) clips against the 8-row matrix — defaults to 1x
+> (safe) with 2x opt-in until checked on hardware.
 
-- [ ] **4.1** Second font `dpx_font.h`
-  - Add a 6×8 or 8×8 large font for close-viewing / big clock mode
-  - Look for GFX-format bitmap fonts already in the repo first
-
-- [ ] **4.2** Font selector `dpx_apps.h`
-  - New JSON field: `"font":"small"` (default 3×5) | `"font":"large"` (new 6×8)
-  - Or: `"textScale":2` for 2× pixel-doubling of existing font (simpler, no new font data)
-
-- [ ] **4.3** UI control `dpx_html.h`
-  - Add font size selector to Notification and Custom App cards
+- [x] **4.2** Font selector `dpx_apps.h` — `fontScale` JSON field
+- [x] **4.3** UI control `dpx_html.h` — font size selector on Notification and Custom App cards
 
 ---
 
@@ -454,9 +419,14 @@ a horizontal strip of 8×8 frames in a single GIF (e.g., 4 frames = 32×8 px ima
 
 ---
 
-## 3 — LaMetric Icons on Matrix*
+## 3 — LaMetric Icons on Matrix* ✅ DONE (GH #16)
 
-**Status:** 🟡 Partial — icon browser + LittleFS download works; no display rendering
+**Status:** ✅ Done — browser-side PNG→raw conversion, `dpx_icons.h` load + render, wired
+into the app draw loop. Shipped via the pre-convert-at-download-time approach from
+"What needs to be built" below (no on-device PNG decoder needed).
+
+<details>
+<summary>Original planning notes (kept for history)</summary>
 
 **What it is:**
 Fetch a named LaMetric icon (8×8 PNG from `developer.lametric.com`), decode it to
@@ -481,6 +451,8 @@ RGB pixels, and render it on the left 8 columns of the matrix alongside scrollin
 - `usermods/dpx_matrix/dpx_apps.h` — icon render call in app draw loop
 - `usermods/dpx_matrix/dpx_html.h` — optionally pre-convert PNG→raw at download time
 - New file: `usermods/dpx_matrix/dpx_icons.h` — icon load + render functions
+
+</details>
 
 ---
 
@@ -516,34 +488,18 @@ bounding boxes, no "which pixels belong to which glyph" metadata.
 
 ---
 
-## 5 — Text Overlay Effects*
+## 5 — Text Overlay Effects* ✅ DONE
 
-**Status:** 🟡 Partial — 5 effects implemented, 5 others unimplemented, 1 name-mismatch bug
+**Status:** ✅ Done — all 10 originally-planned effects implemented, plus 5 more not
+in the original spec, with additive compositing (text shows through, GH #12) and a
+persistent pixel buffer with wind drift for the weather effects.
 
-**What it is:**
-Pixel-level effects rendered on top of (or composited with) displayed text.
-Defined in the spec as 7 weather-themed overlays plus additional effects.
+**Implemented** (`usermods/dpx_matrix/dpx_overlay.h`):
+`rain` · `snow` · `drizzle` · `storm` · `thunder` · `frost` · `sparkle` · `twinkle` ·
+`strobe` · `blink` · `pulse` · `rainbow` · `fire` · `matrix` · `scan`
 
-**Currently implemented** (`usermods/dpx_matrix/dpx_overlay.h`):
-- ✅ `rain` — column-based falling pixels
-- ✅ `sparkle` — random pixel lighting
-- ✅ `twinkle` — blended random pixels
-- ✅ `strobe` — full-matrix flash
-- ✅ `blink` — full matrix on/off
-
-**Not implemented (spec-required):**
-- ❌ `snow` — slow drifting white pixels, accumulate at bottom
-- ❌ `drizzle` — lighter version of rain (fewer, slower drops)
-- ❌ `storm` — heavy rain + occasional flash
-- ❌ `thunder` — periodic full-screen white flash
-- ❌ `frost` — static blue-white pixel scatter over text
-
-**Bug — name mismatch:**
-The effect name strings in `dpxRenderPixelEffect()` (API parser) do not match the
-names documented in the web UI JSON schema (`dpx_html.h`). Fix both sides to agree.
-
-**Files to modify:**
-- `usermods/dpx_matrix/dpx_overlay.h` — add 5 missing effects + fix name constants
+The original name-mismatch bug (API parser vs. web UI JSON schema) was fixed as part
+of this work.
 
 ---
 
@@ -564,8 +520,8 @@ names documented in the web UI JSON schema (`dpx_html.h`). Fix both sides to agr
 
 ## Implementation Priority (suggested order)
 
-1. **#5 Overlay effects** — lowest effort, high spec compliance impact; fix the name bug first
-2. **#3 LaMetric icons** — browser-side PNG→raw conversion avoids on-device decoder complexity
+1. ~~**#5 Overlay effects**~~ — ✅ done
+2. ~~**#3 LaMetric icons**~~ — ✅ done
 3. **#2 Animated GIFs** — depends on choosing + integrating a GIF decoder library
 4. **#1 cpt-city gradients** — standalone, no dependencies; start with offline bundle approach
 5. **#4 Font pixel effects** — most architectural complexity; design the bbox layer carefully

@@ -187,7 +187,7 @@ Consult `docs/hardening.instructions.md` (concise checklist) and
 
 ## PROJECT: dpx_tc002_frm
 
-**Status:** Active development
+**Status:** Active development — v0.2.0 (2026-08-20)
 **Branch:** `main` (feature branches: `feature/brief-description`)
 **Version File:** `VERSION` + `package.json`
 
@@ -209,6 +209,7 @@ contract defined in `SPEC.md`.
 | dpx_tc002.md | Markdown / `dpx_reference/` | Build plan: phase order, usermod structure, GPIO map | Read before firmware work |
 | dpx_tc002_server.md | Markdown / `dpx_friendster/docs/` | Companion server plan (Friendster/CueMaster) — lives in the sibling `dpx_friendster` repo, not this one | Read before any server work |
 | HANDOFF_TODO.md | Markdown / `docs/` | Feature roadmap: 6 items, status, implementation notes | Read before starting new features |
+| web-installer | HTML / `web-installer/` | Browser-flash install page (ESP Web Tools) | Auto-deployed to GitHub Pages via `.github/workflows/web-flash-deploy.yml` on every push to `main` |
 
 > Reference docs live in the sibling repo `../dpx_tc001/dpx_reference/` (relative to this repo's root) — clone `dpx_tc001` alongside `dpx_tc002_frm` for these paths to resolve.
 
@@ -216,14 +217,16 @@ contract defined in `SPEC.md`.
 
 | File | Purpose |
 |------|---------|
-| `dpx_apps.h` | App loop, `DpxCustomApp` struct, JSON parse, render dispatch |
-| `dpx_text.h` | Text rendering, `dpxDrawProgressBar()`, scroll engine |
-| `dpx_overlay.h` | Pixel overlay effects (rain, sparkle, twinkle, strobe, blink) |
-| `dpx_api.h` | HTTP endpoints: `/notify`, `/app`, `/tc`, `/browse` |
+| `dpx_apps.h` | App loop, `DpxCustomApp` struct, JSON parse, render dispatch, pattern slots (GH #11) |
+| `dpx_text.h` | Text rendering, `dpxDrawProgressBar()`, scroll engine, 2x font scale |
+| `dpx_overlay.h` | Pixel overlay effects — rain, snow, drizzle, storm, thunder, frost, sparkle, twinkle, strobe, blink, pulse, rainbow, fire, matrix, scan |
+| `dpx_api.h` | HTTP endpoints: `/notify`, `/app`, `/custom`, `/pair`, `/tc`, `/browse` |
 | `dpx_html.h` | Embedded web UI: ctrl page, icon browser, GIF browser |
 | `dpx_tc.h` | Timecode display (both render modes), frame bar |
 | `dpx_font.h` | AwtrixFont 3x5 TomThumb bitmap font |
-| `dpx_icons.h` | Icon load + render (planned — not yet created) |
+| `dpx_icons.h` | Icon load + render — LaMetric PNG→raw pipeline (GH #16) |
+| `dpx_mqtt.h` | MQTT command dispatch, device-info publish, icon fetch over MQTT |
+| `dpx_pair.h` | Device-claim PIN display for friendster/cuemaster server pairing |
 
 ### Agent Rules (for this repo)
 

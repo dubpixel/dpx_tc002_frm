@@ -1,5 +1,42 @@
 ## dpx_tc002_frm changelog
 
+### [0.2.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.1.1...0.2.0) (2026-08-20)
+
+> Icon rendering, WLED pattern slots, multi-instance custom apps, device-claim pairing,
+> browser-flashable firmware, and a large overlay-effects rework.
+
+#### Features
+* **icons:** 8×8 icon rendering — LaMetric PNG→raw pipeline (#16)
+* **apps:** WLED pattern slots in app rotation — a real WLED FX effect can occupy a rotation slot (#11)
+* **apps:** multiple instances of the same app via slot suffix, e.g. `name#1`/`name#2` (#30)
+* **apps:** customizable Time/Date clock instances — per-instance color/offset/icon (#31)
+* **text:** 2× large-font option via pixel-doubling (#19, #63)
+* **pair:** device-claim PIN display (`dpx_pair.h`) — full-screen PIN over HTTP `/api/pair` and MQTT `dpx/pair`, for the friendster/cuemaster server's device-claim flow; `scale` is an opt-in param (1x default, 2x opt-in), not hardcoded
+* **mqtt:** retained device-info publish (`dpx/info`) for friendster/cuemaster server discovery
+* **mqtt:** icon list/get over MQTT, for cross-network icon pickers when server and device don't share a LAN
+* **mqtt:** indicator blink/fade support, matching existing HTTP capability
+* **api:** `/api/sound/status` endpoint for automated buzzer verification (#9)
+* **serial:** `c` config-dump command now includes the assigned dpx effect ID (#10)
+* **build:** browser-flashable firmware via [ESP Web Tools](https://github.com/esphome/esp-web-tools) — install page auto-published to GitHub Pages on every push to `main`, no PlatformIO/drivers/serial terminal needed (Chrome/Edge only)
+* **overlay:** 5 previously-missing weather effects — `snow`, `drizzle`, `storm`, `thunder`, `frost` — plus `pulse`, `rainbow`, `fire`, `matrix`, `scan`; persistent pixel buffer with wind drift; frost grows from edges instead of random scatter (#13, #58, #61)
+* WiFi connect now scrolls IP + hostname on the display (#56)
+
+#### Bug Fixes
+* **mqtt:** per-device `{mqttDeviceTopic}/dpx/#` topic wasn't dispatching commands — WLED core strips the device-topic prefix before forwarding to usermods, which the dpx MQTT command parser didn't account for; only the `dpx/#` broadcast alias worked before this (#66)
+* **apps:** pattern-slot WLED FX never actually activated on create/update — wrong activation function was called, always forcing the display back to dpx Matrix's own renderer instead of handing off to the requested WLED effect (#67)
+* **mqtt:** icon/get handler raced the render loop's shared icon cache across FreeRTOS tasks (`async_tcp` vs main loop) — real heap-corruption risk, not just a redundant flash read; fixed by loading icons into a local buffer instead of the shared cache
+* **overlay:** twinkle now dims lit pixels instead of adding bright flecks (#58)
+* **overlay:** fixed a FastLED-only build break; retuned weather/decorative effects against real hardware
+* **ctrl:** removed a null-reference regression in notify/custom-app send handlers left over from an earlier `n_effect`/`ca_effect` element removal
+* **test:** `--suite=` jump filter in `tools/dpx_test.sh` was a no-op
+
+#### Chores
+* Removed machine-specific absolute paths from `AGENTS.md` and `platformio_override.ini` for portability; stopped tracking `dpx_tc002_frm.code-workspace` (personal editor config, not shared project config)
+* Fixed broken `files.readonlyInclude` globs in the workspace config
+* Test suite: expanded `lint` suite coverage for this cycle's new `/ctrl` UI; added an `icons` suite (upload, list, pushIcon render checks)
+
+---
+
 ### [0.1.1](https://github.com/dubpixel/dpx_tc002_frm/compare/0.1.0...0.1.1) (2026-07-23)
 
 > ctrl UI bug fixes and roadmap housekeeping.
