@@ -70,6 +70,11 @@ struct DpxCustomApp {
     // through the normal text/icon pipeline (dpxRenderApp) — color/icon/
     // pushIcon all apply, and multiple instances work for free via #30 slots.
     int      tzOffsetMin = 0;      // minutes offset from WLED's configured local time
+    // GH #76 — optional location label prefixed into the scrolling text
+    // ("TOKYO 3:45p") so multiple clock instances are distinguishable at a
+    // glance. 32x8 is too tight for a real two-line layout, so this reuses
+    // the existing scroll engine rather than adding new rendering logic.
+    String   label        = "";    // clock/date apps only; ignored otherwise
 
     bool valid = false;  // false = slot unused
 
@@ -202,6 +207,7 @@ static DpxCustomApp dpxParseApp(const char* json) {
     if (doc.containsKey("speed"))      app.fxSpeed     = doc["speed"].as<uint8_t>();
     if (doc.containsKey("intensity"))  app.fxIntensity = doc["intensity"].as<uint8_t>();
     if (doc.containsKey("offset"))     app.tzOffsetMin = doc["offset"].as<int>();
+    if (doc.containsKey("label"))      app.label       = doc["label"].as<String>();
     app.addedMs = millis();
 
     // Draw commands
@@ -286,7 +292,7 @@ static void dpxUpdateTimeDateText(DpxCustomApp& app) {
     } else {
         snprintf(buf, sizeof(buf), "%02d:%02d", hour(t), minute(t));
     }
-    app.text = buf;
+    app.text = app.label.length() ? (app.label + " " + buf) : String(buf);
 }
 
 // ── Render one custom app frame (static or scroll) ───────────────────────────
@@ -518,6 +524,7 @@ static String dpxGetCustomAppJson(const String& name) {
     doc["speed"]       = a.fxSpeed;
     doc["intensity"]   = a.fxIntensity;
     doc["offset"]      = a.tzOffsetMin;
+    doc["label"]       = a.label;
     String s; serializeJson(doc, s); return s;
 }
 

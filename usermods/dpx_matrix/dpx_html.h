@@ -722,12 +722,15 @@ select option{background:#222}
     <div><label>Color</label><input type="color" id="ch_cc_color" value="#ffffff"></div>
     <div style="flex:1"><label>Offset (min from local)</label><input type="number" id="ch_cc_offset" value="0" step="15"></div>
   </div>
-  <label>Icon</label>
+  <label>Label (optional, scrolls before the time — e.g. "TOKYO")</label>
+  <input type="text" id="ch_cc_label" placeholder="e.g. TOKYO" maxlength="16">
+  <label>Icon (optional — an icon can identify the clock instead of/alongside a label)</label>
   <div class="row">
     <select id="ch_cc_icon_sel" style="flex:1" onchange="document.getElementById('ch_cc_icon').value=this.value"><option value="">&#8212; installed icons &#8212;</option></select>
     <input type="text" id="ch_cc_icon" placeholder="name or ID" style="flex:1">
     <select id="ch_cc_pushicon" style="width:auto"><option value="0">Fixed</option><option value="1">Scroll</option><option value="2">Loop</option></select>
   </div>
+  <div class="chk" style="margin-top:6px"><input type="checkbox" id="ch_cc_static"><label for="ch_cc_static">Static (no scroll) &mdash; best with an icon or no label, a long label+time combo will clip instead of scrolling</label></div>
   <button onclick="addCustomClock()">+ Add to Rotation</button>
 </div>
 <div id="ch_fields_wledfx" style="display:none">
@@ -1141,7 +1144,7 @@ function addCustomClock(){
   var name=document.getElementById("ch_cc_name").value.trim().replace(/\s+/g,"_");
   if(!name){toast("Enter a channel name",false);return;}
   var slot=document.getElementById("ch_cc_slot").value.trim();
-  var d={type:document.getElementById("ch_cc_kind").value,color:h2r(document.getElementById("ch_cc_color").value),offset:+document.getElementById("ch_cc_offset").value,icon:document.getElementById("ch_cc_icon").value||undefined,pushIcon:+document.getElementById("ch_cc_pushicon").value};
+  var d={type:document.getElementById("ch_cc_kind").value,color:h2r(document.getElementById("ch_cc_color").value),offset:+document.getElementById("ch_cc_offset").value,icon:document.getElementById("ch_cc_icon").value||undefined,pushIcon:+document.getElementById("ch_cc_pushicon").value,label:document.getElementById("ch_cc_label").value.trim()||undefined,noScroll:document.getElementById("ch_cc_static").checked};
   var url="/api/custom?name="+encodeURIComponent(name)+(slot?"&slot="+encodeURIComponent(slot):"");
   fetch(url,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(d))}).then(function(r){r.ok?toast("Clock '"+name+(slot?"#"+slot:"")+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
 }
