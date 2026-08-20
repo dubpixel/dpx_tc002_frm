@@ -1,10 +1,19 @@
 name: Web Flash Deploy
 
-# Rebuilds the Ulanzi TC001 (dpx_tc002) firmware on every push to main that
-# touches firmware code, and republishes the browser-flash install page
-# (web-installer/) to GitHub Pages with the freshly built binaries + manifest.
+# Rebuilds the Ulanzi TC001 (dpx_tc002) firmware and republishes the
+# browser-flash install page (web-installer/) to GitHub Pages.
 # See web-installer/index.html — uses ESP Web Tools (esphome/esp-web-tools),
 # same mechanism install.wled.me uses. Desktop Chrome/Edge only (Web Serial).
+#
+# Two channels, published side by side (neither overwrites the other):
+#   nightly  — rebuilt on every push to main that touches firmware code.
+#              Tracks main HEAD directly, always latest/bleeding-edge.
+#   release  — rebuilt only on a tag push (a real version bump). Stable,
+#              pinned to whatever commit the tag points at.
+# GitHub Pages deploys the whole site fresh each run, so each run only
+# rebuilds the channel matching its own trigger, then re-fetches the OTHER
+# channel's currently-live files from the site itself so they survive
+# untouched in this deploy.
 
 on:
   push:
@@ -17,6 +26,8 @@ on:
       - 'platformio_override.ini'
       - 'web-installer/**'
       - '.github/workflows/web-flash-deploy.yml'
+    tags:
+      - '*'
   workflow_dispatch: {}
 
 permissions:
@@ -61,11 +72,45 @@ jobs:
           test -f build_output/release/manifest.json || { echo "manifest.json missing — dpx_web_flash_bins.py didn't run or failed"; exit 1; }
           test -n "$(ls build_output/release/dpx_tc002_*_TC001*.bin 2>/dev/null)" || { echo "no TC001 .bin files found"; exit 1; }
 
-      - name: Stage install page
+      - name: Determine channel
+        id: channel
         run: |
-          mkdir -p web-installer/firmware
-          cp build_output/release/manifest.json web-installer/firmware/
-          cp build_output/release/dpx_tc002_*_TC001*.bin web-installer/firmware/
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "name=release" >> "$GITHUB_OUTPUT"
+            echo "other=nightly" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=nightly" >> "$GITHUB_OUTPUT"
+            echo "other=release" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stage this run's channel
+        run: |
+          CH="${{ steps.channel.outputs.name }}"
+          mkdir -p "web-installer/firmware/$CH"
+          cp build_output/release/manifest.json "web-installer/firmware/$CH/"
+          cp build_output/release/dpx_tc002_*_TC001*.bin "web-installer/firmware/$CH/"
+          echo "Staged $CH channel:"
+          ls -la "web-installer/firmware/$CH/"
+
+      - name: Preserve the other channel's currently-live files
+        run: |
+          OTHER="${{ steps.channel.outputs.other }}"
+          BASE="https://dubpixel.github.io/dpx_tc002_frm/firmware/$OTHER"
+          mkdir -p "web-installer/firmware/$OTHER"
+          if curl -sf "$BASE/manifest.json" -o "web-installer/firmware/$OTHER/manifest.json"; then
+            python3 -c "
+          import json
+          d = json.load(open('web-installer/firmware/$OTHER/manifest.json'))
+          for p in d['builds'][0]['parts']:
+              print(p['path'])
+          " | while read -r f; do
+              curl -sf "$BASE/$f" -o "web-installer/firmware/$OTHER/$f" || echo "warning: failed to fetch $f, $OTHER channel may be incomplete this deploy"
+            done
+            echo "Preserved $OTHER channel:"
+            ls -la "web-installer/firmware/$OTHER/"
+          else
+            echo "No live $OTHER channel yet (expected on the very first release build before any tag existed) — skipping preservation, that channel just won't be selectable until it's built once."
+          fi
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

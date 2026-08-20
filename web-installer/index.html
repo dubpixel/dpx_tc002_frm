@@ -75,6 +75,18 @@
   ol li::marker { color: var(--purple); font-weight: 600; }
   ol strong { color: var(--text); }
 
+  .channel-row { display: flex; align-items: center; gap: 0.6rem; margin: 1.25rem 0 0.25rem; }
+  .channel-row label { font-size: 0.85rem; color: var(--text-dim); }
+  select#channel {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+  }
+  #channel_note { font-size: 0.8rem; color: var(--text-dim); margin: 0.35rem 0 0; }
+
   esp-web-install-button { display: block; margin-top: 1.5rem; }
   esp-web-install-button::part(activate-button) {
     background: var(--purple);
@@ -124,12 +136,40 @@
         <li>If this is a factory-fresh or non-WLED device, choose <strong>erase device</strong> when offered — a device already running this firmware doesn't need it.</li>
       </ol>
 
-      <esp-web-install-button manifest="./firmware/manifest.json"></esp-web-install-button>
+      <div class="channel-row">
+        <label for="channel">Build</label>
+        <select id="channel" onchange="setChannel(this.value)">
+          <option value="nightly">Nightly (latest <code>main</code>)</option>
+          <option value="release">Latest Release (stable)</option>
+        </select>
+      </div>
+      <p id="channel_note"></p>
+
+      <esp-web-install-button id="install_btn" manifest="./firmware/nightly/manifest.json"></esp-web-install-button>
     </div>
 
     <footer>
-      Firmware source: <a href="https://github.com/dubpixel/dpx_tc002_frm">dubpixel/dpx_tc002_frm</a> — rebuilt automatically from <code>main</code>.
+      Firmware source: <a href="https://github.com/dubpixel/dpx_tc002_frm">dubpixel/dpx_tc002_frm</a> —
+      nightly rebuilds on every push to <code>main</code>, release rebuilds on each tagged version.
     </footer>
   </div>
+  <script>
+    function setChannel(ch) {
+      var btn = document.getElementById('install_btn');
+      var note = document.getElementById('channel_note');
+      var manifestUrl = './firmware/' + ch + '/manifest.json';
+      note.textContent = 'Checking ' + ch + ' build…';
+      fetch(manifestUrl, { method: 'HEAD' }).then(function (r) {
+        if (r.ok) {
+          btn.setAttribute('manifest', manifestUrl);
+          note.textContent = '';
+        } else {
+          note.textContent = 'No ' + ch + ' build published yet' + (ch === 'release' ? ' (no tagged version pushed yet — use Nightly for now).' : '.');
+        }
+      }).catch(function () {
+        note.textContent = 'Could not check ' + ch + ' build availability.';
+      });
+    }
+  </script>
 </body>
 </html>
