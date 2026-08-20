@@ -24,7 +24,7 @@
     min-height: 100vh;
     padding: 3rem 1.5rem 4rem;
   }
-  .wrap { max-width: 680px; margin: 0 auto; }
+  .wrap { max-width: 780px; margin: 0 auto; }
   .brand { margin-bottom: 1.5rem; }
   .brand img { height: 40px; display: block; margin-bottom: 0.6rem; }
   .brand span {
@@ -67,6 +67,21 @@
   ul li::marker { color: var(--purple); }
   ul strong { color: var(--text); }
 
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 620px) { .cols { grid-template-columns: 1fr; } }
+  .cols h3 { font-size: 0.85rem; color: var(--text); margin: 0 0 0.5rem; }
+  .cols ul { margin-bottom: 1.1rem; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.88rem; color: var(--text-dim); }
+  table th, table td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--panel-border); }
+  table th { color: var(--text); font-weight: 600; }
+  table code { white-space: nowrap; }
+
+  .shots { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  @media (max-width: 620px) { .shots { grid-template-columns: 1fr; } }
+  .shots img { width: 100%; border-radius: 8px; border: 1px solid var(--panel-border); display: block; }
+  .shots-note { font-size: 0.8rem; color: var(--text-dim); margin: 0.6rem 0 0; }
+
   .links { display: flex; flex-wrap: wrap; gap: 0.75rem; }
   .links a {
     color: var(--text);
@@ -108,15 +123,81 @@
     <a class="cta" href="./flash/">Flash a device &rarr;</a>
 
     <div class="panel">
-      <h2>What it adds over stock WLED</h2>
+      <h2>What dpx_matrix adds over stock WLED</h2>
       <ul>
-        <li><strong>Text app loop</strong> — scrolling/static custom apps, clocks, WLED pattern slots</li>
-        <li><strong>Notifications</strong> — one-shot priority messages, with a recall/history backlog</li>
+        <li><strong>Text app loop</strong> — scrolling/static custom apps, clocks, WLED pattern slots, multiple instances per app</li>
+        <li><strong>8&times;8 icon rendering</strong> — LaMetric PNG&rarr;raw pipeline, icon browser built into <code>/ctrl</code></li>
         <li><strong>Timecode display</strong> (LTC via OSC) with frame progress bar</li>
-        <li><strong>Pixel overlay effects</strong> — weather, decorative, full-screen — composited on top of any WLED effect</li>
-        <li><strong>OSC + MQTT + HTTP</strong> control, all first-class</li>
-        <li><strong>Browser-flashable</strong> — no PlatformIO needed, see above</li>
+        <li><strong>Notifications</strong> — one-shot priority messages, with a recall/history backlog</li>
+        <li><strong>Text overlay + 15 pixel effects</strong> (weather, decorative, full-screen) composited on top of any WLED effect</li>
+        <li><strong>Device-claim PIN pairing</strong> — full-screen PIN for the friendster/cuemaster server's device-claim flow</li>
+        <li><strong>OSC receiver</strong> (UDP 4210), compatible with dpx_tc001 and AWTRIX OSC senders</li>
+        <li><strong>MQTT</strong> — commands, device presence, icon fetch over WLED's broker connection</li>
+        <li><strong>Browser-flashable firmware</strong> — no PlatformIO needed, see above</li>
+        <li><strong>First-boot config</strong> — usable out of the box, no wizard required</li>
       </ul>
+    </div>
+
+    <div class="panel">
+      <h2>Plus everything WLED already does</h2>
+      <div class="cols">
+        <div>
+          <h3>Effects &amp; Visuals</h3>
+          <ul>
+            <li>200+ built-in effects, audio-reactive &amp; 2D/matrix</li>
+            <li>50+ palettes + built-in palette editor</li>
+            <li>2D matrix support, flexible panel mapping</li>
+            <li>Effect blending, antialiased drawing</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Connectivity</h3>
+          <ul>
+            <li>JSON &amp; HTTP APIs, Multi-WiFi + AP fallback</li>
+            <li>MQTT with Home Assistant discovery</li>
+            <li>E1.31, Art-Net, DDP, TPM2.net, UDP realtime sync</li>
+            <li>Android/iOS app, Alexa, Philips Hue sync</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Segments &amp; Control</h3>
+          <ul>
+            <li>Independent segments — different effects per zone</li>
+            <li>Up to 250 presets, playlists for automated cycling</li>
+            <li>Nightlight, Auto Brightness Limiter</li>
+          </ul>
+        </div>
+        <div>
+          <h3>Developer</h3>
+          <ul>
+            <li>Usermod system — extend without touching core</li>
+            <li>Full OTA updates (HTTP + ArduinoOTA)</li>
+            <li>NTP time sync, full timezone + DST, timers</li>
+          </ul>
+        </div>
+      </div>
+      <p class="shots-note">Full feature list, docs, and links: <a href="https://kno.wled.ge" style="color:var(--purple)">kno.wled.ge</a></p>
+    </div>
+
+    <div class="panel">
+      <h2>First boot</h2>
+      <table>
+        <tr><th>AP SSID</th><td><code>dpx-tc002</code></td></tr>
+        <tr><th>AP Password</th><td><code>dubpixel1</code></td></tr>
+        <tr><th>Setup URL</th><td><code>http://4.3.2.1</code> while connected to the AP</td></tr>
+        <tr><th>Once on your WiFi</th><td><code>http://dpx-tc002.local</code></td></tr>
+        <tr><th>Serial</th><td>115200 baud, prints IP on connect</td></tr>
+      </table>
+      <p class="shots-note">Full defaults table &amp; control-interface reference in the README.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Action shots</h2>
+      <div class="shots">
+        <img src="images/action_shot_placeholder.svg" alt="Action shot placeholder 1">
+        <img src="images/action_shot_placeholder_2.svg" alt="Action shot placeholder 2">
+      </div>
+      <p class="shots-note">🚧 Placeholders — real photos coming later.</p>
     </div>
 
     <div class="panel">
@@ -124,12 +205,13 @@
       <div class="links">
         <a href="https://github.com/dubpixel/dpx_tc002_frm">Full README &amp; source</a>
         <a href="https://github.com/dubpixel/dpx_tc002_frm/issues">Issues</a>
+        <a href="https://github.com/dubpixel/dpx_tc002_frm#roadmap">Roadmap</a>
         <a href="./flash/">Flash tool</a>
       </div>
     </div>
 
     <footer>
-      by <a href="https://www.dubpixel.tv">Joshua Fleitell</a> — EUPL v1.2, fork of <a href="https://github.com/wled/WLED">WLED</a>
+      by <a href="https://www.dubpixel.tv">Joshua Fleitell</a> — EUPL v1.2, fork of <a href="https://github.com/wled/WLED">WLED</a>. AwtrixFont (BSD 3-Clause) by Blueforcer et al.
     </footer>
   </div>
 </body>
