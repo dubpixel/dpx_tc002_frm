@@ -102,10 +102,23 @@
   }
   footer a { color: var(--purple); text-decoration: none; }
   footer a:hover { text-decoration: underline; }
+
+  .badges { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1.5rem; }
+  .badges img { height: 20px; display: block; }
+  .built-with { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+  .built-with img { height: 24px; display: block; }
 </style>
 </head>
 <body>
   <div class="wrap">
+    <div class="badges">
+      <a href="https://github.com/dubpixel/dpx_tc002_frm/graphs/contributors"><img src="https://img.shields.io/github/contributors/dubpixel/dpx_tc002_frm.svg?style=flat-square" alt="Contributors"></a>
+      <a href="https://github.com/dubpixel/dpx_tc002_frm/network/members"><img src="https://img.shields.io/github/forks/dubpixel/dpx_tc002_frm.svg?style=flat-square" alt="Forks"></a>
+      <a href="https://github.com/dubpixel/dpx_tc002_frm/stargazers"><img src="https://img.shields.io/github/stars/dubpixel/dpx_tc002_frm.svg?style=flat-square" alt="Stargazers"></a>
+      <a href="https://github.com/dubpixel/dpx_tc002_frm/issues"><img src="https://img.shields.io/github/issues/dubpixel/dpx_tc002_frm.svg?style=flat-square" alt="Issues"></a>
+      <a href="https://github.com/dubpixel/dpx_tc002_frm/blob/main/LICENSE"><img src="https://img.shields.io/github/license/dubpixel/dpx_tc002_frm.svg?style=flat-square" alt="License"></a>
+    </div>
+
     <div class="brand">
       <img src="logo.png" alt="dubpixel">
       <span>dpx_tc002_frm</span>
@@ -114,10 +127,13 @@
     <h1>WLED for your wrist-worn pixel clock</h1>
     <p class="tagline">Flash it from a browser, drive it from OSC/MQTT/HTTP.</p>
     <p class="lede">
-      dpx_tc002_frm turns the <a href="https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882" style="color:inherit">Ulanzi TC001</a>
-      into a networked 32&times;8 status display — notifications, timecode, custom clocks, and 200+ WLED
-      effects, all controllable without touching a soldering iron. Built on <a href="https://github.com/wled/WLED" style="color:inherit">WLED</a>
-      plus the original <code>dpx_matrix</code> usermod.
+      <strong style="color:var(--text)">dpx_tc002_frm</strong> is a custom WLED firmware build for the
+      <a href="https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882" style="color:inherit">Ulanzi TC001</a> —
+      a battery-powered ESP32 device with a 32&times;8 WS2812B LED matrix. It replaces the stock Awtrix
+      firmware with a WLED base plus the <code>dpx_matrix</code> usermod, adding timecode display,
+      OSC/MQTT control, scrolling text apps, pixel overlay effects, and first-boot hardware configuration.
+      Built on <a href="https://github.com/wled/WLED" style="color:inherit">WLED</a> (EUPL v1.2) — all WLED
+      features remain fully functional.
     </p>
 
     <a class="cta" href="./flash/">Flash a device &rarr;</a>
@@ -198,6 +214,24 @@
         <img src="images/action_shot_placeholder_2.svg" alt="Action shot placeholder 2">
       </div>
       <p class="shots-note">🚧 Placeholders — real photos coming later.</p>
+    </div>
+
+    <div class="panel">
+      <h2>Built with</h2>
+      <div class="built-with">
+        <a href="https://github.com/wled/WLED"><img src="https://img.shields.io/badge/WLED-17.0.0--dev-blue?style=flat-square" alt="WLED"></a>
+        <a href="https://platformio.org"><img src="https://img.shields.io/badge/PlatformIO-ESP32-orange?style=flat-square" alt="PlatformIO"></a>
+        <a href="https://www.espressif.com/en/products/socs/esp32"><img src="https://img.shields.io/badge/ESP32--WROOM--32D-240MHz-green?style=flat-square" alt="ESP32"></a>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Acknowledgments</h2>
+      <ul>
+        <li><a href="https://github.com/wled/WLED" style="color:inherit">WLED</a> — the firmware base, originally by <a href="https://github.com/Aircoookie" style="color:inherit">Aircoookie</a>, now community-maintained. EUPL v1.2.</li>
+        <li><a href="https://github.com/Blueforcer/awtrix3" style="color:inherit">AwtrixFont</a> — TomThumb-derived 3&times;5 pixel font by Blueforcer et al. BSD 3-Clause.</li>
+        <li><a href="https://github.com/Makuna/NeoPixelBus" style="color:inherit">NeoPixelBus</a>, <a href="https://github.com/Aircoookie/ESPAsyncWebServer" style="color:inherit">ESPAsyncWebServer</a>, <a href="https://github.com/marvinroger/async-mqtt-client" style="color:inherit">AsyncMqttClient</a>, <a href="https://github.com/crankyoldgit/IRremoteESP8266" style="color:inherit">IRremoteESP8266</a>, <a href="https://github.com/someweisguy/esp_dmx" style="color:inherit">ESP-DMX</a></li>
+      </ul>
     </div>
 
     <div class="panel">
