@@ -133,9 +133,12 @@ const out = `<!DOCTYPE html>
 </aside>
 <main>
 <h1>&#128196; API Reference</h1>
-<p style="color:var(--text-dim);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:-1rem 0 1.5rem;font-size:0.9rem">
+<p style="color:var(--text-dim);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:-1rem 0 1rem;font-size:0.9rem">
   Generated from the firmware's own <code>/api-ref</code> page — always matches what's actually implemented.
   Point <code>[IP]</code> at your device's address (<code>dpx-tc002.local</code> or its IP).
+</p>
+<p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0 0 1.5rem">
+  <a href="./llms.txt" style="display:inline-block;background:rgba(183,108,231,0.1);border:1px solid var(--purple);color:var(--purple);border-radius:8px;padding:0.5rem 1rem;font-size:0.85rem;text-decoration:none;font-weight:600">&#8681; Download as plain markdown (llms.txt) — for AI agents / offline reading</a>
 </p>
 ${bodyStripped}
 </main>
@@ -146,3 +149,102 @@ ${bodyStripped}
 fs.mkdirSync(OUT_DIR, { recursive: true });
 fs.writeFileSync(OUT_FILE, out);
 console.log("Wrote " + OUT_FILE + " (" + out.length + " bytes)");
+
+// ── Agent-digestible markdown version ───────────────────────────────────────
+// Same source (bodyStripped, before the HTML restyle above) converted to
+// plain markdown instead of styled HTML — a page like this one is exactly
+// what LLM agents want to fetch and parse: no CSS/JS noise, just the facts,
+// and it can never drift from the graphical version since both come from
+// the same extracted apiref_html.
+
+function decodeEntities(s) {
+  return s
+    .replace(/&nbsp;/g, " ")
+    .replace(/&mdash;/g, "—")
+    .replace(/&rarr;/g, "->")
+    .replace(/&times;/g, "x")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(parseInt(code, 10)))
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function stripTags(s) {
+  return decodeEntities(
+    s
+      .replace(/<code>(.*?)<\/code>/gs, "`$1`")
+      .replace(/<a\s+[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gs, "[$2]($1)")
+      .replace(/<[^>]+>/g, "")
+  ).trim().replace(/\s+/g, " ");
+}
+
+// Like stripTags, but preserves newlines (only collapses horizontal
+// whitespace) — used on the whole document after headings/paragraphs have
+// already inserted their own \n\n structure, so that structure survives.
+function stripRemainingTags(s) {
+  return decodeEntities(
+    s
+      .replace(/<code>(.*?)<\/code>/gs, "`$1`")
+      .replace(/<a\s+[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gs, "[$2]($1)")
+      .replace(/<[^>]+>/g, "")
+  ).split("\n").map((line) => line.replace(/[ \t]+/g, " ").trim()).join("\n");
+}
+
+function tableToMarkdown(tableHtml) {
+  const rows = [...tableHtml.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].map((m) => m[1]);
+  if (!rows.length) return "";
+  const cellsOf = (row) => [...row.matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/g)].map((m) => (stripTags(m[1]) || " ").replace(/\|/g, "\\|"));
+  const header = cellsOf(rows[0]);
+  let md = "| " + header.join(" | ") + " |\n";
+  md += "| " + header.map(() => "---").join(" | ") + " |\n";
+  for (let i = 1; i < rows.length; i++) {
+    md += "| " + cellsOf(rows[i]).join(" | ") + " |\n";
+  }
+  return md;
+}
+
+function htmlToMarkdown(html) {
+  let src = html
+    .replace(/<script[\s\S]*?<\/script>/g, "")
+    .replace(/<\/span>\s*<span/g, "</span> <span") // adjacent pills (e.g. GET+POST on one row)
+    .replace(/<div id="fx_list"[^>]*>Loading\.\.\.<\/div>/, "_(fetched live from device — see GET /api/effects)_")
+    .replace(/<div id="tr_list"[^>]*>Loading\.\.\.<\/div>/, "_(fetched live from device — see GET /api/transitions)_");
+  // Pull out and convert tables first (placeholder tokens so later generic
+  // tag-stripping doesn't mangle them).
+  const tables = [];
+  src = src.replace(/<table>([\s\S]*?)<\/table>/g, (_, inner) => {
+    tables.push(tableToMarkdown(inner));
+    return ` TABLE${tables.length - 1} `;
+  });
+  // Code blocks (.block divs) -> fenced code, stripping the copy button.
+  const blocks = [];
+  src = src.replace(/<div class="block">([\s\S]*?)<\/div>/g, (_, inner) => {
+    const code = decodeEntities(inner.replace(/<button[^>]*>copy<\/button>/, "")).trim();
+    blocks.push("```\n" + code + "\n```");
+    return ` BLOCK${blocks.length - 1} `;
+  });
+  src = src.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/g, (_, inner) => "\n\n# " + stripTags(inner) + "\n");
+  src = src.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/g, (_, inner) => "\n\n## " + stripTags(inner) + "\n");
+  src = src.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/g, (_, inner) => "\n\n### " + stripTags(inner) + "\n");
+  src = src.replace(/<p[^>]*>([\s\S]*?)<\/p>/g, (_, inner) => "\n" + stripTags(inner) + "\n");
+  src = src.replace(/<div[^>]*>|<\/div>/g, "\n");
+  src = stripRemainingTags(src);
+  src = src.replace(/ TABLE(\d+) /g, (_, i) => "\n\n" + tables[i]);
+  src = src.replace(/ BLOCK(\d+) /g, (_, i) => "\n\n" + blocks[i] + "\n");
+  return src.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+const MD_HEADER = `# dpx_tc002_frm API Reference
+
+Generated from the firmware's own /api-ref page (usermods/dpx_matrix/dpx_html.h)
+— always matches what's actually implemented. Point [IP] at your device's
+address (dpx-tc002.local or its IP). Graphical version: https://dubpixel.github.io/dpx_tc002_frm/api/
+
+`;
+
+const mdOut = MD_HEADER + htmlToMarkdown(bodyStripped) + "\n";
+const MD_FILE = path.join(OUT_DIR, "llms.txt");
+fs.writeFileSync(MD_FILE, mdOut);
+console.log("Wrote " + MD_FILE + " (" + mdOut.length + " bytes)");

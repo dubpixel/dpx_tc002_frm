@@ -1,0 +1,247 @@
+# dpx_tc002_frm API Reference
+
+Generated from the firmware's own /api-ref page (usermods/dpx_matrix/dpx_html.h)
+— always matches what's actually implemented. Point [IP] at your device's
+address (dpx-tc002.local or its IP). Graphical version: https://dubpixel.github.io/dpx_tc002_frm/api/
+
+# 📄 API Reference
+
+## HTTP Endpoints
+
+| Method | URL | Body / Notes |
+| --- | --- | --- |
+| GET | `/api/stats` | Device stats (RAM, uptime, battery…) |
+| GET | `/api/screen` | Current matrix as 256× 24-bit int array |
+| GET | `/api/effects` | Array of effect name strings |
+| GET | `/api/transitions` | Array of transition name strings |
+| GET | `/api/loop` | Ordered app list |
+| GET | `/api/apps` | App list with icons |
+| GET | `/api/settings` | Current settings JSON |
+| POST | `/api/notify` | One-shot notification — see JSON keys below |
+| POST | `/api/notify/dismiss` | Dismiss held notification (empty body) |
+| POST | `/api/pair` | `{"pin":"482913","duration":60,"scale":1}` — full-screen PIN display for device-claim pairing; highest render priority. `scale` 1 (default) or 2 (larger, may clip vertically). Empty body clears early. |
+| POST | `/api/custom?name=appname[&slot=id]` | Create/update persistent custom app. Optional `slot` lets the same `name` occupy multiple rotation positions — the real key is `name#slot` everywhere (switch/mute/delete too). |
+| POST | `/api/switch` | `{"name":"Time"}` — jump to app |
+| POST | `/api/nextapp` | empty body |
+| POST | `/api/previousapp` | empty body |
+| POST | `/api/power` | `{"power":true}` |
+| POST | `/api/sleep` | `{"sleep":60}` — seconds |
+| POST | `/api/settings` | Settings JSON — see keys below |
+| POST | `/api/moodlight` | `{"color":[255,80,0],"brightness":170}` |
+| POST | `/api/indicator1` `/2` `/3` `/4` | `{"color":[255,0,0],"blink":500}` |
+| POST | `/api/rtttl` | Raw RTTTL string as plain body |
+| POST | `/api/sound` | `{"sound":"alarm"}` or `{"rtttl":"..."}` — loads `/MELODIES/<name>.txt` |
+| GET | `/api/time` | Current device time: `{"local":"2026-07-14T15:30:00","utc":1752506200}` |
+| POST | `/api/time` | `{"utc":1752506200}` — set clock via settimeofday() |
+| POST | `/api/syncntp` | Re-trigger NTP sync with current server + timezone settings |
+| POST | `/api/rename` | `{"from":"/ICONS/old.raw","to":"/ICONS/new.raw"}` |
+| GET | `/api/reboot` | Reboot device |
+| GET | `/screen` | Live view page |
+| GET | `/ctrl` | Control panel |
+| GET | `/browse` | Community browser |
+
+### Quick curl examples
+
+```
+curl -X POST http://[IP]/api/notify \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello!","color":[255,200,0],"icon":"87","duration":8}'
+```
+
+```
+curl -X POST http://[IP]/api/custom?name=myapp \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Always on","rainbow":true,"scrollSpeed":80}'
+```
+
+## Notify & Custom App — JSON Keys
+
+All keys optional. N=notify only C=custom app only B=both
+
+| Key | Type | Description | Default |   |
+| --- | --- | --- | --- | --- |
+| `text` | string/array | Text to display. Array = colored fragments: `[{"t":"Hi","c":"FF0000"}]` | — | B |
+| `textCase` | int | 0=global, 1=UPPER, 2=as-sent | 0 | B |
+| `topText` | bool | Draw text on top row | false | B |
+| `textOffset` | int | X-offset for text start | 0 | B |
+| `center` | bool | Center short non-scrolling text | true | B |
+| `color` | str/[r,g,b] | Text/bar/line color | — | B |
+| `gradient` | [c1,c2] | Two-color text gradient | — | B |
+| `background` | str/[r,g,b] | Background fill color | — | B |
+| `rainbow` | bool | RGB rainbow per letter | false | B |
+| `blinkText` | int | Blink text every N ms | — | B |
+| `fadeText` | int | Fade text in/out every N ms | — | B |
+| `icon` | string | Installed icon name (no ext) — install via /browse, saved as /ICONS/<name>.raw | — | B |
+| `pushIcon` | int | 0=fixed, 1=scroll+gone, 2=scroll+loop | 0 | B |
+| `type` | string | "text" (default) \| "wled_fx" (pattern slot) \| "time" \| "date" (custom clock) | text | B |
+| `effect` | int | type=wled_fx: WLED mode ID (index into GET /api/effects) | — | B |
+| `palette` | int | type=wled_fx: WLED palette ID (index into GET /json/pal), -1=leave as-is | -1 | B |
+| `speed` | int | type=wled_fx: WLED FX speed (0-255) | 128 | B |
+| `intensity` | int | type=wled_fx: WLED FX intensity (0-255) | 128 | B |
+| `offset` | int | type=time/date: minutes offset from WLED's configured local time | 0 | B |
+| `noScroll` | bool | Disable text scrolling | false | B |
+| `scrollSpeed` | int | Scroll speed % of default | 100 | B |
+| `duration` | int | Display time in seconds | 5 | B |
+| `repeat` | int | Times to scroll before ending (-1=forever) | -1 | B |
+| `hold` | bool | Hold notification until dismissed | false | N |
+| `stack` | bool | Stack notification; false=replace current | true | N |
+| `wakeup` | bool | Wake matrix from sleep for notification | false | N |
+| `sound` | string | RTTTL filename (no ext) or DFPlayer 4-digit number | — | N |
+| `rtttl` | string | Inline RTTTL string | — | N |
+| `loopSound` | bool | Loop sound for notification duration | false | N |
+| `effect` | string | Background effect name (see Effects) | — | B |
+| `effectSettings` | object | `{"speed":3,"palette":"Rainbow","blend":true}` | — | B |
+| `overlay` | string | Per-app overlay effect — weather: snow/rain/drizzle/storm/thunder/frost; decorative: sparkle/twinkle/strobe/blink; background: colorwaves/plasma/twinklingstars/theatrechase/pacifica; or clear | — | B |
+| `bar` | int[] | Bar chart data (max 16 values, 11 with icon) | — | B |
+| `line` | int[] | Line chart data (same limits) | — | B |
+| `autoscale` | bool | Autoscale bar/line chart | true | B |
+| `barBC` | str/[r,g,b] | Bar background color | 0 | B |
+| `progress` | int | Progress bar 0–100 (-1=off) | -1 | B |
+| `progressC` | str/[r,g,b] | Progress bar fill color | — | B |
+| `progressBC` | str/[r,g,b] | Progress bar background color | — | B |
+| `draw` | object[] | Drawing instructions array — see Draw Commands | — | B |
+| `lifetime` | int | Remove custom app if no update after N seconds | 0 | C |
+| `pos` | int | Loop position (0-based, set on first push) | — | C |
+| `save` | bool | Persist custom app across reboots (avoid for high-freq updates) | false | C |
+| `clients` | string[] | Forward notification to other devices (IP or MQTT prefix) | — | N |
+
+## Settings Keys — POST /api/settings or GET to read
+
+| Key | Type | Description | Range/Default |
+| --- | --- | --- | --- |
+| `BRI` | int | Brightness — applied to WLED main brightness | 0–255 |
+| `ATIME` | int | App display duration per rotation slot (seconds) | >0 |
+| `ATRANS` | bool | Auto-advance through app rotation | true/false |
+| `SSPEED` | int | Global scroll speed (% of default) | 1–200 |
+| `UPPERCASE` | bool | Force all text to uppercase globally | true/false |
+| `Timezone` | string | POSIX timezone string e.g. `PST8PDT,M3.2.0,M11.1.0` | — |
+| `MQTT_PREFIX` | string | Read-only — MQTT device topic prefix | — |
+| `SOUND` | bool | Buzzer/piezo enabled | true |
+| `VOL` | int | Volume (passive piezo — no-op) | 0–30 |
+| `TIM` | bool | Include Time app in rotation | true |
+| `DAT` | bool | Include Date app in rotation | false |
+
+Phase 1.8: `ABRI`, `CEL`, `TEMP`, `HUM`, `BAT` — pending SHT3x / battery ADC / LDR firmware support.
+
+## WLED JSON API — native WLED endpoints, always available
+
+WLED's built-in REST API. Use these for brightness, effects, segments, and colours. Full docs at [kno.wled.ge/interfaces/json-api](https://kno.wled.ge/interfaces/json-api/).
+
+| Method | URL | Body / Notes |
+| --- | --- | --- |
+| GET | `/json` | Full state + info + effect/palette lists combined |
+| GET POST | `/json/state` | WLED state: `{"on":true,"bri":128,"seg":[{"fx":0,"col":[[255,0,0]]}]}` |
+| GET | `/json/info` | Device info: firmware version, LED count, WiFi, etc. |
+| GET | `/json/eff` | Effect name array (also available as `GET /api/effects`) |
+| GET | `/json/palettes` | Palette name array |
+
+## Effects & Overlays — fetched live from device
+
+### Background Effects
+
+_(fetched live from device — see GET /api/effects)_
+
+### Overlay Effects
+
+clear · snow · rain · drizzle · storm · thunder · frost · sparkle · twinkle · strobe · blink · colorwaves · plasma · twinklingstars · theatrechase · pacifica
+
+### App Transitions
+
+_(fetched live from device — see GET /api/transitions)_
+
+## Draw Commands — "draw":[...] in notify/custom
+
+| Command | Values | Description |
+| --- | --- | --- |
+| `dp` | `[x,y,color]` | Draw pixel |
+| `dl` | `[x0,y0,x1,y1,color]` | Draw line |
+| `dr` | `[x,y,w,h,color]` | Rectangle outline |
+| `df` | `[x,y,w,h,color]` | Filled rectangle |
+| `dc` | `[x,y,r,color]` | Circle outline |
+| `dfc` | `[x,y,r,color]` | Filled circle |
+| `dt` | `[x,y,"text",color]` | Draw text |
+| `db` | `[x,y,w,h,[rgb888array]]` | Bitmap array |
+
+```
+{"draw":[{"df":[0,0,8,8,"#1a1aff"]},{"dt":[9,1,"Hi","#ffffff"]}]}
+```
+
+## OSC (UDP port 4210)
+
+Send OSC UDP packets to port 4210. Both bare addresses and `/dpx_tc002/` or `/awtrix/` namespace prefixes are accepted.
+
+| Address | Args | Action |
+| --- | --- | --- |
+| `/notify` or `/text` | (s) text | One-shot notification |
+| `/custom/<name>` | (s) text | Update/create persistent app |
+| `/switch` | (s) appname | Switch to named app |
+| `/nextapp` | none | Next app |
+| `/previousapp` | none | Previous app |
+| `/power` | (i\|f) 0/1 | Power off/on |
+| `/brightness` | (i\|f) 0–255 | Set brightness |
+| `/indicator/1` `/2` `/3` | (i i i) r g b | Set indicator color |
+
+```
+# python-osc example
+from pythonosc import udp_client
+c = udp_client.SimpleUDPClient("192.168.x.x", 4210)
+c.send_message("/notify", "01:23:45:12")
+c.send_message("/dpx_tc002/custom/tc", "00:59:59:24")
+```
+
+## MQTT — broker configured in /setup · prefix set per device
+
+All topics use your configured prefix (default: device hostname, e.g. `awtrix_a1b2c3`). Format: `[PREFIX]/topic`.
+
+### Inbound — device subscribes, you publish
+
+| Topic | Payload | Action |
+| --- | --- | --- |
+| `[PREFIX]/notify` | JSON | One-shot notification — same JSON keys as HTTP notify |
+| `[PREFIX]/notify/dismiss` | empty | Dismiss held notification |
+| `[PREFIX]/custom/[appname]` | JSON or empty | Create/update custom app; empty payload = delete |
+| `[PREFIX]/settings` | JSON | Update settings — same keys as HTTP settings |
+| `[PREFIX]/switch` | `{"name":"Time"}` | Switch to named app |
+| `[PREFIX]/nextapp` | any | Next app |
+| `[PREFIX]/previousapp` | any | Previous app |
+| `[PREFIX]/power` | `{"power":true}` | Power on/off |
+| `[PREFIX]/sleep` | `{"sleep":60}` | Deep sleep for N seconds |
+| `[PREFIX]/moodlight` | JSON or empty | Set moodlight; empty = disable |
+| `[PREFIX]/indicator1` | `{"color":[r,g,b],"blink":500}` | Indicator 1 |
+| `[PREFIX]/indicator2` | same | Indicator 2 |
+| `[PREFIX]/indicator3` | same | Indicator 3 |
+| `[PREFIX]/indicator4` | same | Indicator 4 |
+| `[PREFIX]/sound` | `{"sound":"alarm"}` | Play sound file from /MELODIES/ |
+| `[PREFIX]/rtttl` | raw RTTTL string | Play inline RTTTL melody |
+| `[PREFIX]/apps` | JSON array | Update app loop order |
+| `[PREFIX]/sendscreen` | any | Request device to publish current screen state |
+| `[PREFIX]/doupdate` | any | Trigger OTA firmware update |
+| `[PREFIX]/reboot` | any | Reboot device |
+| `[PREFIX]/r2d2` | any | Play R2D2 sound effect |
+
+### Outbound — device publishes, you subscribe
+
+| Topic | Payload | When |
+| --- | --- | --- |
+| `[PREFIX]/stats` | JSON | Periodic stats: battery, RAM, uptime, temp, humidity, lux, RSSI, IP, version |
+| `[PREFIX]/stats/currentApp` | string | App name each time display switches |
+| `[PREFIX]/stats/effects` | JSON array | Published on connect — list of effect names |
+| `[PREFIX]/stats/transitions` | JSON array | Published on connect — list of transition names |
+| `[PREFIX]/stats/device` | `online` | Published on connect |
+| `[PREFIX]/screen` | JSON array (256× 24-bit int) | Response to `/sendscreen` |
+| `[PREFIX]/buttonLeft` | `true`/`false` | Physical button press/release |
+| `[PREFIX]/buttonRight` | `true`/`false` | Physical button press/release |
+| `[PREFIX]/buttonSelect` | `true`/`false` | Middle button press/release |
+
+```
+# mosquitto example — send notification
+mosquitto_pub -h 192.168.x.x -t "awtrix_a1b2c3/notify" \
+  -m '{"text":"hello","rainbow":true,"duration":8}'
+
+# create a persistent app
+mosquitto_pub -h 192.168.x.x -t "awtrix_a1b2c3/custom/myticker" \
+  -m '{"text":"LIVE","color":[255,0,0],"scrollSpeed":80}'
+
+# subscribe to button presses
+mosquitto_sub -h 192.168.x.x -t "awtrix_a1b2c3/button+"
+```

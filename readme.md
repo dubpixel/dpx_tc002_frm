@@ -41,8 +41,9 @@
 <h1 align="center">dpx_tc002_frm</h1>
 <h3 align="center"><i>WLED for your wrist-worn pixel clock — flash it from a browser, drive it from OSC/MQTT/HTTP</i></h3>
   <p align="center">
-    Turns the Ulanzi TC001 into a networked 32×8 status display: notifications, timecode,
-    custom clocks, and 200+ WLED effects, all controllable without touching a soldering iron.
+    Turns the Ulanzi TC001 into a networked 32×8 status display with a fully documented open
+    API — and it's not just a clock: notifications, timecode, custom clocks, and 200+ WLED
+    effects, all controllable without touching a soldering iron.
         <br />
      »  
      <a href="https://github.com/dubpixel/dpx_tc002_frm/tree/main/"><strong>Project Here!</strong></a>
@@ -76,7 +77,7 @@
 <details>
 <summary><h3>About The Project</h3></summary>
 
-**dpx_tc002_frm** is a custom WLED firmware build for the [Ulanzi TC001](https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882) pixel clock — a battery-powered ESP32 device with a 32×8 WS2812B LED matrix. It replaces the stock Awtrix firmware with a WLED base plus the `dpx_matrix` usermod, adding timecode display, OSC/MQTT control, scrolling text apps, pixel overlay effects, and first-boot hardware configuration.
+**dpx_tc002_frm** is a custom WLED firmware build for the [Ulanzi TC001](https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882) pixel clock — a battery-powered ESP32 device with a 32×8 WS2812B LED matrix. It replaces the stock Awtrix firmware with a WLED base plus the `dpx_matrix` usermod, adding timecode display, OSC/MQTT control, scrolling text apps, pixel overlay effects, first-boot hardware configuration, and a fully documented HTTP/OSC/MQTT API — it's not limited to being a clock, it's a general-purpose networked pixel display you can drive from anything.
 
 Built on top of [WLED](https://github.com/wled/WLED) (EUPL v1.2) — all WLED features remain fully functional.
 
@@ -321,6 +322,7 @@ See [First Boot Defaults](#first-boot-defaults) for all control interfaces.
 - [ ] Temperature/humidity sensor display (I²C)
 - [ ] Preset integration — trigger dpx apps from WLED presets
 - [ ] 2D effect groups in web UI
+- [ ] Social/community features via the companion server (likes, reactions, that kind of thing) — speculative, low priority
 
 See the [open issues](https://github.com/dubpixel/dpx_tc002_frm/issues) for a full list of proposed features and known issues.
 

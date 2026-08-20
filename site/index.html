@@ -117,7 +117,7 @@
     </div>
 
     <h1>WLED for your wrist-worn pixel clock</h1>
-    <p class="tagline">Flash it from a browser, drive it from OSC/MQTT/HTTP.</p>
+    <p class="tagline">Flash it from a browser, drive it from OSC/MQTT/HTTP &mdash; a fully documented open API, not just a clock.</p>
 
     <div class="badges">
       <a href="https://github.com/dubpixel/dpx_tc002_frm/graphs/contributors"><img src="https://img.shields.io/github/contributors/dubpixel/dpx_tc002_frm.svg?style=flat-square" alt="Contributors"></a>
@@ -132,12 +132,18 @@
       <a href="https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882" style="color:inherit">Ulanzi TC001</a> —
       a battery-powered ESP32 device with a 32&times;8 WS2812B LED matrix. It replaces the stock Awtrix
       firmware with a WLED base plus the <code>dpx_matrix</code> usermod, adding timecode display,
-      OSC/MQTT control, scrolling text apps, pixel overlay effects, and first-boot hardware configuration.
-      Built on <a href="https://github.com/wled/WLED" style="color:inherit">WLED</a> (EUPL v1.2) — all WLED
+      OSC/MQTT control, scrolling text apps, pixel overlay effects, first-boot hardware configuration, and
+      a fully documented HTTP/OSC/MQTT API — it's not limited to being a clock, it's a general-purpose
+      networked pixel display you can drive from anything. Built on
+      <a href="https://github.com/wled/WLED" style="color:inherit">WLED</a> (EUPL v1.2) — all WLED
       features remain fully functional.
     </p>
 
-    <a class="cta" href="./flash/">Flash a device &rarr;</a>
+    <div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-bottom:0.6rem">
+      <a class="cta" href="./flash/" style="margin-bottom:0">Flash a device &rarr;</a>
+      <a class="cta" href="./api/" style="margin-bottom:0;background:transparent;color:var(--purple);border:1px solid var(--purple)">Explore the API &rarr;</a>
+    </div>
+    <p class="shots-note" style="margin:0 0 2rem">Every endpoint is documented and open — HTTP, OSC, and MQTT. Grab the <a href="./api/llms.txt" style="color:var(--purple)">plain-markdown digest</a> if you're an agent or just want it offline.</p>
 
     <div class="panel">
       <h2>Action shots</h2>
