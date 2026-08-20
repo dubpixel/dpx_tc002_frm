@@ -10,8 +10,12 @@
 // out of the box without the WLED setup wizard.
 //
 // Defaults written:
-//   AP      dpx-tc002 / dubpixel1, behav=1 (always open when disconnected)
-//   mDNS    dpx-tc002
+//   AP      dpx-tc002-XXXXXX / dubpixel1, behav=1 (always open when disconnected)
+//           XXXXXX = last 3 bytes of the chip's MAC, lowercase hex — so two
+//           unclaimed devices on the same network never collide (same
+//           convention WLED itself uses for its own default "wled-XXXXXX").
+//   mDNS    dpx-tc002-XXXXXX (same suffix as the AP SSID — same string, so
+//           "what WiFi network did I just join" tells you the mDNS name too)
 //   LED     GPIO 32, 256× WS2812B GRB, 42fps, 8.5W limit
 //   2D      32×8 panel, non-serpentine (change via WLED UI if needed)
 //   Buttons GPIO 26/14/27, push-button type
@@ -35,16 +39,32 @@ static void dpxFirstBoot() {
 
     DynamicJsonDocument doc(2048);
 
+    // Unique per-device suffix (last 3 MAC bytes, lowercase hex) — same
+    // technique WLED itself falls back to for its own default hostname
+    // (wled.cpp: escapedMac.c_str()+6). Computed directly from
+    // WiFi.macAddress() here rather than relying on WLED's escapedMac
+    // global — that's populated earlier in WLED::begin() so it'd likely
+    // work too, but this way dpxFirstBoot() has no ordering dependency on
+    // WLED core internals.
+    String mac = WiFi.macAddress();
+    mac.replace(":", "");
+    mac.toLowerCase();
+    String macSuffix = mac.substring(6); // last 3 bytes = 6 hex chars
+    String dpxName = "dpx-tc002-" + macSuffix;
+
     // Identity
     JsonObject id   = doc.createNestedObject("id");
-    id["mdns"]      = "dpx-tc002";
+    id["mdns"]      = dpxName;
     id["name"]      = "dpx_tc002";
     id["inv"]       = "TC001";
     id["sui"]       = false;
 
-    // Access point
+    // Access point — same name as mDNS (GH: "it really needs to assign
+    // itself a dynamic mac thing... so duplicates don't break dns" — using
+    // one shared name for both means the AP you just joined tells you the
+    // mDNS name too, no separate lookup needed).
     JsonObject ap   = doc.createNestedObject("ap");
-    ap["ssid"]      = "dpx-tc002";
+    ap["ssid"]      = dpxName;
     ap["psk"]       = "dubpixel1";
     ap["chan"]       = 6;
     ap["hide"]      = 0;

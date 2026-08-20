@@ -54,6 +54,7 @@
 			<h1>Welcome to WLED!</h1>
 			<h3>A versatile tool for controlling LEDs</h3>
 			<h4>Find out more at wled.me</h4>
+			<p id="dpxName" style="margin:0.5em 0;font-size:0.95em;color:#8cf"></p>
 			<b>Next steps:</b><br><br>
 			Connect to your local WiFi here!<br>
 			<button onclick="window.location.href='./settings/wifi'">WiFi settings</button><br>
@@ -61,5 +62,18 @@
 			<small style="color:#aaa">If the AP network just appeared, allow a few seconds for it to stabilise before connecting.</small><br><br>
 			<button onclick="window.location.href='./?sliders'">To the controls!</button><br>
 		</div>
+		<script>
+			// dpx_tc002: show this device's actual mDNS/AP name (it's unique per
+			// device — a MAC suffix, not the literal string "dpx-tc002") so
+			// there's no ambiguity about what to connect to next, whether
+			// you're still on the AP or already joined WiFi.
+			fetch('/json/info').then(function(r){return r.json();}).then(function(info){
+				if (!info.mac) return;
+				var suffix = String(info.mac).replace(/:/g,'').toLowerCase().slice(-6);
+				var name = 'dpx-tc002-' + suffix;
+				document.getElementById('dpxName').textContent =
+					'This device: ' + name + ' — reachable at http://' + name + '.local once on your WiFi';
+			}).catch(function(){});
+		</script>
 	</body>
 </html>

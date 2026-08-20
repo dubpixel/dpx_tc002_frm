@@ -208,10 +208,10 @@
     <div class="panel">
       <h2>First boot</h2>
       <table>
-        <tr><th>AP SSID</th><td><code>dpx-tc002</code></td></tr>
+        <tr><th>AP SSID</th><td><code>dpx-tc002-XXXXXX</code> &mdash; unique per device (MAC suffix)</td></tr>
         <tr><th>AP Password</th><td><code>dubpixel1</code></td></tr>
-        <tr><th>Setup URL</th><td><code>http://4.3.2.1</code> while connected to the AP</td></tr>
-        <tr><th>Once on your WiFi</th><td><code>http://dpx-tc002.local</code></td></tr>
+        <tr><th>Setup URL</th><td><code>http://4.3.2.1</code> while connected to the AP &mdash; shows this device's exact name</td></tr>
+        <tr><th>Once on your WiFi</th><td><code>http://dpx-tc002-XXXXXX.local</code> &mdash; same suffix as the AP</td></tr>
         <tr><th>Serial</th><td>115200 baud, prints IP on connect</td></tr>
       </table>
       <p class="shots-note">Full defaults table &amp; control-interface reference in the README.</p>
@@ -219,10 +219,12 @@
 
     <div class="panel">
       <h2>UI shots</h2>
-      <div class="shots">
-        <img src="images/ui_shot_placeholder.svg" alt="UI screenshot placeholder">
+      <div class="shots" style="grid-template-columns:1fr">
+        <img src="images/ui_shot_ctrl.png" alt="/ctrl control panel">
+        <img src="images/ui_shot_apiref.png" alt="/api-ref API reference page">
+        <img src="images/ui_shot_browse.png" alt="/browse icon browser">
       </div>
-      <p class="shots-note">🚧 Placeholder — real screenshots of <code>/ctrl</code> and <code>/api-ref</code> coming later.</p>
+      <p class="shots-note">Live off the device — <code>/ctrl</code> control panel, <code>/api-ref</code>, and <code>/browse</code> icon picker.</p>
     </div>
 
     <div class="panel">

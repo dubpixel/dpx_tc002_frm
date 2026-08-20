@@ -176,9 +176,11 @@ standalone over OSC/MQTT/HTTP without it — friendster is optional, for multi-d
 
 ### UI Shots
 
-> 🚧 Placeholder below — real screenshots of `/ctrl` and `/api-ref` coming later.
+Live off the device — `/ctrl` control panel, `/api-ref`, and `/browse` icon picker.
 
-![UI shot][ui-shot]
+![Control panel][ui-shot-ctrl]
+![API reference][ui-shot-apiref]
+![Icon browser][ui-shot-browse]
 </details>
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -244,23 +246,23 @@ When you flash this firmware the device is **not stock WLED** — it boots into 
 ### Connecting for the first time
 
 1. Power the device
-2. Look for WiFi network **`dpx-tc002`** (not `WLED-AP`)
+2. Look for WiFi network **`dpx-tc002-XXXXXX`** (not `WLED-AP`) — `XXXXXX` is unique per device (last 3 bytes of its MAC), so multiple unclaimed devices never collide
 3. Password: **`dubpixel1`** (not `wled1234`)
-4. Connect and go to **`http://4.3.2.1`** in a browser
+4. Connect and go to **`http://4.3.2.1`** in a browser — the welcome page there also prints this device's exact name
 5. Set your WiFi network under **WiFi Setup**
-6. The device joins your network and is accessible at **`http://dpx-tc002.local`**
+6. The device joins your network and is accessible at **`http://dpx-tc002-XXXXXX.local`** — same `XXXXXX` as the AP name you just joined
 
 > This AP stays open indefinitely whenever the device is not connected to WiFi — no 5-minute timeout.
 
-> **Note:** After powering on, allow **10–15 seconds** before scanning for the `dpx-tc002` network. The AP comes up after the initial WiFi connection attempt completes. If the network doesn't appear immediately, wait a moment and scan again.
+> **Note:** After powering on, allow **10–15 seconds** before scanning for the `dpx-tc002-XXXXXX` network. The AP comes up after the initial WiFi connection attempt completes. If the network doesn't appear immediately, wait a moment and scan again.
 
 ### Default hardware config (written once on first boot)
 
 | Setting | Value | Notes |
 |---|---|---|
-| **AP SSID** | `dpx-tc002` | |
+| **AP SSID** | `dpx-tc002-XXXXXX` | `XXXXXX` = last 3 MAC bytes, lowercase hex — unique per device |
 | **AP Password** | `dubpixel1` | |
-| **mDNS** | `dpx-tc002.local` | |
+| **mDNS** | `dpx-tc002-XXXXXX.local` | Same suffix as the AP SSID |
 | **LED GPIO** | 32 | |
 | **LED Count** | 256 | 32×8 matrix |
 | **LED Type** | WS2812B GRB | |
@@ -275,7 +277,7 @@ When you flash this firmware the device is **not stock WLED** — it boots into 
 
 | Interface | How |
 |---|---|
-| **Web UI** | `http://dpx-tc002.local` |
+| **Web UI** | `http://dpx-tc002-XXXXXX.local` (device-specific, shown on `/welcome`) |
 | **OSC** | UDP 4210 — `/dpx/notify`, `/dpx/tc`, `/dpx/app/<name>`, `/dpx/overlay`, `/dpx/effect` |
 | **MQTT** | `{deviceTopic}/dpx/#` — same structure as OSC |
 | **JSON** | `POST /json {"dpx":{...}}` — WLED standard JSON API |
@@ -395,7 +397,9 @@ AwtrixFont (`dpx_font.h`) is BSD 3-Clause — see file header for full attributi
 [product-rear-rendering]: images/rear_render.png
 [action-shot-1]: images/action_shot_placeholder.svg
 [action-shot-2]: images/action_shot_placeholder_2.svg
-[ui-shot]: images/ui_shot_placeholder.svg
+[ui-shot-ctrl]: images/ui_shot_ctrl.png
+[ui-shot-apiref]: images/ui_shot_apiref.png
+[ui-shot-browse]: images/ui_shot_browse.png
 [WLED-badge]: https://img.shields.io/badge/WLED-17.0.0--dev-blue?style=flat-square
 [WLED-url]: https://github.com/wled/WLED
 [PlatformIO-badge]: https://img.shields.io/badge/PlatformIO-ESP32-orange?style=flat-square
