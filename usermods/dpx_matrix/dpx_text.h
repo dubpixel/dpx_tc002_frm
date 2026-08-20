@@ -62,9 +62,10 @@ static inline uint32_t dpxRainbowColor(int charIdx, int totalChars) {
 //             used to keep scrolling text from running under a fixed icon.
 // scale     = integer pixel-doubling factor (GH #19/#63 "bigger font"; no new
 //             font data — each source pixel becomes a scale x scale block).
-//             Most glyphs are 5px tall, so scale=2 (10px) clips top/bottom
-//             against the 8-row matrix — dpxSetPixel's own bounds check
-//             handles that gracefully, no special-casing needed here.
+//             Most glyphs are 5px tall, so scale=2 (10px) is taller than the
+//             8-row matrix and clips — but symmetrically, centered on the
+//             glyph's own scale=1 vertical midpoint, not shoved to one edge.
+//             dpxSetPixel's own bounds check handles the actual clipping.
 // Returns the next cursor X (x + xAdvance*scale).
 // Glyphs that land partially off-left are clipped pixel-by-pixel.
 static int dpxDrawChar(int x, int baseline, char c, uint32_t color, int minX = 0, int scale = 1) {
@@ -77,7 +78,14 @@ static int dpxDrawChar(int x, int baseline, char c, uint32_t color, int minX = 0
 
     // Each row of the glyph is ceil(g.width/8) bytes; here always 1 byte (width=8)
     int bytesPerRow = (g.width + 7) / 8;
-    int glyphTop = baseline + g.yOffset * scale; // top pixel row on matrix
+    // Scale grows the glyph symmetrically around its own scale=1 vertical
+    // midpoint, rather than just multiplying yOffset (which pushed the glyph
+    // upward disproportionately as scale increased — e.g. a 5px glyph at
+    // scale=2 used to clip ~4 rows off the top while leaving 2 rows of dead
+    // space at the bottom, instead of centering).
+    int origTop    = baseline + g.yOffset;      // scale=1 top row (unchanged math)
+    int scaledH    = (int)g.height * scale;
+    int glyphTop   = (2 * origTop + (int)g.height - scaledH) / 2; // top pixel row on matrix
 
     for (int row = 0; row < (int)g.height; row++) {
         for (int b = 0; b < bytesPerRow; b++) {
