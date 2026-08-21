@@ -207,7 +207,7 @@ contract defined in `SPEC.md`.
 | Web UI | HTML/JS / `wled00/data/` | WLED interface + dpx_matrix custom pages | `npm run build` required after any edit |
 | SPEC.md | Markdown / `dpx_reference/` | Behavioral contract: API schema, all JSON keys | **Source of truth** |
 | dpx_tc002.md | Markdown / `dpx_reference/` | Build plan: phase order, usermod structure, GPIO map | Read before firmware work |
-| dpx_tc002_server.md | Markdown / `dpx_friendster/docs/` | Companion server plan (Friendster/CueMaster) — lives in the sibling `dpx_friendster` repo, not this one | Read before any server work |
+| dpx_tc002_server.md | Markdown / `dpx_friendster/docs/` | Companion server plan (Friendster/cueMaestro) — lives in the sibling `dpx_friendster` repo, not this one | Read before any server work |
 | HANDOFF_TODO.md | Markdown / `docs/` | Feature roadmap: 6 items, status, implementation notes | Read before starting new features |
 | site | HTML / `site/` | GitHub Pages site: landing page (`/`), browser-flash installer (`/flash/`, ESP Web Tools), generated API docs (`/api/`, see `tools/build_pages_api_docs.js`) | Auto-deployed via `.github/workflows/pages-deploy.yml` on every push to `main` |
 
@@ -226,7 +226,7 @@ contract defined in `SPEC.md`.
 | `dpx_font.h` | AwtrixFont 3x5 TomThumb bitmap font |
 | `dpx_icons.h` | Icon load + render — LaMetric PNG→raw pipeline (GH #16) |
 | `dpx_mqtt.h` | MQTT command dispatch, device-info publish, icon fetch over MQTT |
-| `dpx_pair.h` | Device-claim PIN display for friendster/cuemaster server pairing |
+| `dpx_pair.h` | Device-claim PIN display for friendster/cueMaestro server pairing |
 
 ### Agent Rules (for this repo)
 

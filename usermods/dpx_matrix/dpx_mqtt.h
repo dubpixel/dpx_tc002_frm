@@ -48,7 +48,7 @@
 //   .../dpx/icon/data/<name>  → raw 192-byte RGB888 buffer (8x8, row-major) — the exact
 //                                same format as GET /ICONS/<name>.raw over HTTP
 //
-// NOTE for the friendster/cuemaster server (see dpx_tc002_server.md): device topics are
+// NOTE for the friendster/cueMaestro server (see dpx_tc002_server.md): device topics are
 // nested as "wled/<mac>/..." (mqttDeviceTopic), not a flat "<name>/...". A single-level
 // "+/presence" subscription won't match — use "wled/+/status" and "wled/+/dpx/info".
 //
@@ -103,7 +103,7 @@ static void dpxMqttConnect() {
     mqtt->subscribe("dpx/#", 0);
     DEBUG_PRINTF("DpxMatrix: MQTT subscribed to %s and dpx/#\n", sub.c_str());
 
-    // Retained device-registry metadata for the friendster/cuemaster server.
+    // Retained device-registry metadata for the friendster/cueMaestro server.
     // Presence (online/offline) is WLED core's own LWT at {mqttDeviceTopic}/status.
     StaticJsonDocument<192> info;
     info["name"]  = serverDescription;
@@ -290,7 +290,7 @@ static bool dpxMqttMessage(char* topic, char* payload) {
     }
 
     // ── Icon list / fetch over MQTT ────────────────────────────────────────────
-    // The friendster/cuemaster server may be cloud-hosted while this device
+    // The friendster/cueMaestro server may be cloud-hosted while this device
     // sits on a venue/home LAN — HTTP can't reach it, but MQTT always can
     // (same reasoning as everything else in this file). Request/response uses
     // distinct topic names (not the request topic itself) so the device's own

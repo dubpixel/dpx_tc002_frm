@@ -5,7 +5,7 @@ Last updated: 2026-07-18
 Reference files (read before working on this project):
 - `⊘ dpx_reference/SPEC.md` — full behavioral spec, API contract, all JSON keys
 - `⊘ dpx_reference/dpx_tc002.md` — firmware build plan, phase order, GPIO map
-- `⊘ dpx_reference/dpx_tc002_server.md` — Friendster/CueMaster server plan
+- `⊘ dpx_reference/dpx_tc002_server.md` — Friendster/cueMaestro server plan
 
 ---
 
@@ -14,7 +14,7 @@ Reference files (read before working on this project):
 **MQTT topic for text:** `[PREFIX]/notify` → `{"text":"hello","rainbow":true,"duration":8}`
 PREFIX = device hostname. Read from `GET /api/settings` → `MQTT_PREFIX`.
 
-**Server project (Friendster/CueMaster):** separate Python FastAPI repo, build after firmware is stable.
+**Server project (Friendster/cueMaestro):** separate Python FastAPI repo, build after firmware is stable.
 See Part 2 of this file.
 
 ---
@@ -152,7 +152,7 @@ See Part 2 of this file.
 
 ---
 
-## Part 2 — Server (friendster / CueMaster)
+## Part 2 — Server (friendster / cueMaestro)
 
 Full spec: `⊘ dpx_reference/dpx_tc002_server.md`
 Predecessor: `matrix-blast` service in `dpx_showsite_ops` (port 8090)
@@ -175,7 +175,7 @@ Predecessor: `matrix-blast` service in `dpx_showsite_ops` (port 8090)
 - [ ] `GET /sse/messages` — SSE for live message feed
 - [ ] **Friendster UI** — dark-themed buddy list + send form + SSE-driven updates
 
-### Phase S2 — CueMaster
+### Phase S2 — cueMaestro
 
 - [ ] Saved cues stored in YAML/JSON config file
   - Schema: `{name, text, color/palette, targets[], duration}`
@@ -183,7 +183,7 @@ Predecessor: `matrix-blast` service in `dpx_showsite_ops` (port 8090)
 - [ ] `POST /api/cue` — create/save named cue
 - [ ] `GET /api/cues` — list saved cues
 - [ ] `POST /api/cue/:name/fire` — fire a named cue
-- [ ] **CueMaster UI** — device grid, large tap targets, quick-fire buttons, log panel
+- [ ] **cueMaestro UI** — device grid, large tap targets, quick-fire buttons, log panel
 - [ ] Keyboard shortcuts (1-9 for quick cues, tablet-optimized)
 
 ### Phase S3 — Integration

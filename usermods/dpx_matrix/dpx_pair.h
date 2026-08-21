@@ -7,7 +7,7 @@
 // ================================================================================
 //
 // File: dpx_pair.h
-// Purpose: Full-screen, large-font PIN display used by the friendster/cuemaster
+// Purpose: Full-screen, large-font PIN display used by the friendster/cueMaestro
 //          server's device-claim flow (see dpx_tc002_server.md — "Accounts,
 //          Device Pairing & Admin Roster"). The SERVER picks the PIN and tells
 //          the device to show it; the device never generates or verifies it —
