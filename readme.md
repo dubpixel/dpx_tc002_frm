@@ -39,7 +39,7 @@
     <img src="images/logo.png" alt="Logo" height="120">
   </a>
 <h1 align="center">dpx_tc002_frm</h1>
-<h3 align="center"><i>WLED for your wrist-worn pixel clock — flash it from a browser, drive it from OSC/MQTT/HTTP</i></h3>
+<h3 align="center"><i>A matrix-focused toolkit built on WLED — flash it from a browser, drive it from OSC/MQTT/HTTP</i></h3>
   <p align="center">
     Turns the Ulanzi TC001 into a networked 32×8 status display with a fully documented open
     API — and it's not just a clock: notifications, timecode, custom clocks, and 200+ WLED
@@ -90,7 +90,7 @@
 <details>
 <summary><h3>About The Project</h3></summary>
 
-**dpx_tc002_frm** is a custom WLED firmware build for the [Ulanzi TC001](https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882) pixel clock — a battery-powered ESP32 device with a 32×8 WS2812B LED matrix. It replaces the stock Awtrix firmware with a WLED base plus the `dpx_matrix` usermod, adding timecode display, OSC/MQTT control, scrolling text apps, pixel overlay effects, first-boot hardware configuration, and a fully documented HTTP/OSC/MQTT API — it's not limited to being a clock, it's a general-purpose networked pixel display you can drive from anything.
+**dpx_tc002_frm** is a custom WLED firmware build, currently targeting the [Ulanzi TC001](https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882) — a desktop-sized ESP32 device with a 32×8 WS2812B LED matrix (not wearable). It replaces the stock Awtrix firmware with a WLED base plus the `dpx_matrix` usermod, adding timecode display, OSC/MQTT control, scrolling text apps, pixel overlay effects, first-boot hardware configuration, and a fully documented HTTP/OSC/MQTT API — it's not limited to being a clock, it's a general-purpose networked pixel display you can drive from anything. Because it's WLED underneath, the same firmware isn't tied to this one device long-term: it extends to other addressable-LED matrix layouts, and a dedicated `wled-matrix` board is planned down the line.
 
 Built on top of [WLED](https://github.com/wled/WLED) (EUPL v1.2) — all WLED features remain fully functional.
 

@@ -144,7 +144,7 @@
       <span>dpx_tc002_frm</span>
     </div>
 
-    <h1>WLED for your wrist-worn pixel clock</h1>
+    <h1>A matrix-focused toolkit, built on WLED</h1>
     <p class="tagline">Flash it from a browser, drive it from OSC/MQTT/HTTP &mdash; a fully documented open API, not just a clock.</p>
 
     <div class="badges">
@@ -156,13 +156,16 @@
     </div>
 
     <p class="lede">
-      <strong style="color:var(--text)">dpx_tc002_frm</strong> is a custom WLED firmware build for the
+      <strong style="color:var(--text)">dpx_tc002_frm</strong> is a custom WLED firmware build, currently
+      targeting the
       <a href="https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882" style="color:inherit">Ulanzi TC001</a> —
-      a battery-powered ESP32 device with a 32&times;8 WS2812B LED matrix. It replaces the stock Awtrix
-      firmware with a WLED base plus the <code>dpx_matrix</code> usermod, adding timecode display,
-      OSC/MQTT control, scrolling text apps, pixel overlay effects, first-boot hardware configuration, and
-      a fully documented HTTP/OSC/MQTT API — it's not limited to being a clock, it's a general-purpose
-      networked pixel display you can drive from anything. Built on
+      a desktop-sized ESP32 device with a 32&times;8 WS2812B LED matrix (not wearable). It replaces the
+      stock Awtrix firmware with a WLED base plus the <code>dpx_matrix</code> usermod, adding timecode
+      display, OSC/MQTT control, scrolling text apps, pixel overlay effects, first-boot hardware
+      configuration, and a fully documented HTTP/OSC/MQTT API — it's not limited to being a clock, it's a
+      general-purpose networked pixel display you can drive from anything. Because it's WLED underneath,
+      the same firmware isn't tied to this one device long-term: it extends to other addressable-LED
+      matrix layouts, and a dedicated <code>wled-matrix</code> board is planned down the line. Built on
       <a href="https://github.com/wled/WLED" style="color:inherit">WLED</a> (EUPL v1.2) — all WLED
       features remain fully functional.
     </p>
