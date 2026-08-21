@@ -90,6 +90,15 @@ static String dpxStatsJson() {
     doc[F("notifActive")] = dpxNotifActive;
     doc[F("autoTrans")] = dpxAutoTrans;
     doc[F("enabled")]   = dpxEnabled;
+    // GH #15 phase 1 — raw sensor reads, hardware-verification pass. temp/hum
+    // only present if an SHT3x actually acked at 0x44; bat/lux are raw ADC
+    // counts (0-4095), not yet converted to %/lux — see dpx_sensors.h.
+    if (dpxSht3xFound) {
+        doc[F("temp")] = serialized(String(dpxTemp, 1));
+        doc[F("hum")]  = serialized(String(dpxHum, 1));
+    }
+    doc[F("batRaw")] = dpxBattRaw;
+    doc[F("ldrRaw")] = dpxLdrRaw;
     String s; serializeJson(doc, s); return s;
 }
 

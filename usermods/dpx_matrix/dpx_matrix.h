@@ -37,6 +37,7 @@
 #include "dpx_osc.h"
 #include "dpx_overlay.h"
 #include "dpx_mqtt.h"
+#include "dpx_sensors.h"
 #include "dpx_api.h"
 
 // ── dpx Matrix WLED effect ────────────────────────────────────────────────────
@@ -174,6 +175,10 @@ public:
 
         // Initialise TC001 buzzer pin; drives LOW to prevent float noise.
         dpxBuzzerInit();
+
+        // GH #15 phase 1 — raw sensor reads only (SHT3x/battery/LDR), no
+        // native apps/UI yet. See dpx_sensors.h.
+        dpxSensorsInit();
 
         // NOTE: dpxOscBegin() is called in connected() once WiFi is up.
         // Opening a UDP socket before lwip is ready crashes the device.
@@ -371,6 +376,9 @@ public:
 
         // Advance RTTTL note sequencer
         dpxBuzzerTick();
+
+        // GH #15 phase 1 — rate-limited to once per 10s internally
+        dpxSensorsTick();
     }
 
     // ── Button handling ────────────────────────────────────────────────────
