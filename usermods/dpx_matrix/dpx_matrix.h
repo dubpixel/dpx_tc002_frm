@@ -390,12 +390,21 @@ public:
     // Returning true consumes the event — WLED will not act on it.
     // We use WLED's APIs (toggleOnOff, stateUpdated) for WLED-level actions.
     //
-    // Button layout (TC001 front, left→right):
-    //   b=0  GPIO DPX_BTN_LEFT   short=prev app (or prev WLED effect while
+    // Button layout — GPIO constant names (DPX_BTN_LEFT/MID/RIGHT) do NOT
+    // match physical left-to-right position on the real TC001 unit: b=1
+    // (DPX_BTN_MID) is physically the RIGHTMOST button, and b=2
+    // (DPX_BTN_RIGHT) is physically the MIDDLE button. Confirmed live —
+    // renaming the GPIO constants themselves would be a bigger, riskier
+    // change (touches build flags + every usage) for what's really just a
+    // naming mismatch, so this comment describes actual physical position;
+    // the code below is unchanged and already correct.
+    //   b=0  GPIO DPX_BTN_LEFT   (physically LEFT)
+    //                            short=prev app (or prev WLED effect while
     //                                            browsing — see below)
     //                            long=dismiss notif, or (GH #75) browse notif
     //                                 history when idle
-    //   b=1  GPIO DPX_BTN_MID    short=next app
+    //   b=1  GPIO DPX_BTN_MID    (physically RIGHT)
+    //                            short=next app
     //                            long=toggle "pattern browsing" mode — first
     //                                 press hands the segment to a raw WLED
     //                                 effect, second press returns to dpx
@@ -404,7 +413,8 @@ public:
     //                                 independent per-app dwell timer can't
     //                                 forcibly reassert dpx's effect mid-
     //                                 browse (confirmed live: it used to).
-    //   b=2  GPIO DPX_BTN_RIGHT  short=power tog, or exit history browse
+    //   b=2  GPIO DPX_BTN_RIGHT  (physically MIDDLE)
+    //                            short=power tog, or exit history browse
     //                                 (GH #75), or next WLED effect while
     //                                 browsing
     //                            long=show IP
