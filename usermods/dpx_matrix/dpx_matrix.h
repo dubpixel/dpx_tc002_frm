@@ -110,6 +110,10 @@ static void mode_dpx_matrix() {
     } else {
         dpxRenderCurrentApp();
     }
+    // GH #80 — publish current app/notification state over MQTT for
+    // friendster's live-echo feature. After the render dispatch above, so
+    // time/date clocks' .text is the freshly-updated string, not stale.
+    dpxMqttAppStateTick(pairActive, notifActive, histActive);
     // Text overlay + pixel effects on top — skipped during pairing so the
     // PIN stays legible (no rain/frost etc. drawn over it).
     if (!pairActive) dpxRenderOverlays();

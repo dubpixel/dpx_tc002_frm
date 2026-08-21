@@ -265,6 +265,7 @@ c.send_message("/dpx_tc002/custom/tc", "00:59:59:24")<button class="cp" onclick=
 <tr><td><code>[PREFIX]/stats/transitions</code></td><td>JSON array</td><td>Published on connect — list of transition names</td></tr>
 <tr><td><code>[PREFIX]/stats/device</code></td><td><code>online</code></td><td>Published on connect</td></tr>
 <tr><td><code>[PREFIX]/screen</code></td><td>JSON array (256× 24-bit int)</td><td>Response to <code>/sendscreen</code></td></tr>
+<tr><td><code>[PREFIX]/appstate</code></td><td>JSON</td><td>Retained, QoS 1 — <code>{"app","source","text","color","rainbow","icon","type"}</code>, published on change. Lighter redraw-able echo for a cloud-hosted server that can't reach <code>GET /api/screen</code> over LAN; not pixel-exact</td></tr>
 <tr><td><code>[PREFIX]/buttonLeft</code></td><td><code>true</code>/<code>false</code></td><td>Physical button press/release</td></tr>
 <tr><td><code>[PREFIX]/buttonRight</code></td><td><code>true</code>/<code>false</code></td><td>Physical button press/release</td></tr>
 <tr><td><code>[PREFIX]/buttonSelect</code></td><td><code>true</code>/<code>false</code></td><td>Middle button press/release</td></tr>

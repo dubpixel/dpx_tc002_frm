@@ -43,6 +43,13 @@
 //                                LWT at {mqttDeviceTopic}/status ("online"/"offline"),
 //                                not duplicated here.
 //
+// Published (not subscribed) on change, retained, QoS 1:
+//   .../dpx/appstate           → {"app","source","text","color","rainbow","icon","type"} —
+//                                lighter, redraw-able echo of whatever's currently shown
+//                                (app/notify/history), for a cloud-hosted companion server
+//                                that can't reach GET /api/screen over LAN (GH #80). Not
+//                                pixel-exact — doesn't reflect overlay effects.
+//
 // Published (not subscribed) on request, not retained:
 //   .../dpx/icon/list/result  → JSON array, same shape as GET /api/list?dir=/ICONS/
 //   .../dpx/icon/data/<name>  → raw 192-byte RGB888 buffer (8x8, row-major) — the exact
@@ -114,6 +121,69 @@ static void dpxMqttConnect() {
     serializeJson(info, infoStr);
     String infoTopic = String(mqttDeviceTopic) + "/dpx/info";
     mqtt->publish(infoTopic.c_str(), 0, true, infoStr.c_str());
+}
+
+// ── Live app-state echo (GH #80) ────────────────────────────────────────────
+// friendster is cloud-hosted specifically because devices phone home from
+// arbitrary venue WiFi that inbound HTTP can't reach — GET /api/screen (the
+// existing pixel-exact live view) only works over LAN. This publishes a
+// lighter, redraw-able representation instead of a raw 256x-pixel dump:
+// the same fields as any notify/custom-app JSON, so friendster's own
+// marquee renderer can reproduce it locally. Deliberately not pixel-exact
+// (won't reflect overlay effects) — that trade favors bandwidth on flaky
+// venue WiFi, where friendster already had to move to QoS 1 for reliability
+// (dpx_friendster #54); this topic matches that QoS choice for the same
+// reason, unlike dpx/info above which stays QoS 0 (connect-time only, no
+// reconnect-storm risk).
+static String dpxAppStateJson(const DpxCustomApp& a, const String& appName, const char* source) {
+    DynamicJsonDocument doc(384);
+    doc["app"]    = appName;
+    doc["source"] = source; // "app" | "notify" | "history"
+    doc["text"]   = a.text;
+    doc["color"]  = a.color;
+    doc["rainbow"] = a.rainbow;
+    if (a.icon.length()) doc["icon"] = a.icon;
+    doc["type"]   = a.type;
+    String s; serializeJson(doc, s); return s;
+}
+
+static void dpxMqttPublishAppState(const String& stateJson) {
+    if (!WLED_MQTT_CONNECTED) return;
+    String topic = String(mqttDeviceTopic) + "/dpx/appstate";
+    mqtt->publish(topic.c_str(), 1, true, stateJson.c_str());
+}
+
+// Call once per frame from mode_dpx_matrix(), after it's determined which of
+// pairing/notification/history/app is currently rendering. Publishes only on
+// change (a cheap signature string, not a full JSON diff) — retained, so a
+// freshly (re)connected friendster instance gets current state for free
+// without needing a request/response round trip.
+static void dpxMqttAppStateTick(bool pairActive, bool notifActive, bool histActive) {
+    static String _mqttLastSig;
+    String sig;
+    const DpxCustomApp* data = nullptr;
+    String name, source;
+
+    if (pairActive) {
+        sig = F("pair"); // no DpxCustomApp to publish; just avoid a stale republish once pairing ends
+    } else if (notifActive) {
+        data = &dpxCurrentNotif.data; name = dpxCurrentNotif.data.text; source = F("notify");
+        sig = "notify:" + String(dpxCurrentNotif.id);
+    } else if (histActive) {
+        if (dpxHistoryIndex >= 0 && dpxHistoryIndex < (int)dpxNotifHistory.size()) {
+            const DpxNotification& h = dpxNotifHistory[dpxHistoryIndex];
+            data = &h.data; name = h.data.text; source = F("history");
+            sig = "history:" + String(h.id);
+        }
+    } else if (!dpxApps.empty() && dpxCurrentApp >= 0 && dpxCurrentApp < (int)dpxApps.size()) {
+        const DpxApp& a = dpxApps[dpxCurrentApp];
+        data = &a.data; name = a.name; source = F("app");
+        sig = "app:" + name;
+    }
+
+    if (sig == _mqttLastSig) return;
+    _mqttLastSig = sig;
+    if (data) dpxMqttPublishAppState(dpxAppStateJson(*data, name, source.c_str()));
 }
 
 // Call from DpxMatrix::onMqttMessage(). Returns true if topic was ours.
