@@ -708,6 +708,9 @@ select option{background:#222}
     <option value="text">Text</option>
     <option value="time">Time</option>
     <option value="date">Date</option>
+    <option value="temp">Temperature</option>
+    <option value="hum">Humidity</option>
+    <option value="bat">Battery</option>
     <option value="timecode">Timecode</option>
     <option value="osc">OSC</option>
     <option value="wledfx">Pattern Slot</option>
@@ -1137,13 +1140,16 @@ function saveSndSettings(){apiPost("/api/settings",{SOUND:document.getElementByI
 var _CH_NATIVE_HINTS={
   time:"Adds the Time clock to the channel rotation.",
   date:"Adds the Date display to the channel rotation.",
+  temp:"Adds the Temperature app (SHT3x sensor) to the channel rotation.",
+  hum:"Adds the Humidity app (SHT3x sensor) to the channel rotation.",
+  bat:"Adds the Battery app (live 5-segment gauge) to the channel rotation.",
   timecode:"The Timecode channel activates automatically when LTC/OSC TC signals arrive — no manual add needed.",
   osc:"Create a named channel driven by OSC. Use the channel name when adding an OSC Listener."
 };
 function updateChType(t){
   var tf=document.getElementById("ch_fields_text"),nf=document.getElementById("ch_fields_native"),ta=document.getElementById("ch_text_actions"),wf=document.getElementById("ch_fields_wledfx"),cf=document.getElementById("ch_fields_customclock");
   var textTypes=t==="text"||t==="osc";
-  var nativeTypes=t==="time"||t==="date"||t==="timecode";
+  var nativeTypes=t==="time"||t==="date"||t==="temp"||t==="hum"||t==="bat"||t==="timecode";
   if(tf)tf.style.display=textTypes?"":"none";
   if(nf)nf.style.display=nativeTypes?"":"none";
   if(ta)ta.style.display=textTypes?"":"none";
@@ -1156,6 +1162,9 @@ function addChannel(){
   var t=document.getElementById("ch_type").value;
   if(t==="time"){apiPost("/api/settings",{TIM:true}).then(function(){setTimeout(loadLoop,400);});return;}
   if(t==="date"){apiPost("/api/settings",{DAT:true}).then(function(){setTimeout(loadLoop,400);});return;}
+  if(t==="temp"){apiPost("/api/settings",{TEMP:true}).then(function(){setTimeout(loadLoop,400);});return;}
+  if(t==="hum"){apiPost("/api/settings",{HUM:true}).then(function(){setTimeout(loadLoop,400);});return;}
+  if(t==="bat"){apiPost("/api/settings",{BAT:true}).then(function(){setTimeout(loadLoop,400);});return;}
   if(t==="timecode"){toast("TC activates on incoming signal — no action needed");return;}
   // text or osc — use the Configure Channel form fields
   var name=document.getElementById("ca_name").value.trim().replace(/\s+/g,"_");

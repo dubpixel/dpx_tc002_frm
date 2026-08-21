@@ -85,16 +85,42 @@ static const uint32_t DPX_ICON_WATERDROP[64] = {
     0x000000,0x000000,0x49BDFE,0x49BDFE,0x49BDFE,0x4237FE,0x000000,0x000000,
     0x000000,0x000000,0x000000,0x49BDFE,0x4237FE,0x000000,0x000000,0x000000,
 };
-static const uint32_t DPX_ICON_BATTERY[64] = {
+// Outline only — the 5 interior rows (2-6, cols 3-4) are filled dynamically
+// per dpxBattPct by dpxGetBatteryIcon() below, not baked in statically like
+// the other two icons. 0x1 is a placeholder (not 0x000000, which
+// dpxRenderIcon() treats as transparent/skip) so the un-filled interior
+// still shows *something* rather than a hole — overwritten every call anyway.
+static const uint32_t DPX_ICON_BATTERY_TEMPLATE[64] = {
     0x000000,0x000000,0x000000,0xFFFFFF,0xFFFFFF,0x000000,0x000000,0x000000,
     0x000000,0x000000,0xFFFFFF,0xFFFFFF,0xFFFFFF,0xFFFFFF,0x000000,0x000000,
-    0x000000,0x000000,0xFFFFFF,0x34BF26,0x34BF26,0xFFFFFF,0x000000,0x000000,
-    0x000000,0x000000,0xFFFFFF,0x34BF26,0x34BF26,0xFFFFFF,0x000000,0x000000,
-    0x000000,0x000000,0xFFFFFF,0x34BF26,0x34BF26,0xFFFFFF,0x000000,0x000000,
-    0x000000,0x000000,0xFFFFFF,0x34BF26,0x34BF26,0xFFFFFF,0x000000,0x000000,
-    0x000000,0x000000,0xFFFFFF,0x34BF26,0x34BF26,0xFFFFFF,0x000000,0x000000,
+    0x000000,0x000000,0xFFFFFF,0x000001,0x000001,0xFFFFFF,0x000000,0x000000,
+    0x000000,0x000000,0xFFFFFF,0x000001,0x000001,0xFFFFFF,0x000000,0x000000,
+    0x000000,0x000000,0xFFFFFF,0x000001,0x000001,0xFFFFFF,0x000000,0x000000,
+    0x000000,0x000000,0xFFFFFF,0x000001,0x000001,0xFFFFFF,0x000000,0x000000,
+    0x000000,0x000000,0xFFFFFF,0x000001,0x000001,0xFFFFFF,0x000000,0x000000,
     0x000000,0x000000,0xFFFFFF,0xFFFFFF,0xFFFFFF,0xFFFFFF,0x000000,0x000000,
 };
+static uint32_t dpxBatteryIconBuf[64];
+
+// GH #15 follow-up — battery icon fills bottom-up in 5 segments (one per
+// 20% of charge), like a real device battery gauge. Below 20%, the single
+// remaining segment shows red instead of green as a low-battery cue.
+static const uint32_t* dpxGetBatteryIcon() {
+    memcpy(dpxBatteryIconBuf, DPX_ICON_BATTERY_TEMPLATE, sizeof(dpxBatteryIconBuf));
+    int pct = dpxBattPct;
+    int lit = (pct <= 0) ? 0 : (pct + 19) / 20; // ceil(pct/20), so 1% still shows a sliver
+    if (lit > 5) lit = 5;
+    bool critical = (pct >= 0 && pct < 20);
+    uint32_t litColor   = critical ? 0xFF0000 : 0x34BF26;
+    uint32_t unlitColor = 0x222222;
+    for (int fillIdx = 0; fillIdx < 5; fillIdx++) {
+        int row = 6 - fillIdx; // row 6 = bottom (first 20%) ... row 2 = top (last 20%)
+        uint32_t c = (fillIdx < lit) ? litColor : unlitColor;
+        dpxBatteryIconBuf[row * 8 + 3] = c;
+        dpxBatteryIconBuf[row * 8 + 4] = c;
+    }
+    return dpxBatteryIconBuf;
+}
 
 // Idempotent — writes each icon file only if missing, so a user deleting one
 // via the File Manager doesn't get it silently rewritten every boot, but a
@@ -141,7 +167,9 @@ static void dpxSensorsInit() {
 
     dpxWriteDefaultIcon("dpx_thermo", DPX_ICON_THERMOMETER);
     dpxWriteDefaultIcon("dpx_drop",   DPX_ICON_WATERDROP);
-    dpxWriteDefaultIcon("dpx_batt",   DPX_ICON_BATTERY);
+    // No file written for battery — it's rendered dynamically every frame
+    // (dpxGetBatteryIcon()) so its fill level can track dpxBattPct live,
+    // not a static image.
 }
 
 static void dpxSht3xRead() {

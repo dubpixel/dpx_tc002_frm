@@ -285,11 +285,15 @@ static void dpxUpdateSensorText(DpxCustomApp& app) {
         // by the real degree symbol — confirmed live, looked like noise
         // stuck between the number and the unit letter. "\xB0" is the single
         // correct byte.
+        // No F/C letter — the thermometer icon already says "this is a
+        // temperature," so the unit letter is redundant screen-space next
+        // to a tiny 32px-wide display. Toggle DPX_TEMP_FAHRENHEIT in /ctrl
+        // if you need to know which unit it's showing.
         if (!dpxSht3xFound || isnan(dpxTemp)) {
             strncpy(buf, "--\xB0", sizeof(buf));
         } else {
             float t = DPX_TEMP_FAHRENHEIT ? (dpxTemp * 9.0f / 5.0f + 32.0f) : dpxTemp;
-            snprintf(buf, sizeof(buf), "%.0f\xB0%s", t, DPX_TEMP_FAHRENHEIT ? "F" : "C");
+            snprintf(buf, sizeof(buf), "%.0f\xB0", t);
         }
     } else if (app.type == "hum") {
         if (!dpxSht3xFound || isnan(dpxHum)) strncpy(buf, "--%", sizeof(buf));
@@ -338,7 +342,11 @@ static bool dpxRenderApp(DpxCustomApp& app) {
     if (renderText.indexOf('#') >= 0) dpxExpandTokens(renderText);
 
     int textW = dpxTextPixelWidth(renderText.c_str(), scale);
-    const uint32_t* icon = app.icon.length() ? dpxGetIcon(app.icon) : nullptr;
+    // Battery's icon is rendered live every frame (dpxGetBatteryIcon(), a
+    // 5-segment fill gauge tracking dpxBattPct) instead of the normal
+    // name-based file lookup — there's no static "dpx_batt" icon file.
+    const uint32_t* icon = (app.type == "bat") ? dpxGetBatteryIcon()
+                          : app.icon.length() ? dpxGetIcon(app.icon) : nullptr;
 
     if (!icon) {
         // No icon — original full-width behavior.
@@ -420,7 +428,8 @@ static void dpxRebuildLoop() {
             a.data.center = true; // old dpxRenderNativeTime/Date always centered horizontally
             if      (nStr == "Temperature") a.data.icon = "dpx_thermo";
             else if (nStr == "Humidity")    a.data.icon = "dpx_drop";
-            else if (nStr == "Battery")     a.data.icon = "dpx_batt";
+            // Battery: no icon file — dpxRenderApp() special-cases
+            // type=="bat" to dpxGetBatteryIcon() instead (dpx_sensors.h).
             newList.push_back(a);
         }
     }
