@@ -39,7 +39,18 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  # nightly (push to main) and release (tag push) must NOT share a
+  # concurrency group with cancel-in-progress: a release tag pushed right
+  # after its main commit (our normal release flow: push main, then push
+  # the tag seconds later) would cancel the nightly deploy mid-flight,
+  # before it ever finishes uploading a fresh manifest. Confirmed live:
+  # nightly/manifest.json was frozen at v0.4.1 for the entire 0.4.2-0.4.5
+  # cycle because every one of those nightly deploys got killed by the
+  # release deploy that followed seconds later, and each release deploy's
+  # "preserve the other channel" step just kept re-copying that same
+  # stale nightly manifest forward. Separate groups let both channels'
+  # deploys queue and actually complete instead of racing.
+  group: pages-${{ github.ref_type == 'tag' && 'release' || 'nightly' }}
   cancel-in-progress: true
 
 jobs:
@@ -103,7 +114,12 @@ jobs:
           OTHER="${{ steps.channel.outputs.other }}"
           BASE="https://dubpixel.github.io/dpx_tc002_frm/firmware/$OTHER"
           mkdir -p "site/firmware/$OTHER"
-          if curl -sf "$BASE/manifest.json" -o "site/firmware/$OTHER/manifest.json"; then
+          # Cache-bust: GH Pages serves everything with a fixed 10-min CDN
+          # cache we can't override via repo config (same issue fixed on the
+          # /flash/ page's own manifest fetch). Without this, a deploy that
+          # runs inside that window re-preserves a stale copy of the OTHER
+          # channel forward into this deploy too.
+          if curl -sf -H 'Cache-Control: no-cache' "$BASE/manifest.json?t=$(date +%s)" -o "site/firmware/$OTHER/manifest.json"; then
             python3 -c "
           import json
           d = json.load(open('site/firmware/$OTHER/manifest.json'))
