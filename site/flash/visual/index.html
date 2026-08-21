@@ -250,7 +250,8 @@
       <div class="step-body">
         <h2>Join the device's WiFi network</h2>
         <p>Once it reboots (buzzer stops), look for a new network named <strong>dpx-tc002-XXXXXX</strong> in your WiFi list — give it 10–15 seconds to show up. Password: <strong>dubpixel1</strong>.</p>
-        <img class="shot" src="../../images/setup_tutorial/6-find-ap-network.png" alt="macOS WiFi menu showing a dpx-tc002-2dfab0 network">
+        <p class="shot-caption" style="margin-bottom:0.6rem"><code>XXXXXX</code> is 6 characters unique to your specific device (from its MAC address) — yours will <strong>not</strong> say "2dfab0" like the example below, it'll be its own combination of letters/numbers. Same suffix shows up everywhere this device is named: the AP, the mDNS address in the next step, and the welcome page after that.</p>
+        <img class="shot" src="../../images/setup_tutorial/6-find-ap-network.png" alt="macOS WiFi menu showing a dpx-tc002-2dfab0 network, one example device's actual suffix">
       </div>
     </div>
 
@@ -278,7 +279,7 @@
       <div class="step-num">9</div>
       <div class="step-body">
         <h2>Done</h2>
-        <p>The device reboots and joins your real network (you'll drop off the <code>dpx-tc002</code> WiFi — expected). Find it afterward at <strong>http://dpx-tc002-XXXXXX.local</strong>. It's pre-configured to reach <a href="https://friendster.dubpixel.tv/about">matrix_blaster</a> over MQTT, so it should show up there as claimable within a few seconds.</p>
+        <p>The device reboots and joins your real network (you'll drop off the <code>dpx-tc002</code> WiFi — expected). Find it afterward at <strong>http://dpx-tc002-XXXXXX.local</strong> — same <code>XXXXXX</code> from step 6, your device's own unique suffix, not a literal "XXXXXX". It's pre-configured to reach <a href="https://friendster.dubpixel.tv/about">matrix_blaster</a> over MQTT, so it should show up there as claimable within a few seconds.</p>
       </div>
     </div>
 
