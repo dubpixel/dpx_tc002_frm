@@ -295,6 +295,7 @@ When you flash this firmware the device is **not stock WLED** — it boots into 
 | **Buttons** | GPIO 26 / 14 / 27 | Configurable macros in WLED |
 | **Transitions** | 0 ms | Instant — better for text |
 | **WiFi** | Not saved | Configure on first connect |
+| **MQTT** | `mb.dubpixel.tv:1883`, no auth | Default broker — makes a fresh device claimable via [matrix_blaster](https://friendster.dubpixel.tv/about) out of the box; change in WLED → Sync → MQTT if not using it |
 
 > Reflashing **preserves** your saved WiFi credentials. To reset to factory defaults, delete `/cfg.json` via WLED → File Manager, then reboot.
 

@@ -187,7 +187,7 @@ Consult `docs/hardening.instructions.md` (concise checklist) and
 
 ## PROJECT: dpx_tc002_frm
 
-**Status:** Active development — v0.2.0 (2026-08-20)
+**Status:** Active development — v0.4.0 (2026-08-20)
 **Branch:** `main` (feature branches: `feature/brief-description`)
 **Version File:** `VERSION` + `package.json`
 
@@ -225,7 +225,7 @@ contract defined in `SPEC.md`.
 | `dpx_tc.h` | Timecode display (both render modes), frame bar |
 | `dpx_font.h` | AwtrixFont 3x5 TomThumb bitmap font |
 | `dpx_icons.h` | Icon load + render — LaMetric PNG→raw pipeline (GH #16) |
-| `dpx_mqtt.h` | MQTT command dispatch, device-info publish, icon fetch over MQTT |
+| `dpx_mqtt.h` | MQTT command dispatch, device-info + live app-state publish (#80), icon fetch over MQTT |
 | `dpx_pair.h` | Device-claim PIN display for friendster/cueMaestro server pairing |
 
 ### Agent Rules (for this repo)

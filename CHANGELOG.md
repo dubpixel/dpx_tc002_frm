@@ -1,5 +1,19 @@
 ## dpx_tc002_frm changelog
 
+### [0.4.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.3.0...0.4.0) (2026-08-20)
+
+> A factory-fresh device is now actually claimable, and friendster can echo a device's
+> live state without needing LAN access to it.
+
+#### Features
+* **mqtt:** default MQTT broker (`mb.dubpixel.tv:1883`) baked into first-boot config (#82) — friendster's device-claim flow is MQTT-only (`mqtt_client.publish(f"{prefix}/dpx/pair", ...)`, no HTTP fallback), and nothing previously configured MQTT on a fresh device, so it was never actually claimable out of the box. DNS name rather than the raw droplet IP so the broker can move without re-flashing devices in the field; DNS record requested in `dpx_friendster#101`
+* **mqtt:** new retained/QoS 1 topic `{mqttDeviceTopic}/dpx/appstate` (#80) — lighter, redraw-able echo of whatever's currently showing (app/notify/history — text/color/rainbow/icon/type), for a cloud-hosted companion server that can't reach `GET /api/screen` over LAN. Verified live against the real production broker, not just code-reviewed
+
+#### Chores
+* Renamed `cuemaster` → `cueMaestro` references across comments/docs (#81), matching the rename already done on the `dpx_friendster` side
+
+---
+
 ### [0.3.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.2.0...0.3.0) (2026-08-20)
 
 > Clock system unification, token substitution, notification history, unique per-device
