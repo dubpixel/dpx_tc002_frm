@@ -1,5 +1,15 @@
 ## dpx_tc002_frm changelog
 
+### [0.4.3](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.2...0.4.3) (2026-08-21)
+
+> Every device was presenting the exact same name to friendster (and anything else reading
+> WLED's own device name), making units indistinguishable.
+
+#### Bug Fixes
+* **firstboot:** `id.name` in the default first-boot config was hardcoded to the literal string `"dpx_tc002"` for every device, instead of a unique per-device value — unlike mDNS/AP SSID, which were already correctly mac-suffixed. Now set to the same `dpx-tc002-XXXXXX` name used for mDNS/AP, so friendster can actually tell devices apart
+
+---
+
 ### [0.4.2](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.1...0.4.2) (2026-08-21)
 
 > The 0.4.1 first-boot fix (`doReboot = true`) was not actually sufficient — root-caused

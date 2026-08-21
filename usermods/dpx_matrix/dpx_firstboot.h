@@ -54,10 +54,14 @@ static void dpxFirstBoot() {
     String macSuffix = mac.substring(6); // last 3 bytes = 6 hex chars
     String dpxName = "dpx-tc002-" + macSuffix;
 
-    // Identity
+    // Identity — id.name was previously hardcoded to the literal string
+    // "dpx_tc002" for every device, so friendster (and anything else reading
+    // WLED's own device name) saw the exact same name for every unit
+    // regardless of which physical device it was. Use the same mac-suffixed
+    // name as mDNS/AP so it's actually unique per device.
     JsonObject id   = doc.createNestedObject("id");
     id["mdns"]      = dpxName;
-    id["name"]      = "dpx_tc002";
+    id["name"]      = dpxName;
     id["inv"]       = "TC001";
     id["sui"]       = false;
 
