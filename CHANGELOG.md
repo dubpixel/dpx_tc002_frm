@@ -1,5 +1,23 @@
 ## dpx_tc002_frm changelog
 
+### [0.4.8](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.7...0.4.8) (2026-08-21)
+
+> Docs/site/CI pass — no firmware behavior changes since 0.4.7.
+
+#### Added
+* **web:** screenshot-driven visual install guide at `/flash/visual/` — same steps as the quick-flash page, walked through with real screenshots at every step (port picker, erase dialog, install confirm, progress, AP join, welcome page, WiFi setup). Cross-linked with the quick guide and from the root page
+* **docs:** README now links the visual guide and documents the `s` serial status command (0.4.6)
+
+#### Fixed
+* **ci:** release build matrix was building ~29 unrelated stock WLED board environments on every tagged release (inherited from before this repo was forked into a single-hardware-target project) — trimmed to just `ulanzi_tc001`. Also fixed the release changelog-generator step that failed on every single release run (hardcoded `sinceTag` pointing at a tag that doesn't exist in this fork)
+* **ci:** nightly and release Pages deploys shared one concurrency group with `cancel-in-progress`, so a release tag pushed shortly after its main commit (our normal flow) killed the nightly deploy mid-flight before it could publish — nightly's manifest was stuck reporting v0.4.1 through the entire 0.4.2-0.4.7 cycle as a result. Split into separate concurrency groups
+
+#### Changed
+* **ci:** trimmed ~11GB of stale GitHub Actions cache (over the repo's 10GB limit) and ~320 leftover build artifacts from the unrelated board matrix; artifact retention dropped from the 90-day default to 7 days going forward
+* **docs:** simplified `docs/HANDOFF_TODO.md` from a stale 393-line phase/TODO roadmap (referencing dead file paths) to an 84-line current reference of the firmware's actual MQTT/HTTP integration surface for friendster
+
+---
+
 ### [0.4.7](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.6...0.4.7) (2026-08-21)
 
 > Stock WLED shows an unbranded "🎉 Thank you for installing WLED!" prompt on first

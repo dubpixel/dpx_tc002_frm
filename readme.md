@@ -218,7 +218,9 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
   Node, no drivers: **[dubpixel.github.io/dpx_tc002_frm/flash](https://dubpixel.github.io/dpx_tc002_frm/flash/)**
   (Chrome or Edge only — Web Serial API isn't supported elsewhere). Pick the **nightly**
   channel (latest `main`, rebuilt on every push) or **release** (pinned to the latest
-  tagged version).
+  tagged version). Prefer screenshots over text? There's also a
+  **[visual, step-by-step guide](https://dubpixel.github.io/dpx_tc002_frm/flash/visual/)**
+  covering the same install with real screenshots at every step.
 
   ### Want to talk to a device? Read the API docs.
   Full HTTP/OSC/MQTT reference, generated straight from the firmware source (can't drift
@@ -307,7 +309,7 @@ When you flash this firmware the device is **not stock WLED** — it boots into 
 | **OSC** | UDP 4210 — `/dpx/notify`, `/dpx/tc`, `/dpx/app/<name>`, `/dpx/overlay`, `/dpx/effect` |
 | **MQTT** | `{deviceTopic}/dpx/#` — same structure as OSC |
 | **JSON** | `POST /json {"dpx":{...}}` — WLED standard JSON API |
-| **Serial** | 115200 baud — prints IP on connect |
+| **Serial** | 115200 baud — prints IP on connect; send `s` for a one-line status (`dpx_tc002 v{version} \| {mdns} \| mac {mac}`) — WLED's own `v` command only reports its internal build number, not our version |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
