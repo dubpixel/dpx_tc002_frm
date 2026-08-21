@@ -166,10 +166,17 @@
       var btn = document.getElementById('install_btn');
       var note = document.getElementById('channel_note');
       var manifestUrl = '../firmware/' + ch + '/manifest.json';
+      // Cache-bust: GH Pages serves everything with a fixed 10-minute CDN
+      // cache we can't override via repo config. A stale cached manifest.json
+      // would point at an old firmware version (the .bin filenames are
+      // version-stamped, so THEY can't go stale under a re-used name — only
+      // the manifest itself needs busting). Real bug this fixed: a device
+      // got flashed with a 10-min-stale manifest right after a firmware push.
+      var bustedUrl = manifestUrl + '?t=' + Date.now();
       note.textContent = 'Checking ' + ch + ' build…';
-      fetch(manifestUrl, { method: 'HEAD' }).then(function (r) {
+      fetch(bustedUrl, { method: 'HEAD', cache: 'no-store' }).then(function (r) {
         if (r.ok) {
-          btn.setAttribute('manifest', manifestUrl);
+          btn.setAttribute('manifest', bustedUrl);
           note.textContent = '';
         } else {
           note.textContent = 'No ' + ch + ' build published yet' + (ch === 'release' ? ' (no tagged version pushed yet — use Nightly for now).' : '.');
@@ -178,6 +185,10 @@
         note.textContent = 'Could not check ' + ch + ' build availability.';
       });
     }
+    // Run on load, not just on dropdown change — otherwise a user who clicks
+    // Install without ever touching the dropdown gets the button's static
+    // HTML-attribute manifest URL, un-busted.
+    setChannel(document.getElementById('channel').value);
   </script>
 </body>
 </html>
