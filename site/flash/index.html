@@ -194,10 +194,15 @@
       // got flashed with a 10-min-stale manifest right after a firmware push.
       var bustedUrl = manifestUrl + '?t=' + Date.now();
       note.textContent = 'Checking ' + ch + ' build…';
-      fetch(bustedUrl, { method: 'HEAD', cache: 'no-store' }).then(function (r) {
+      // GET, not HEAD — need the body to show the version number, which
+      // also makes a stale-cache situation immediately visible instead of
+      // silently flashing the wrong build (see GH #82 onboarding failure).
+      fetch(bustedUrl, { cache: 'no-store' }).then(function (r) {
         if (r.ok) {
-          btn.setAttribute('manifest', bustedUrl);
-          note.textContent = '';
+          return r.json().then(function (manifest) {
+            btn.setAttribute('manifest', bustedUrl);
+            note.textContent = 'v' + manifest.version + ' ready to flash.';
+          });
         } else {
           note.textContent = 'No ' + ch + ' build published yet' + (ch === 'release' ? ' (no tagged version pushed yet — use Nightly for now).' : '.');
         }
