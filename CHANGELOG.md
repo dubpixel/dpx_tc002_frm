@@ -1,6 +1,6 @@
 ## dpx_tc002_frm changelog
 
-### [0.5.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.9...0.5.0) (2026-08-21)
+### [0.5.1](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.9...0.5.1) (2026-08-21)
 
 > GH #15 — hardware sensors (SHT3x temp/humidity, battery ADC, LDR) are wired up
 > end to end and confirmed live against a real external thermometer/hygrometer.
