@@ -1,5 +1,16 @@
 ## dpx_tc002_frm changelog
 
+### [0.4.9](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.8...0.4.9) (2026-08-21)
+
+> Own regression from 0.4.6, found while reviewing the code before adding sensor
+> support: the `s` serial command added there silently broke an existing,
+> richer status command instead of adding a new one.
+
+#### Fixed
+* **serial:** `wled00/wled_serial.cpp`'s `handleSerial()` runs before `UsermodManager::loop()` every tick, so the `s` case added in 0.4.6 consumed the byte before `dpx_matrix.h`'s own pre-existing, richer `s` status handler (IP, hostname, AP, WiFi/RSSI, heap, app, notifs, time, uptime, build, MQTT, OSC) ever saw it — silently disabling it since 0.4.6. Removed the duplicate; the version line now lives in the real handler instead
+
+---
+
 ### [0.4.8](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.7...0.4.8) (2026-08-21)
 
 > Docs/site/CI pass — no firmware behavior changes since 0.4.7.

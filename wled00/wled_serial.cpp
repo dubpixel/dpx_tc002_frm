@@ -91,15 +91,12 @@ void handleSerial()
         else if (next == 0xC9) { state = AdaState::TPM2_Header_Type; } //TPM2 start byte
         else if (next == 'I')  { handleImprovPacket(); return; }
         else if (next == 'v')  { Serial.print("WLED"); Serial.write(' '); Serial.println(VERSION); }
-        else if (next == 's')  {
-          // dpx_tc002: 'v' only prints WLED core's own internal numeric build
-          // id (e.g. "WLED 2607011") — not useful for confirming which of OUR
-          // releases actually got flashed. versionString is our real semver
-          // (wled_metadata.h, sourced from package.json by set_metadata.py).
-          Serial.print(F("dpx_tc002 v")); Serial.print(versionString);
-          Serial.print(F(" | "));         Serial.print(cmDNS);
-          Serial.print(F(" | mac "));     Serial.println(WiFi.macAddress());
-        }
+        // dpx_tc002: do NOT add an 's' case here — handleSerial() (this
+        // function) runs before UsermodManager::loop() every tick (see
+        // wled.cpp), so it would silently consume the byte before
+        // dpx_matrix.h's own, richer 's' status handler ever sees it. That's
+        // exactly the regression a prior 's' case here caused — reverted;
+        // the version line now lives in dpx_matrix.h's existing 's' output.
         else if (next == 0xB0) { updateBaudRate( 115200); }
         else if (next == 0xB1) { updateBaudRate( 230400); }
         else if (next == 0xB2) { updateBaudRate( 460800); }

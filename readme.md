@@ -309,7 +309,7 @@ When you flash this firmware the device is **not stock WLED** — it boots into 
 | **OSC** | UDP 4210 — `/dpx/notify`, `/dpx/tc`, `/dpx/app/<name>`, `/dpx/overlay`, `/dpx/effect` |
 | **MQTT** | `{deviceTopic}/dpx/#` — same structure as OSC |
 | **JSON** | `POST /json {"dpx":{...}}` — WLED standard JSON API |
-| **Serial** | 115200 baud — prints IP on connect; send `s` for a one-line status (`dpx_tc002 v{version} \| {mdns} \| mac {mac}`) — WLED's own `v` command only reports its internal build number, not our version |
+| **Serial** | 115200 baud — prints IP on connect; send `s` for a status dump (IP, hostname, AP, WiFi, heap, current app, uptime, firmware version, build, MQTT/OSC state) — WLED's own `v` command only reports its internal build number, not our version |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

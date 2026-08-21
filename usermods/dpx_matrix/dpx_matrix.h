@@ -295,6 +295,7 @@ public:
                     Serial.printf("[dpx] Time    : %02d:%02d:%02d (localTime=%lu)\n",
                         hour(localTime), minute(localTime), second(localTime), (unsigned long)localTime);
                     Serial.printf("[dpx] Uptime  : %lus\n", millis() / 1000);
+                    Serial.printf("[dpx] Version : dpx_tc002 v%s\n", versionString);
                     Serial.printf("[dpx] Build   : %s\n", DPX_BUILD_ID);
                     Serial.printf("[dpx] MQTT    : %s\n", WLED_MQTT_CONNECTED ? "connected" : "disconnected");
                     Serial.printf("[dpx] OSC UDP : %s port %d\n", dpxUdpStarted ? "started" : "stopped", DPX_OSC_PORT);
