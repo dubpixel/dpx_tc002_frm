@@ -95,6 +95,11 @@ jobs:
         path: |
           build_output/release/*.bin
           build_output/release/*_ESP02*.bin.gz
+        # These are transient CI build outputs, not a distribution channel —
+        # actual releases are served from GH Pages (/flash/). Default 90-day
+        # retention was piling up (378 artifacts / ~490MB at last check) for
+        # no reason.
+        retention-days: 7
 
 
   testCdata:

@@ -38,8 +38,11 @@ jobs:
       id: changelog
       uses: janheinrichmerker/action-github-changelog-generator@v2.4
       with:
-          token: ${{ secrets.GITHUB_TOKEN }} 
-          sinceTag: v0.15.0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # sinceTag was hardcoded to v0.15.0, a tag from upstream WLED that
+          # doesn't exist in this fork — the action errored on every single
+          # release run ("can't find tag v0.15.0"). Omitted so it uses the
+          # actual previous tag in this repo's own history instead.
           maxIssues: 500
           # Exclude issues that were closed without resolution from changelog
           excludeLabels: 'stale,wontfix,duplicate,invalid,external,question,use-as-is,not_planned'       
