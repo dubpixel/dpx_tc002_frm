@@ -153,6 +153,21 @@ static void dpxFirstBoot() {
     if (!f) { DEBUG_PRINTLN(F("DpxMatrix: failed to open /cfg.json")); return; }
     serializeJson(doc, f);
     f.close();
-    DEBUG_PRINTLN(F("DpxMatrix: /cfg.json written — takes effect on next boot"));
+
+    // Force an immediate reboot so this config actually loads before the
+    // user can touch anything. Without this, real onboarding failure: WLED's
+    // own config load already ran (before usermods' setup(), where this
+    // function executes) using 100% stock defaults for the whole first-boot
+    // session — this file write doesn't change the RUNNING config at all.
+    // If the user saves ANY WLED settings page during that first session
+    // (WiFi setup during onboarding, unavoidably), WLED re-serializes its
+    // current (stock) in-memory state back over this file, clobbering
+    // everything we just wrote except whatever that one settings page also
+    // touched. Confirmed live on a real device: mDNS survived (narrowly —
+    // timing-dependent), but device name, AP SSID, the entire 2D matrix
+    // panel mapping, and 2 of 3 buttons were silently reset to stock,
+    // with the LED matrix and button macros non-functional as a result.
+    doReboot = true;
+    DEBUG_PRINTLN(F("DpxMatrix: /cfg.json written — rebooting now to load it"));
 }
 
