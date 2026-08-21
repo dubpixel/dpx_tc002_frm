@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dpx_tc002 — Visual Install Guide</title>
+<link rel="icon" href="../../fav_icon.png">
+<script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --purple: #b76ce7;
+    --purple-dim: #8a4fb8;
+    --bg: #14121a;
+    --panel: #1d1a26;
+    --panel-border: #322d40;
+    --text: #eee9f5;
+    --text-dim: #a89fbc;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(ellipse at top, #201c2b 0%, var(--bg) 55%);
+    color: var(--text);
+    margin: 0;
+    min-height: 100vh;
+    padding: 3rem 1.5rem 4rem;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  .brand { margin-bottom: 2rem; }
+  .brand img { height: 32px; display: block; margin-bottom: 0.6rem; }
+  .brand span {
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  h1 {
+    font-size: 1.7rem;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .lede { color: var(--text-dim); margin: 0 0 1.5rem; line-height: 1.55; }
+
+  .switcher {
+    display: flex;
+    gap: 0.6rem;
+    margin: 0 0 2rem;
+  }
+  .switcher a {
+    flex: 1;
+    text-align: center;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    border: 1px solid var(--panel-border);
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  .switcher a.active {
+    background: rgba(183, 108, 231, 0.12);
+    border-color: rgba(183, 108, 231, 0.4);
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .warn {
+    display: flex;
+    gap: 0.6rem;
+    align-items: flex-start;
+    background: rgba(183, 108, 231, 0.08);
+    border: 1px solid rgba(183, 108, 231, 0.25);
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 2rem;
+  }
+  .warn strong { color: var(--text); }
+
+  .step {
+    display: flex;
+    gap: 1.25rem;
+    margin-bottom: 2.75rem;
+  }
+  .step-num {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--purple);
+    color: #1a1421;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.95rem;
+  }
+  .step-body { flex: 1; min-width: 0; }
+  .step h2 {
+    font-size: 1.05rem;
+    margin: 0.2rem 0 0.4rem;
+    color: var(--text);
+  }
+  .step p {
+    color: var(--text-dim);
+    line-height: 1.55;
+    margin: 0 0 0.9rem;
+    font-size: 0.95rem;
+  }
+  .step p code {
+    background: rgba(255,255,255,0.07);
+    padding: 0.12em 0.4em;
+    border-radius: 5px;
+    font-size: 0.9em;
+  }
+  .shot {
+    display: block;
+    max-width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--panel-border);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  .shot-caption {
+    font-size: 0.78rem;
+    color: #6a6178;
+    margin: 0.5rem 0 0;
+  }
+  .alt-note {
+    margin-top: 0.9rem;
+    padding: 0.7rem 0.9rem;
+    background: rgba(255,255,255,0.03);
+    border-left: 2px solid var(--panel-border);
+    border-radius: 0 6px 6px 0;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+  }
+
+  .channel-row { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.25rem; }
+  .channel-row label { font-size: 0.85rem; color: var(--text-dim); }
+  select#channel {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+  }
+  #channel_note { font-size: 0.8rem; color: var(--text-dim); margin: 0.35rem 0 1rem; }
+
+  esp-web-install-button { display: block; }
+  esp-web-install-button::part(activate-button) {
+    background: var(--purple);
+    color: #1a1421;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    padding: 0.7rem 1.4rem;
+    cursor: pointer;
+  }
+
+  footer {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    text-align: center;
+    margin-top: 2rem;
+  }
+  footer a { color: var(--purple); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <img src="../../logo.png" alt="dubpixel">
+      <span>dpx_tc002</span>
+    </div>
+
+    <h1>Visual install guide</h1>
+    <p class="lede">Same install as the quick-flash page, walked through screen by screen — useful if you'd rather see it than read it.</p>
+
+    <div class="switcher">
+      <a href="../">Quick guide</a>
+      <a href="./" class="active">Visual guide</a>
+    </div>
+
+    <div class="warn">
+      <span>⚠️</span>
+      <span>Requires desktop <strong>Chrome</strong> or <strong>Edge</strong> (Web Serial API). Safari, Firefox, and mobile browsers can't do this — use the PlatformIO CLI instead on those.</span>
+    </div>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h2>Plug in the device, then click Connect below</h2>
+        <p>Use a real data cable, not a charge-only one. Click the install button at the bottom of this page — it opens a small dialog like this:</p>
+        <img class="shot" src="../../images/setup_tutorial/2-install-dialog.png" alt="ESP Web Tools dialog showing 'dpx_tc002 v0.4.7 (Ulanzi TC001)' with an Install option">
+        <p class="shot-caption">Click "Install dpx_tc002 …" — not "Logs &amp; Console" (that's for debugging an already-flashed device).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h2>Pick the serial port</h2>
+        <p>Your browser will list available ports. Look for one named after a USB-serial chip (e.g. <code>CP210x</code>, <code>CH340</code>) or marked <code>USB Serial</code> — not Bluetooth ports.</p>
+        <img class="shot" src="../../images/setup_tutorial/1-serial-port.png" alt="Browser serial port picker dialog listing available ports">
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h2>Erase device — check this box if it's the first flash</h2>
+        <p>Factory-fresh device, or previously ran stock Awtrix/other firmware? Check <strong>Erase device</strong>. Skipping this on a true first flash can leave old settings behind and cause boot issues.</p>
+        <img class="shot" src="../../images/setup_tutorial/3-erase-device.png" alt="Erase device dialog with the Erase device checkbox checked">
+        <div class="alt-note">
+          <strong>Already running dpx_tc002 and just updating?</strong> Leave it unchecked — your WiFi and settings stay put:
+          <img class="shot" style="margin-top:0.6rem" src="../../images/setup_tutorial/3-erase-device-update.png" alt="Erase device dialog with the checkbox left unchecked, for a routine update">
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h2>Confirm and install</h2>
+        <p>Click <strong>Install</strong>. This is the last step before it actually starts writing to the device.</p>
+        <img class="shot" src="../../images/setup_tutorial/4-confirm-install.png" alt="Confirm Installation dialog">
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h2>Wait for it to finish — keep this tab open</h2>
+        <p>Takes about 2 minutes. The buzzer will beep continuously the whole time — that's expected electrical noise while the chip sits in its bootloader, not the actual firmware running. It stops on its own once done.</p>
+        <img class="shot" src="../../images/setup_tutorial/5-installing.png" alt="Installing progress screen at 10 percent">
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">6</div>
+      <div class="step-body">
+        <h2>Join the device's WiFi network</h2>
+        <p>Once it reboots (buzzer stops), look for a new network named <strong>dpx-tc002-XXXXXX</strong> in your WiFi list — give it 10–15 seconds to show up. Password: <strong>dubpixel1</strong>.</p>
+        <img class="shot" src="../../images/setup_tutorial/6-find-ap-network.png" alt="macOS WiFi menu showing a dpx-tc002-2dfab0 network">
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">7</div>
+      <div class="step-body">
+        <h2>You'll land on this page automatically</h2>
+        <p>Your browser should pop this up on its own (that's the device's captive portal). If it doesn't, open <code>http://4.3.2.1</code> manually. It shows the device's exact name and firmware version — click <strong>Set up WiFi →</strong>.</p>
+        <img class="shot" src="../../images/setup_tutorial/7-welcome-page.png" alt="dpx_tc002 welcome page prompting to set up WiFi, showing device name and firmware version">
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">8</div>
+      <div class="step-body">
+        <h2>Pick your real network</h2>
+        <p>Hit <strong>Scan</strong> to list nearby networks, or type the name in directly.</p>
+        <img class="shot" src="../../images/setup_tutorial/8-wifi-settings-blank.png" alt="WiFi settings page with a blank network name field">
+        <p style="margin-top:0.9rem">Select your home/venue network, enter its password, then <strong>Save &amp; Connect</strong>.</p>
+        <img class="shot" src="../../images/setup_tutorial/9-wifi-settings-filled.png" alt="WiFi settings page with a network selected from the scan dropdown">
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">9</div>
+      <div class="step-body">
+        <h2>Done</h2>
+        <p>The device reboots and joins your real network (you'll drop off the <code>dpx-tc002</code> WiFi — expected). Find it afterward at <strong>http://dpx-tc002-XXXXXX.local</strong>. It's pre-configured to reach <a href="https://friendster.dubpixel.tv/about">matrix_blaster</a> over MQTT, so it should show up there as claimable within a few seconds.</p>
+      </div>
+    </div>
+
+    <div class="panel" style="background:var(--panel);border:1px solid var(--panel-border);border-radius:14px;padding:1.5rem;margin-top:2.5rem">
+      <h2 style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--purple);margin:0 0 1rem">Ready? Flash it here</h2>
+      <div class="channel-row">
+        <label for="channel">Build</label>
+        <select id="channel" onchange="setChannel(this.value)">
+          <option value="nightly">Nightly (latest <code>main</code>)</option>
+          <option value="release">Latest Release (stable)</option>
+        </select>
+      </div>
+      <p id="channel_note"></p>
+      <esp-web-install-button id="install_btn" manifest="../../firmware/nightly/manifest.json"></esp-web-install-button>
+    </div>
+
+    <footer>
+      Firmware source: <a href="https://github.com/dubpixel/dpx_tc002_frm">dubpixel/dpx_tc002_frm</a> —
+      nightly rebuilds on every push to <code>main</code>, release rebuilds on each tagged version.
+    </footer>
+  </div>
+  <script>
+    function setChannel(ch) {
+      var btn = document.getElementById('install_btn');
+      var note = document.getElementById('channel_note');
+      var manifestUrl = '../../firmware/' + ch + '/manifest.json';
+      var bustedUrl = manifestUrl + '?t=' + Date.now();
+      note.textContent = 'Checking ' + ch + ' build…';
+      fetch(bustedUrl, { cache: 'no-store' }).then(function (r) {
+        if (r.ok) {
+          return r.json().then(function (manifest) {
+            btn.setAttribute('manifest', bustedUrl);
+            note.textContent = 'v' + manifest.version + ' ready to flash.';
+          });
+        } else {
+          note.textContent = 'No ' + ch + ' build published yet' + (ch === 'release' ? ' (no tagged version pushed yet — use Nightly for now).' : '.');
+        }
+      }).catch(function () {
+        note.textContent = 'Could not check ' + ch + ' build availability.';
+      });
+    }
+    setChannel(document.getElementById('channel').value);
+  </script>
+</body>
+</html>
