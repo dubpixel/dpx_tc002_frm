@@ -20,6 +20,8 @@
 //   2D      32×8 panel, non-serpentine (change via WLED UI if needed)
 //   Buttons GPIO 26/14/27, push-button type
 //   Trans   0ms (instant, better for matrix text)
+//   MQTT    mb.dubpixel.tv:1883, no auth — so a fresh device is claimable
+//           out of the box (friendster's claim flow is MQTT-only, #82)
 // ================================================================================
 
 #pragma once
@@ -132,6 +134,20 @@ static void dpxFirstBoot() {
     doc["if"]["ntp"]["en"]     = true;
     doc["if"]["ntp"]["host"]   = "pool.ntp.org";
     doc["if"]["ntp"]["tz"]     = 0;   // UTC; user sets timezone in WLED → Config → Time
+
+    // GH #82 — a fresh device was previously unclaimable: friendster's claim
+    // flow is MQTT-only (mqtt_client.publish(f"{prefix}/dpx/pair", ...), no
+    // HTTP fallback), and nothing wrote MQTT config before this. DNS name,
+    // not a raw droplet IP, so infra can move without re-flashing every
+    // device in the field. Plain 1883/no-auth matches what's already proven
+    // live on real hardware (WSS+TLS on 443 is documented as the eventual
+    // target in dpx_tc002_server.md but isn't set up yet — upgrade later,
+    // not blocking this fix). cid/device-topic left unset: WLED's own core
+    // derives both from the MAC (wled.cpp) identically to what's already
+    // observed live — no need to duplicate that logic here.
+    doc["if"]["mqtt"]["en"]     = true;
+    doc["if"]["mqtt"]["broker"] = "mb.dubpixel.tv";
+    doc["if"]["mqtt"]["port"]   = 1883;
 
     File f = LittleFS.open(F("/cfg.json"), "w");
     if (!f) { DEBUG_PRINTLN(F("DpxMatrix: failed to open /cfg.json")); return; }
