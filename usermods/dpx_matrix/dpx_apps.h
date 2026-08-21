@@ -277,11 +277,19 @@ static void dpxUpdateTimeDateText(DpxCustomApp& app) {
 static void dpxUpdateSensorText(DpxCustomApp& app) {
     char buf[16];
     if (app.type == "temp") {
+        // AwtrixFont indexes the degree glyph as a single raw byte (0xB0,
+        // Latin-1/Windows-1252 style — see dpx_font.h's "[144] 0xB0 degree"
+        // entry) and dpxRenderText() walks the string byte-by-byte, with no
+        // UTF-8 awareness. A literal "°" in C++ source compiles as 2 UTF-8
+        // bytes (0xC2 0xB0), so it rendered as a stray garbage glyph followed
+        // by the real degree symbol — confirmed live, looked like noise
+        // stuck between the number and the unit letter. "\xB0" is the single
+        // correct byte.
         if (!dpxSht3xFound || isnan(dpxTemp)) {
-            strncpy(buf, "--°", sizeof(buf));
+            strncpy(buf, "--\xB0", sizeof(buf));
         } else {
             float t = DPX_TEMP_FAHRENHEIT ? (dpxTemp * 9.0f / 5.0f + 32.0f) : dpxTemp;
-            snprintf(buf, sizeof(buf), "%.0f°%s", t, DPX_TEMP_FAHRENHEIT ? "F" : "C");
+            snprintf(buf, sizeof(buf), "%.0f\xB0%s", t, DPX_TEMP_FAHRENHEIT ? "F" : "C");
         }
     } else if (app.type == "hum") {
         if (!dpxSht3xFound || isnan(dpxHum)) strncpy(buf, "--%", sizeof(buf));

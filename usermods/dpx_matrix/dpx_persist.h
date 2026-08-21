@@ -23,8 +23,14 @@
 #include <LittleFS.h>
 
 // ── Runtime variables (set at boot from dev.json, some apply immediately) ─────
-static float    DPX_TEMP_OFFSET    = -9.0f;
-static float    DPX_HUM_OFFSET     =  0.0f;
+// TEMP/HUM_OFFSET defaults measured live against a real external thermometer
+// next to the device (76% RH / 71°F ambient vs. 37.6% / 38.2C raw sensor
+// reading) — self-heating from the enclosed ESP32+LED matrix runs the
+// sensor well above ambient. Still per-device/per-environment in principle;
+// this is a real measurement, not a guess, but expect it to drift some
+// device-to-device.
+static float    DPX_TEMP_OFFSET    = -16.5f;
+static float    DPX_HUM_OFFSET     =  38.4f;
 static uint32_t DPX_TC_DWELL_MS    = 2000;   // ms before TC app auto-dismiss
 static bool     DPX_TC_HOLD        = false;   // if true, TC never auto-dismisses
 static bool     DPX_TC_SHOW_FRAMES = false;   // false=HH:MM:SS+bar, true=MM:SS.FF
@@ -54,7 +60,7 @@ static bool     DPX_SHOW_TEMP      = false;
 static bool     DPX_SHOW_HUM       = false;
 static bool     DPX_SHOW_BAT       = false;
 static bool     DPX_ABRI           = false;   // auto-brightness from LDR
-static bool     DPX_TEMP_FAHRENHEIT = false;  // false = Celsius
+static bool     DPX_TEMP_FAHRENHEIT = true;   // toggle in /ctrl (Sensors card) or POST /api/settings {"TEMP_F":false}
 
 // ── Load dev.json from LittleFS ───────────────────────────────────────────────
 static void dpxLoadDev() {

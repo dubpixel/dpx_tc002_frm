@@ -95,14 +95,31 @@ static void dpxCaptureBody(AsyncWebServerRequest* req, uint8_t* data, size_t len
 }
 
 // Get plain-text POST body from AsyncWebServerRequest — see dpxCaptureBody().
-// Only returns real data if .onBody(dpxCaptureBody) was chained onto this
-// route's server.on(...) registration.
+// Two calling conventions both have to work here:
+//  1. Raw JSON body, any Content-Type except application/x-www-form-urlencoded
+//     (e.g. a real `curl -H "Content-Type: application/json" -d '{...}'`, or
+//     any API client following the documented contract) — captured via
+//     .onBody(dpxCaptureBody) into _tempObject, since the library only calls
+//     onBody for content types it doesn't parse as a form.
+//  2. application/x-www-form-urlencoded with body `plain=<json>` — what
+//     dpx_html.h's own apiPost() JS helper has always sent from the browser
+//     UI. "plain" isn't a library-recognized keyword (confirmed: zero
+//     occurrences of the literal string anywhere in this library's source) —
+//     it's just this project's chosen field name, parsed into a completely
+//     ordinary named request param by the library's standard urlencoded-form
+//     parser, retrievable via arg("plain"). onBody is never invoked for this
+//     Content-Type, so _tempObject stays null and this path is the only one
+//     that works for it. An earlier version of this fix read only
+//     _tempObject and silently broke every /ctrl settings toggle as a result
+//     — confirmed live, then fixed by checking both.
 static inline String dpxBody(AsyncWebServerRequest* req) {
-    if (!req->_tempObject) return String();
-    String s((char*)req->_tempObject);
-    free(req->_tempObject);
-    req->_tempObject = nullptr;
-    return s;
+    if (req->_tempObject) {
+        String s((char*)req->_tempObject);
+        free(req->_tempObject);
+        req->_tempObject = nullptr;
+        return s;
+    }
+    return req->arg("plain");
 }
 
 // 256-pixel screen dump as JSON array.

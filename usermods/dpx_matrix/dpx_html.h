@@ -922,6 +922,17 @@ select option{background:#222}
 </div>
 
 <div class="card">
+<h2>Sensors</h2>
+<p style="color:#666;font-size:11px;margin-bottom:10px">Add Temperature/Humidity/Battery to the app rotation with the + buttons above. These control readout units and auto-brightness.</p>
+<div class="row" style="margin-bottom:8px;align-items:center">
+  <div class="chk"><input type="checkbox" id="sns_f" onchange="apiPost('/api/settings',{TEMP_F:this.checked})"><label for="sns_f">Fahrenheit (unchecked = Celsius)</label></div>
+</div>
+<div class="row" style="margin-bottom:8px;align-items:center">
+  <div class="chk"><input type="checkbox" id="sns_abri" onchange="apiPost('/api/settings',{ABRI:this.checked})"><label for="sns_abri">ABRI &mdash; auto-brightness from the light sensor</label></div>
+</div>
+</div>
+
+<div class="card">
 <h2>Sound <span id="snd_status" style="font-size:10px;color:#666"></span></h2>
 <div class="row" style="margin-bottom:6px">
   <div class="chk"><input type="checkbox" id="snd_en"><label for="snd_en">Sound enabled</label></div>
@@ -1011,7 +1022,8 @@ function loadLoop(){
         btns.appendChild(bDel);
       } else {
         var bDel=document.createElement("button");bDel.textContent="Remove";bDel.className="red sm";bDel.style.marginTop="0";
-        var key=app.name==="Time"?"TIM":"DAT";
+        var NATIVE_KEYS={"Time":"TIM","Date":"DAT","Temperature":"TEMP","Humidity":"HUM","Battery":"BAT"};
+        var key=NATIVE_KEYS[app.name]||"TIM";
         bDel.onclick=(function(k,n){return function(){apiPost("/api/settings",function(){var d={};d[k]=false;return d;}()).then(function(){toast(n+" removed");setTimeout(loadLoop,400);});};})(key,app.name);
         btns.appendChild(bDel);
       }
@@ -1028,7 +1040,7 @@ function loadLoop(){
     var addArea=document.getElementById("native_add_area");
     if(addArea){
       addArea.innerHTML="";
-      [["Time","TIM"],["Date","DAT"]].forEach(function(pair){
+      [["Time","TIM"],["Date","DAT"],["Temperature","TEMP"],["Humidity","HUM"],["Battery","BAT"]].forEach(function(pair){
         if(names.indexOf(pair[0])<0){
           var b=document.createElement("button");b.className="sm";b.style.marginTop="0";
           b.textContent="+ "+pair[0];
@@ -1174,6 +1186,8 @@ function sendRtttl(){var v=document.getElementById("rtttl").value.trim();if(!v){
 function sendSound(){var v=document.getElementById("snd_file").value;if(!v){toast("Enter filename",false);return;}apiPost("/api/sound",{sound:v});}
 fetch("/api/settings").then(function(r){return r.json();}).then(function(s){
   if(s.MQTT_PREFIX){mqttPrefix=s.MQTT_PREFIX;var note=document.getElementById("mqtt_prefix_note");if(note)note.innerHTML='MQTT prefix: <code style="color:#4af">'+s.MQTT_PREFIX+'</code> &nbsp;&nbsp; OSC namespace: <code style="color:#4af">/dpx_tc002</code>';}
+  var sf=document.getElementById("sns_f");if(sf&&s.TEMP_F!==undefined)sf.checked=s.TEMP_F;
+  var sa=document.getElementById("sns_abri");if(sa&&s.ABRI!==undefined)sa.checked=s.ABRI;
   var en=document.getElementById("snd_en");var st=document.getElementById("snd_status");
   if(s.SOUND!==undefined){en.checked=s.SOUND;}else{en.checked=true;}
   if(st){st.textContent=en.checked?"(on)":"(DISABLED \u2014 check this box and Save)";st.style.color=en.checked?"#2a5":"#f66";}
