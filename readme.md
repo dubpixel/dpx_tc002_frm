@@ -51,6 +51,8 @@
     <a href="https://github.com/dubpixel/dpx_tc002_frm/tree/main/hardware/src/dpx_tc002_frm/bom"><strong>BOM Here!</strong></a>
      » 
     <a href="https://dubpixel.github.io/dpx_tc002_frm/ibom/index.html"><strong>Interactive BOM Here!</strong></a>
+     »
+    <a href="https://dubpixel.github.io/dpx_tc002_frm/api/"><strong>API Docs Here!</strong></a>
      <br />
     <a href="https://github.com/dubpixel/dpx_tc002_frm/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     ·
@@ -62,10 +64,6 @@
   <a href="https://friendster.dubpixel.tv/about">
     <img alt="matrix_blaster companion server" src="https://img.shields.io/badge/companion%20server-matrix__blaster-7ee787?style=for-the-badge&labelColor=0a0a0d">
   </a>
-  <p>
-    <sub><i>Account/device management, PIN device-claim, and a buddy-list-style way to message your devices —
-    <a href="https://friendster.dubpixel.tv/about">friendster.dubpixel.tv</a>. Optional; this firmware works standalone.</i></sub>
-  </p>
 </div>
    <br />
 
@@ -221,6 +219,12 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
   (Chrome or Edge only — Web Serial API isn't supported elsewhere). Pick the **nightly**
   channel (latest `main`, rebuilt on every push) or **release** (pinned to the latest
   tagged version).
+
+  ### Want to talk to a device? Read the API docs.
+  Full HTTP/OSC/MQTT reference, generated straight from the firmware source (can't drift
+  out of sync): **[dubpixel.github.io/dpx_tc002_frm/api](https://dubpixel.github.io/dpx_tc002_frm/api/)**.
+  Building an agent/integration instead of reading in a browser? Grab the plain-markdown
+  version: **[api/llms.txt](https://dubpixel.github.io/dpx_tc002_frm/api/llms.txt)**.
 
   ### Prerequisites (for firmware development)
   * PlatformIO (VS Code extension or CLI)
