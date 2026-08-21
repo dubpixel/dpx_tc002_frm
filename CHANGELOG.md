@@ -1,5 +1,38 @@
 ## dpx_tc002_frm changelog
 
+### [0.3.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.2.0...0.3.0) (2026-08-20)
+
+> Clock system unification, token substitution, notification history, unique per-device
+> mDNS/AP naming, and a full documentation/GitHub Pages site overhaul.
+
+#### Features
+* **indicators:** 4th corner indicator LED (#74)
+* **clocks:** location label, static/no-scroll option, and icon exposure in `/ctrl`; native Time/Date apps unified onto the same render pipeline as custom clocks (icon/label support "for free"); timezone offset picker replacing a raw minutes field (#76)
+* **text:** PixelForge-compatible token substitution (`#HHMM`, `#DATE`, `#DDDD`, etc.) in any app/notification text, same syntax as WLED's own FX #122 (#18)
+* **notify:** history/backlog ring buffer — outer buttons (LEFT long-press when idle) step back through recently-shown notifications; `/ctrl` debug panel with Clear History and per-item delete (#75)
+* **ctrl:** notification-queue debug panel — see the active + queued notifications, skip/delete individually (#72)
+* **build:** real USB serial upload environment (`ulanzi_tc001_serial`), empirically verified at 115200 baud (#68)
+* **web:** nightly/release channel picker on the browser-flash page — nightly tracks `main`, release pins to the latest tag
+* **net:** unique per-device mDNS hostname and AP SSID (`dpx-tc002-XXXXXX`, MAC-suffixed) instead of a fixed name every device shared — prevents multiple unclaimed devices from colliding; shown on the WiFi-setup splash page. Non-breaking: only applies on first boot / factory reset
+* **docs:** agent-digestible API reference (`llms.txt`) generated from the same firmware source as the graphical `/api-ref` page — can't drift out of sync
+* **site:** full GitHub Pages overhaul — real landing page instead of dropping straight into the flash tool, generated API docs at `/api/`, real device screenshots, promoted OSC/icons/companion-server sections (#77)
+
+#### Bug Fixes
+* **notify:** short non-scrolling notifications with `repeat` set never cleared (static text never signals scroll completion)
+* **api:** sub-path routes (`/api/notify/dismiss`, `/api/notify/clear`, `/dpx/screen`, etc.) were silently swallowed by their base route's prefix match, meaning dismiss/clear never worked over HTTP; fixed route registration order. Also fixed the resulting duration/repeat race this introduced, and added an observable `notifActive` field plus regression tests (#71)
+* **text:** 2x-scale glyphs now anchor to a shared baseline instead of centering independently per glyph, fixing cross-glyph vertical misalignment (#19)
+* **text:** native Time/Date apps rendered left-aligned after the clock-unification refactor — the old renderer always centered, the new shared pipeline needed `center=true` set explicitly
+* **serial:** `c` config-dump command used `%d` for a `String` (undefined behavior) and an undersized JSON buffer that silently truncated `/cfg.json` on real configured devices (#10)
+* **ci:** `release.yml` missing `contents: write` permission, causing a 403 on release creation
+* **web:** `/api/apps` hardcoded `type:"text"` for native apps even after they gained real `data.type` values from the clock-unification work
+
+#### Chores
+* `tools/dpx_send.sh` — quick notification-send helper, wraps the `plain=<urlencoded-json>` wire format
+* Replaced the stock WLED/FastLED favicon with the dpx hot-dog icon
+* Renamed `web-installer/` → `site/` and `web-flash-deploy.yml` → `pages-deploy.yml` — neither was just "the installer" anymore
+
+---
+
 ### [0.2.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.1.1...0.2.0) (2026-08-20)
 
 > Icon rendering, WLED pattern slots, multi-instance custom apps, device-claim pairing,
