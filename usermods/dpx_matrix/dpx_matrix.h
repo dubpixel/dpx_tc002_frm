@@ -30,6 +30,7 @@
 #include "dpx_text.h"
 #include "dpx_persist.h"
 #include "dpx_buzzer.h"    // after dpx_persist.h so DPX_SOUND_ENABLED is in scope
+#include "dpx_sensors.h"   // before dpx_apps.h — sensor apps reference its globals
 #include "dpx_apps.h"
 #include "dpx_notifications.h"
 #include "dpx_pair.h"
@@ -37,7 +38,6 @@
 #include "dpx_osc.h"
 #include "dpx_overlay.h"
 #include "dpx_mqtt.h"
-#include "dpx_sensors.h"
 #include "dpx_api.h"
 
 // ── dpx Matrix WLED effect ────────────────────────────────────────────────────
@@ -168,6 +168,9 @@ public:
         // Sync native app visibility flags → dpxHiddenApps before building loop
         if (!DPX_SHOW_TIME) dpxHiddenApps.insert(String(F("Time")));
         if (!DPX_SHOW_DATE) dpxHiddenApps.insert(String(F("Date")));
+        if (!DPX_SHOW_TEMP) dpxHiddenApps.insert(String(F("Temperature")));
+        if (!DPX_SHOW_HUM)  dpxHiddenApps.insert(String(F("Humidity")));
+        if (!DPX_SHOW_BAT)  dpxHiddenApps.insert(String(F("Battery")));
 
         // Build the initial app loop (Time, Date only to start)
         dpxRebuildLoop();
@@ -379,6 +382,7 @@ public:
 
         // GH #15 phase 1 — rate-limited to once per 10s internally
         dpxSensorsTick();
+        dpxAbriTick();
     }
 
     // ── Button handling ────────────────────────────────────────────────────

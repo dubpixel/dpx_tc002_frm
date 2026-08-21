@@ -268,6 +268,33 @@ static void dpxUpdateTimeDateText(DpxCustomApp& app) {
     app.text = app.label.length() ? (app.label + " " + buf) : String(buf);
 }
 
+// GH #15 1.8.4 — Temperature/Humidity/Battery native apps, same
+// regenerate-every-frame pattern as dpxUpdateTimeDateText(). Reads dpxTemp/
+// dpxHum/dpxBattPct from dpx_sensors.h (already offset/calibration-corrected).
+// "--" placeholders when a sensor hasn't produced a real reading yet (fresh
+// boot before the first 10s tick, or genuinely absent hardware) rather than
+// showing NaN/garbage.
+static void dpxUpdateSensorText(DpxCustomApp& app) {
+    char buf[16];
+    if (app.type == "temp") {
+        if (!dpxSht3xFound || isnan(dpxTemp)) {
+            strncpy(buf, "--°", sizeof(buf));
+        } else {
+            float t = DPX_TEMP_FAHRENHEIT ? (dpxTemp * 9.0f / 5.0f + 32.0f) : dpxTemp;
+            snprintf(buf, sizeof(buf), "%.0f°%s", t, DPX_TEMP_FAHRENHEIT ? "F" : "C");
+        }
+    } else if (app.type == "hum") {
+        if (!dpxSht3xFound || isnan(dpxHum)) strncpy(buf, "--%", sizeof(buf));
+        else snprintf(buf, sizeof(buf), "%.0f%%", dpxHum);
+    } else if (app.type == "bat") {
+        if (dpxBattPct < 0) strncpy(buf, "--%", sizeof(buf));
+        else snprintf(buf, sizeof(buf), "%d%%", dpxBattPct);
+    } else {
+        buf[0] = '\0';
+    }
+    app.text = app.label.length() ? (app.label + " " + buf) : String(buf);
+}
+
 // ── Render one custom app frame (static or scroll) ───────────────────────────
 // Returns false if app has completed its scroll cycles.
 //
@@ -361,7 +388,10 @@ static bool dpxRenderApp(DpxCustomApp& app) {
 static void dpxRebuildLoop() {
     std::vector<DpxApp> newList;
     // Native apps — included unless user deleted them from the rotation
-    const char* natives[] = {"Time", "Date"};  // WLED removed — dpx Matrix IS the WLED effect
+    // GH #15 — Temperature/Humidity/Battery share this same pipeline, gated
+    // off by default via dpxHiddenApps (set from DPX_SHOW_TEMP/HUM/BAT in
+    // dpx_matrix.h's setup(), same mechanism as Time/Date).
+    const char* natives[] = {"Time", "Date", "Temperature", "Humidity", "Battery"};
     for (auto n : natives) {
         if (dpxHiddenApps.find(String(n)) == dpxHiddenApps.end()) {
             DpxApp a; a.name = n; a.isNative = true;
@@ -372,9 +402,17 @@ static void dpxRebuildLoop() {
             // purely additive — no visual change unless/until someone edits
             // a native's color/icon (not yet exposed in /ctrl, future work).
             a.data.valid  = true;
-            a.data.type   = (String(n) == "Date") ? "date" : "time";
-            a.data.color  = (String(n) == "Date") ? 0x8888FF : 0xFFFFFF;
+            String nStr = String(n);
+            if      (nStr == "Date")        a.data.type = "date";
+            else if (nStr == "Temperature") a.data.type = "temp";
+            else if (nStr == "Humidity")    a.data.type = "hum";
+            else if (nStr == "Battery")     a.data.type = "bat";
+            else                            a.data.type = "time";
+            a.data.color  = (nStr == "Date") ? 0x8888FF : 0xFFFFFF;
             a.data.center = true; // old dpxRenderNativeTime/Date always centered horizontally
+            if      (nStr == "Temperature") a.data.icon = "dpx_thermo";
+            else if (nStr == "Humidity")    a.data.icon = "dpx_drop";
+            else if (nStr == "Battery")     a.data.icon = "dpx_batt";
             newList.push_back(a);
         }
     }
@@ -566,5 +604,6 @@ static void dpxRenderCurrentApp() {
     // GH #76 — natives render through the exact same pipeline as any custom
     // clock now; isNative only affects deletion/hiding semantics elsewhere.
     if (app.data.type == "time" || app.data.type == "date") dpxUpdateTimeDateText(app.data);
+    if (app.data.type == "temp" || app.data.type == "hum" || app.data.type == "bat") dpxUpdateSensorText(app.data);
     dpxRenderApp(app.data);
 }

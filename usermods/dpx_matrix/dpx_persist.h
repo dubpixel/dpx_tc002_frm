@@ -47,6 +47,14 @@ static String   DPX_TIMEZONE;                 // POSIX TZ string (e.g. PST8PDT,.
 // Native app visibility (toggled via POST /api/settings TIM/DAT keys)
 static bool     DPX_SHOW_TIME      = true;
 static bool     DPX_SHOW_DATE      = true;
+// GH #15 — off by default (opt-in): unlike Time/Date, not every unit has a
+// working SHT3x/battery, and ABRI changes brightness behavior unexpectedly
+// for anyone who doesn't know it's there.
+static bool     DPX_SHOW_TEMP      = false;
+static bool     DPX_SHOW_HUM       = false;
+static bool     DPX_SHOW_BAT       = false;
+static bool     DPX_ABRI           = false;   // auto-brightness from LDR
+static bool     DPX_TEMP_FAHRENHEIT = false;  // false = Celsius
 
 // ── Load dev.json from LittleFS ───────────────────────────────────────────────
 static void dpxLoadDev() {
@@ -74,6 +82,11 @@ static void dpxLoadDev() {
     // Native app visibility — flags only; dpxHiddenApps sync happens in setup() after dpx_apps.h is loaded
     if (doc.containsKey("show_time")) DPX_SHOW_TIME = doc["show_time"].as<bool>();
     if (doc.containsKey("show_date")) DPX_SHOW_DATE = doc["show_date"].as<bool>();
+    if (doc.containsKey("show_temp")) DPX_SHOW_TEMP = doc["show_temp"].as<bool>();
+    if (doc.containsKey("show_hum"))  DPX_SHOW_HUM  = doc["show_hum"].as<bool>();
+    if (doc.containsKey("show_bat"))  DPX_SHOW_BAT  = doc["show_bat"].as<bool>();
+    if (doc.containsKey("abri"))      DPX_ABRI      = doc["abri"].as<bool>();
+    if (doc.containsKey("temp_f"))    DPX_TEMP_FAHRENHEIT = doc["temp_f"].as<bool>();
     if (doc.containsKey("timezone_posix")) {
         DPX_TIMEZONE = doc["timezone_posix"].as<String>();
         setenv("TZ", DPX_TIMEZONE.c_str(), 1);
@@ -108,9 +121,15 @@ static bool dpxMergeDev(const char* json) {
     if (incoming.containsKey("tc_show_frames")) DPX_TC_SHOW_FRAMES = incoming["tc_show_frames"].as<bool>();
     if (incoming.containsKey("tc_stop_beep"))   DPX_TC_STOP_BEEP   = incoming["tc_stop_beep"].as<bool>();
     if (incoming.containsKey("tc_mute"))        DPX_TC_MUTE        = incoming["tc_mute"].as<bool>();
-    // show_time/show_date: flags only here; callers (dpxApplySettings) handle dpxHiddenApps sync
+    // show_time/show_date/show_temp/show_hum/show_bat: flags only here; callers
+    // (dpxApplySettings) handle dpxHiddenApps sync
     if (incoming.containsKey("show_time")) DPX_SHOW_TIME = incoming["show_time"].as<bool>();
     if (incoming.containsKey("show_date")) DPX_SHOW_DATE = incoming["show_date"].as<bool>();
+    if (incoming.containsKey("show_temp")) DPX_SHOW_TEMP = incoming["show_temp"].as<bool>();
+    if (incoming.containsKey("show_hum"))  DPX_SHOW_HUM  = incoming["show_hum"].as<bool>();
+    if (incoming.containsKey("show_bat"))  DPX_SHOW_BAT  = incoming["show_bat"].as<bool>();
+    if (incoming.containsKey("abri"))      DPX_ABRI      = incoming["abri"].as<bool>();
+    if (incoming.containsKey("temp_f"))    DPX_TEMP_FAHRENHEIT = incoming["temp_f"].as<bool>();
     if (incoming.containsKey("min_brightness")) DPX_MIN_BRI        = incoming["min_brightness"].as<int>();
     if (incoming.containsKey("max_brightness")) DPX_MAX_BRI        = incoming["max_brightness"].as<int>();
     if (incoming.containsKey("ldr_factor"))     DPX_LDR_FACTOR     = incoming["ldr_factor"].as<float>();

@@ -9,6 +9,19 @@
 // File: dpx_api.h
 // Purpose: Register all HTTP routes for the dpx_matrix usermod.
 //
+// IMPORTANT — every POST endpoint below requires a real
+// `Content-Type: application/json` header (or anything other than
+// application/x-www-form-urlencoded or key=value-shaped text/plain). This
+// isn't optional/cosmetic: ESPAsyncWebServerWLED only invokes onBody() —
+// which is how the JSON body actually gets captured, see dpxCaptureBody() —
+// for content types it doesn't recognize as a form post. Send a POST with
+// the default `curl -d` (which sets application/x-www-form-urlencoded) and
+// the body is silently discarded — no error, just an empty body server-side.
+// Confirmed live: every dpx custom POST route was broken this way for an
+// unknown amount of time before this was found and fixed (GH #15 sensor
+// work incidentally exposed it) — only /api/rtttl had already worked around
+// it correctly, which is what led to finding the real fix.
+//
 // Pages:
 //   GET /ctrl      → Control panel (dpx_html.h → ctrl_html)
 //   GET /browse    → Icon browser (dpx_html.h → browse_html)
@@ -54,13 +67,42 @@ extern uint32_t dpxIndicatorFade[4];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Get plain-text POST body from AsyncWebServerRequest.
+// GH #15 investigation found this whole mechanism was broken: req->arg("plain")
+// is NOT a thing this ESPAsyncWebServerWLED fork implements at all (confirmed —
+// zero occurrences of the literal "plain" anywhere in its source). Every POST
+// route using the old dpxBody() silently received an empty string, meaning
+// every dpx custom POST-body endpoint (settings, notify, custom apps, pairing,
+// indicators, etc.) has never actually worked via direct HTTP — only the
+// MQTT-driven paths (which parse payloads separately, dpx_mqtt.h) actually
+// functioned. Real fix: capture the raw body via the library's onBody
+// mechanism instead. Requires every route that calls dpxBody() to also chain
+// .onBody(dpxCaptureBody) onto its server.on(...) registration.
+//
+// Stored in AsyncWebServerRequest::_tempObject as a malloc'd C string (not a
+// String object) because the library's own request destructor calls plain
+// free() on _tempObject if non-null (WebRequest.cpp) — a `new String` there
+// would be freed with mismatched malloc/new semantics (leaks the String's
+// internal buffer, technically UB). dpxBody() frees it itself and nulls the
+// pointer so that destructor-time free() becomes a no-op.
+static void dpxCaptureBody(AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t index, size_t total) {
+    // Matches the existing /api/rtttl handler's proven 3-callback pattern
+    // (same file) — defensive free() on index==0 guards against a reused
+    // request object leaking a previous body's buffer.
+    if (index == 0) { free(req->_tempObject); req->_tempObject = malloc(total + 1); }
+    if (!req->_tempObject) return;
+    memcpy((uint8_t*)req->_tempObject + index, data, len);
+    if (index + len == total) ((uint8_t*)req->_tempObject)[total] = '\0';
+}
+
+// Get plain-text POST body from AsyncWebServerRequest — see dpxCaptureBody().
+// Only returns real data if .onBody(dpxCaptureBody) was chained onto this
+// route's server.on(...) registration.
 static inline String dpxBody(AsyncWebServerRequest* req) {
-    // req->arg("plain") is the ESPAsyncWebServer convention for raw POST body
-    // when Content-Type is not multipart/form-data (e.g. application/json).
-    // Using arg() instead of getParam("plain", true) matches how WLED itself
-    // reads POST bodies in wled/ui.cpp and avoids param-type mismatch.
-    return req->arg("plain");
+    if (!req->_tempObject) return String();
+    String s((char*)req->_tempObject);
+    free(req->_tempObject);
+    req->_tempObject = nullptr;
+    return s;
 }
 
 // 256-pixel screen dump as JSON array.
@@ -98,7 +140,9 @@ static String dpxStatsJson() {
         doc[F("hum")]  = serialized(String(dpxHum, 1));
     }
     doc[F("batRaw")] = dpxBattRaw;
+    doc[F("batPct")] = dpxBattPct;
     doc[F("ldrRaw")] = dpxLdrRaw;
+    doc[F("ldrPct")] = dpxLdrPct;
     String s; serializeJson(doc, s); return s;
 }
 
@@ -118,6 +162,14 @@ static String dpxSettingsJson() {
     doc[F("TIM")]        = DPX_SHOW_TIME;
     doc[F("DAT")]        = DPX_SHOW_DATE;
     doc[F("TC_MUTE")]    = DPX_TC_MUTE;
+    // GH #15
+    doc[F("TEMP")]       = DPX_SHOW_TEMP;
+    doc[F("HUM")]        = DPX_SHOW_HUM;
+    doc[F("BAT")]        = DPX_SHOW_BAT;
+    doc[F("ABRI")]       = DPX_ABRI;
+    doc[F("TEMP_F")]     = DPX_TEMP_FAHRENHEIT;
+    doc[F("TEMP_OFFSET")] = DPX_TEMP_OFFSET;
+    doc[F("HUM_OFFSET")]  = DPX_HUM_OFFSET;
     String s; serializeJson(doc, s); return s;
 }
 
@@ -158,6 +210,44 @@ static void dpxApplySettings(const String& body) {
     if (doc.containsKey("SOUND")) {
         DPX_SOUND_ENABLED = doc["SOUND"].as<bool>();
         dpxMergeDev(((String)F("{\"sound_enabled\":") + (DPX_SOUND_ENABLED ? F("true}") : F("false}"))).c_str());
+    }
+    // GH #15
+    if (doc.containsKey("TEMP")) {
+        DPX_SHOW_TEMP = doc["TEMP"].as<bool>();
+        if (DPX_SHOW_TEMP) dpxHiddenApps.erase(String(F("Temperature")));
+        else                dpxHiddenApps.insert(String(F("Temperature")));
+        dpxRebuildLoop();
+        dpxMergeDev(((String)F("{\"show_temp\":") + (DPX_SHOW_TEMP ? F("true}") : F("false}"))).c_str());
+    }
+    if (doc.containsKey("HUM")) {
+        DPX_SHOW_HUM = doc["HUM"].as<bool>();
+        if (DPX_SHOW_HUM) dpxHiddenApps.erase(String(F("Humidity")));
+        else               dpxHiddenApps.insert(String(F("Humidity")));
+        dpxRebuildLoop();
+        dpxMergeDev(((String)F("{\"show_hum\":") + (DPX_SHOW_HUM ? F("true}") : F("false}"))).c_str());
+    }
+    if (doc.containsKey("BAT")) {
+        DPX_SHOW_BAT = doc["BAT"].as<bool>();
+        if (DPX_SHOW_BAT) dpxHiddenApps.erase(String(F("Battery")));
+        else               dpxHiddenApps.insert(String(F("Battery")));
+        dpxRebuildLoop();
+        dpxMergeDev(((String)F("{\"show_bat\":") + (DPX_SHOW_BAT ? F("true}") : F("false}"))).c_str());
+    }
+    if (doc.containsKey("ABRI")) {
+        DPX_ABRI = doc["ABRI"].as<bool>();
+        dpxMergeDev(((String)F("{\"abri\":") + (DPX_ABRI ? F("true}") : F("false}"))).c_str());
+    }
+    if (doc.containsKey("TEMP_F")) {
+        DPX_TEMP_FAHRENHEIT = doc["TEMP_F"].as<bool>();
+        dpxMergeDev(((String)F("{\"temp_f\":") + (DPX_TEMP_FAHRENHEIT ? F("true}") : F("false}"))).c_str());
+    }
+    if (doc.containsKey("TEMP_OFFSET")) {
+        DPX_TEMP_OFFSET = doc["TEMP_OFFSET"].as<float>();
+        dpxMergeDev(("{\"temp_offset\":" + String(DPX_TEMP_OFFSET, 1) + "}").c_str());
+    }
+    if (doc.containsKey("HUM_OFFSET")) {
+        DPX_HUM_OFFSET = doc["HUM_OFFSET"].as<float>();
+        dpxMergeDev(("{\"hum_offset\":" + String(DPX_HUM_OFFSET, 1) + "}").c_str());
     }
     if (doc.containsKey("TC_MUTE")) {
         DPX_TC_MUTE = doc["TC_MUTE"].as<bool>();
@@ -265,7 +355,7 @@ static void dpxRegisterRoutes() {
         String body = dpxBody(r);
         if (body.length()) dpxPushNotification(body.c_str());
         r->send(200, F("application/json"), F("{\"ok\":true}"));
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── Device pairing (device-claim flow, see dpx_pair.h) ─────────────────────
     // {"pin":"482913","duration":60,"scale":1} — full-screen PIN, highest render
@@ -276,7 +366,7 @@ static void dpxRegisterRoutes() {
         String body = dpxBody(r);
         bool ok = dpxSetPair(body.c_str());
         r->send(ok ? 200 : 400, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"bad JSON\"}"));
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── Custom apps (GET=load, POST=push, name in query) ──────────────────────
     server.on("/api/custom", HTTP_ANY, [](AsyncWebServerRequest* r) {
@@ -305,14 +395,14 @@ static void dpxRegisterRoutes() {
             dpxSaveOscListeners();
         }
         r->send(200, F("application/json"), F("{\"ok\":true}"));
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── App navigation ────────────────────────────────────────────────────────
     server.on("/api/switch", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
         bool ok = body.length() ? dpxSwitchToApp(body.c_str()) : false;
         r->send(ok ? 200 : 400, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"not found\"}"));
-    });
+    }).onBody(dpxCaptureBody);
     server.on("/api/nextapp", HTTP_POST, [](AsyncWebServerRequest* r) {
         dpxNextApp();
         r->send(200, F("application/json"), F("{\"ok\":true}"));
@@ -338,7 +428,7 @@ static void dpxRegisterRoutes() {
             stateUpdated(CALL_MODE_DIRECT_CHANGE);
         }
         r->send(200, F("application/json"), F("{\"ok\":true}"));
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── Indicators ────────────────────────────────────────────────────────────
     // {"color":[r,g,b],"blink":ms}  blink=0 → solid, blink>0 → on/off interval ms
@@ -371,10 +461,10 @@ static void dpxRegisterRoutes() {
         }
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     };
-    server.on("/api/indicator1", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 0); });
-    server.on("/api/indicator2", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 1); });
-    server.on("/api/indicator3", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 2); });
-    server.on("/api/indicator4", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 3); }); // GH #74
+    server.on("/api/indicator1", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 0); }).onBody(dpxCaptureBody);
+    server.on("/api/indicator2", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 1); }).onBody(dpxCaptureBody);
+    server.on("/api/indicator3", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 2); }).onBody(dpxCaptureBody);
+    server.on("/api/indicator4", HTTP_POST, [handleIndicator](AsyncWebServerRequest* r){ handleIndicator(r, 3); }).onBody(dpxCaptureBody); // GH #74
 
     // ── Time ──────────────────────────────────────────────────────────────────
     server.on("/api/time", HTTP_ANY, [](AsyncWebServerRequest* r) {
@@ -402,7 +492,7 @@ static void dpxRegisterRoutes() {
         doc[F("utc")]   = (uint32_t)now;
         String s; serializeJson(doc, s);
         r->send(200, F("application/json"), s);
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── NTP resync + timezone ─────────────────────────────────────────────────
     // POST body (optional): {"timezone":"PST8PDT,...","server":"pool.ntp.org"}
@@ -431,7 +521,7 @@ static void dpxRegisterRoutes() {
             configTime(0, 0, ntpSrv.c_str());
         }
         r->send(200, F("application/json"), F("{\"ok\":true}"));
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── Settings ──────────────────────────────────────────────────────────────
     server.on("/api/settings", HTTP_ANY, [](AsyncWebServerRequest* r) {
@@ -441,7 +531,7 @@ static void dpxRegisterRoutes() {
             return;
         }
         r->send(200, F("application/json"), dpxSettingsJson());
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── dev.json (raw device settings) ────────────────────────────────────────
     server.on("/api/dev", HTTP_ANY, [](AsyncWebServerRequest* r) {
@@ -452,7 +542,7 @@ static void dpxRegisterRoutes() {
             return;
         }
         r->send(200, F("application/json"), dpxReadDevJson());
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── OSC Listeners ─────────────────────────────────────────────────────────
     server.on("/api/osc/listeners", HTTP_ANY, [](AsyncWebServerRequest* r) {
@@ -497,7 +587,7 @@ static void dpxRegisterRoutes() {
             }
         }
         r->send(200, F("application/json"), F("{\"ok\":true}"));
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── Moodlight ─────────────────────────────────────────────────────────────
     // Non-empty body  → disable dpx overlay, WLED effects take over
@@ -520,7 +610,7 @@ static void dpxRegisterRoutes() {
             }
         }
         r->send(200, F("application/json"), F("{\"ok\":true,\"enabled\":false}"));
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── RTTTL — 3-callback form guarantees body collection into _tempObject ───────────
     // POST body: raw RTTTL string (text/plain) or "stop" to silence.
@@ -646,7 +736,7 @@ static void dpxRegisterRoutes() {
         } else {
             r->send(400, F("text/plain"), F("rtttl or sound field required"));
         }
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── Buzzer play state (GH #9) — lets --auto sound tests verify the
     // buzzer actually entered play state, not just that the API returned ok.
@@ -672,7 +762,7 @@ static void dpxRegisterRoutes() {
         } else {
             r->send(500, F("text/plain"), F("rename failed"));
         }
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── Directory listing (WLED's stock /edit?list= always lists root only —
     // it ignores the path argument — so it can't list /ICONS/, /MELODIES/, etc.
@@ -750,7 +840,7 @@ static void dpxRegisterRoutes() {
         if (secs > 0)
             esp_sleep_enable_timer_wakeup(secs * 1000000ULL);
         esp_deep_sleep_start();
-    });
+    }).onBody(dpxCaptureBody);
 
     // ── Mute / unmute an app in the rotation ─────────────────────────────────
     // POST body: {"name":"Time","mute":true}   mute=false to un-mute
@@ -766,5 +856,5 @@ static void dpxRegisterRoutes() {
             return;
         }
         r->send(400, F("text/plain"), F("name required"));
-    });
+    }).onBody(dpxCaptureBody);
 }
