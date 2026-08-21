@@ -210,7 +210,10 @@ void sendImprovInfoResponse() {
   bool useMdnsName = (strcmp(serverDescription, "WLED") == 0 && strlen(cmDNS) > 0);
   char vString[32];
   sprintf_P(vString, PSTR("%s/%i"), versionString, VERSION);
-  const char *str[4] = {"WLED", vString, bString, useMdnsName ? cmDNS : serverDescription};
+  // dpx_tc002: str[0] ("firmware") was hardcoded to the literal "WLED" —
+  // ESP Web Tools' post-flash Dashboard screen renders this directly as
+  // "WLED {version} ({chip})", which read as unbranded/confusing (GH #84).
+  const char *str[4] = {"dpx_tc002", vString, bString, useMdnsName ? cmDNS : serverDescription};
 
   sendImprovRPCResult(ImprovRPCType::Request_Info, 4, str);
 }

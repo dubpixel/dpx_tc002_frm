@@ -3332,7 +3332,14 @@ function simplifyUI() {
 	gId("btns").style.display = "none";
 }
 
-// Version reporting feature
+// dpx_tc002: stock WLED shows an unbranded "🎉 Thank you for installing WLED!"
+// modal on first login / version change, asking the user to opt in to POSTing
+// hardware details (chip, LED count, matrix dims, usermods, integrations...)
+// to https://usage.wled.me/api/usage/upgrade — WLED's own upstream telemetry,
+// not ours. That's confusing (generic WLED branding on our hardware) and not
+// something we want to send to WLED's project without the user explicitly
+// asking for it. Replaced with a silent, local-only, one-time toast per
+// device+browser — no network call, no prompt, no data leaves the device.
 var versionCheckDone = false;
 
 function checkVersionUpgrade(info) {
@@ -3340,273 +3347,18 @@ function checkVersionUpgrade(info) {
 	if (versionCheckDone) return;
 	versionCheckDone = true;
 
-	// Suppress feature if in AP mode (no internet connection available)
+	// Suppress while in AP mode (mid-onboarding, not the place for this)
 	if (info.wifi && info.wifi.ap) return;
+	if (!info.ver) return;
 
-	// Fetch version-info.json using existing /edit endpoint
-	fetch(getURL('/edit?func=edit&path=/version-info.json'), {
-		method: 'get'
-	})
-		.then(res => {
-			if (res.status === 404) {
-				// File doesn't exist - first install, show install prompt
-				showVersionUpgradePrompt(info, null, info.ver);
-				return null;
-			}
-			if (!res.ok) {
-				throw new Error('Failed to fetch version-info.json');
-			}
-			return res.json();
-		})
-		.then(versionInfo => {
-			if (!versionInfo) return; // 404 case already handled
+	var seenKey = 'dpxSeenVersion';
+	var lastSeen = null;
+	try { lastSeen = localStorage.getItem(seenKey); } catch (e) { /* storage disabled — skip silently */ }
 
-			// Check if user opted out
-			if (versionInfo.neverAsk) return;
+	if (lastSeen === info.ver) return; // already shown for this version on this browser
 
-			// Check if version has changed
-			const currentVersion = info.ver;
-			const storedVersion = versionInfo.version || '';
-
-			if (storedVersion && storedVersion !== currentVersion) {
-				// Version has changed
-				if (versionInfo.alwaysReport) {
-					// Automatically report if user opted in for always reporting
-					reportUpgradeEvent(info, storedVersion, true);
-				} else {
-					// Show upgrade prompt
-					showVersionUpgradePrompt(info, storedVersion, currentVersion);
-				}
-			} else if (!storedVersion) {
-				// Empty version in file, show install prompt
-				showVersionUpgradePrompt(info, null, currentVersion);
-			}
-		})
-		.catch(e => {
-			console.log('Failed to load version-info.json', e);
-			// On error, save current version for next time
-			if (info && info.ver) {
-				updateVersionInfo(info.ver, false, false);
-			}
-		});
-}
-
-function showVersionUpgradePrompt(info, oldVersion, newVersion) {
-	// Determine if this is an install or upgrade
-	const isInstall = !oldVersion;
-
-	// Create overlay and dialog
-	const overlay = d.createElement('div');
-	overlay.id = 'versionUpgradeOverlay';
-	overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;';
-
-	const dialog = d.createElement('div');
-	dialog.style.cssText = 'background:var(--c-1);border-radius:10px;padding:25px;max-width:500px;margin:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3);';
-
-	// Build contextual message based on install vs upgrade
-	const title = isInstall
-		? '🎉 Thank you for installing WLED!'
-		: '🎉 WLED Upgrade Detected!';
-
-	const description = isInstall
-		? `You are now running WLED <strong style="text-wrap: nowrap">${newVersion}</strong>.`
-		: `Your WLED has been upgraded from <strong style="text-wrap: nowrap">${oldVersion}</strong> to <strong style="text-wrap: nowrap">${newVersion}</strong>.`;
-
-	const question = 'Help make WLED better by sharing hardware details like chip type and LED count? This helps us understand how WLED is used and prioritize features — we never collect personal data or your activities.'
-
-	dialog.innerHTML = `
-		<h2 style="margin-top:0;color:var(--c-f);">${title}</h2>
-		<p style="color:var(--c-f);">${description}</p>
-		<p style="color:var(--c-f);">${question}</p>
-		<p style="color:var(--c-f);font-size:0.9em;">
-			<a href="https://kno.wled.ge/about/privacy-policy/" target="_blank" style="color:var(--c-6);">Learn more about what data is collected and why</a>
-		</p>
-		<div style="margin-top:15px;margin-bottom:15px;">
-			<label style="display:flex;align-items:center;gap:8px;color:var(--c-f);cursor:pointer;">
-				<input type="checkbox" id="versionSaveChoice" style="cursor:pointer;">
-				<span>Save my choice for future updates</span>
-			</label>
-		</div>
-		<div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:8px;">
-			<button id="versionReportYes" class="btn">Report update</button>
-			<button id="versionReportNo" class="btn">Skip reporting</button>
-		</div>
-	`;
-
-	overlay.appendChild(dialog);
-	d.body.appendChild(overlay);
-
-	// Add event listeners
-	gId('versionReportYes').addEventListener('click', () => {
-		const saveChoice = gId('versionSaveChoice').checked;
-		d.body.removeChild(overlay);
-		// Pass saveChoice as alwaysReport parameter
-		reportUpgradeEvent(info, oldVersion, saveChoice);
-	});
-
-	gId('versionReportNo').addEventListener('click', () => {
-		const saveChoice = gId('versionSaveChoice').checked;
-		d.body.removeChild(overlay);
-		if (saveChoice) {
-			// Save "never ask" preference
-			updateVersionInfo(newVersion, true, false);
-			showToast('You will not be asked again.');
-		} else {
-			// Save current version to prevent re-prompting until version changes
-			updateVersionInfo(newVersion, false, false);
-		}
-	});
-}
-
-function reportUpgradeEvent(info, oldVersion, alwaysReport) {
-	showToast('Reporting upgrade...');
-	const IR_TYPES = {
-		0: null,           // not configured — omit field entirely
-		1: "24-key",       // white 24-key remote
-		2: "24-key-ct",    // white 24-key with CW, WW, CT+, CT- keys
-		3: "40-key",       // blue 40-key remote
-		4: "44-key",       // white 44-key remote
-		5: "21-key",       // white 21-key remote
-		6: "6-key",        // black 6-key learning remote
-		7: "9-key",        // 9-key remote
-		8: "json-remote",  // ir.json configurable remote
-	};
-
-	// Reuse the info argument and fetch only /json/cfg (serialize requests to avoid 503s on low-heap devices)
-	const infoData = info;
-	fetch(getURL('/json/cfg'), {method: 'get'})
-		.then(res => res.ok ? res.json() : Promise.reject(new Error('Failed to fetch /json/cfg')))
-		.then(cfgData => {
-			// Map to UpgradeEventRequest structure per OpenAPI spec
-			// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
-			const upgradeData = {
-				deviceId: infoData.deviceId,                     // Use anonymous unique device ID
-				version: infoData.ver || '',                     // Current version string
-				previousVersion: oldVersion || '',               // Previous version from version-info.json
-				releaseName: infoData.release || '',             // Release name (e.g., "WLED 0.15.0")
-				chip: infoData.arch || '',                       // Chip architecture (esp32, esp8266, etc)
-				ledCount: infoData.leds ? infoData.leds.count : 0,  // Number of LEDs
-				isMatrix: !!(infoData.leds && infoData.leds.matrix),  // Whether it's a 2D matrix setup
-				bootloaderSHA256: infoData.bootloaderSHA256 || '',   // Bootloader SHA256 hash
-				brand: infoData.brand,                           // Device brand (always present)
-				product: infoData.product,                       // Product name (always present)
-				flashSize: infoData.flash,                       // Flash size (always present)
-				repo: infoData.repo,                             // GitHub repository (always present)
-				fsUsed: infoData.fs?.u,                          // Filesystem used space in kB
-				fsTotal: infoData.fs?.t,                         // Filesystem total space in kB
-
-				// LED hardware
-				busCount:      cfgData.hw?.led?.ins?.length ?? 1,
-				busTypes:      (cfgData.hw?.led?.ins ?? []).map(b => busTypeToString(b.type)),
-				matrixWidth:   infoData.leds?.matrix?.w,
-				matrixHeight:  infoData.leds?.matrix?.h,
-				ledFeatures: [
-					...(infoData.leds?.lc & 0x02               ? ["rgbw"] : []),
-					...(infoData.leds?.lc & 0x04               ? ["cct"] : []),
-					...((infoData.leds?.maxpwr ?? 0) > 0       ? ["abl"] : []),
-					...(cfgData.hw?.led?.cr                    ? ["cct-from-rgb"] : []),
-					...(cfgData.hw?.led?.cct                   ? ["white-balance"] : []),
-					...((cfgData.light?.gc?.col ?? 1.0) > 1.0 || (cfgData.light?.gc?.bri ?? 1.0) > 1.0 ? ["gamma"] : []),
-					...(cfgData.light?.aseg                    ? ["auto-segments"] : []),
-					...((cfgData.light?.nl?.mode ?? 0) > 0     ? ["nightlight"] : []),
-				],
-
-				// peripherals (note: i2c/spi may reflect board defaults, not user-configured hardware)
-				peripherals: [
-					...((cfgData.hw?.relay?.pin ?? -1) >= 0                          ? ["relay"] : []),
-					...((cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length > 0 ? ["buttons"] : []),
-					...((cfgData.eth?.type ?? 0) > 0                                 ? ["ethernet"] : []),
-					...((cfgData.if?.live?.dmx?.inputRxPin ?? 0) > 0                 ? ["dmx-input"] : []),
-					...((cfgData.hw?.ir?.type ?? 0) > 0                              ? ["ir-remote"] : []),
-				],
-				buttonCount: (cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length,
-
-				// integrations
-				integrations: [
-					...(cfgData.if?.hue?.en                    ? ["hue"] : []),
-					...(cfgData.if?.mqtt?.en                   ? ["mqtt"] : []),
-					...(cfgData.if?.va?.alexa                  ? ["alexa"] : []),
-					...(cfgData.if?.sync?.send?.en             ? ["wled-sync"] : []),
-					...(cfgData.nw?.espnow                     ? ["esp-now"] : []),
-					...(cfgData.if?.sync?.espnow               ? ["esp-now-sync"] : []),
-				],
-
-				// usermods
-				usermods:    Object.keys(cfgData.um ?? {}),
-				usermodIds:  infoData.um ?? [],
-			  };
-
-			// IR remote — only include if configured
-			const irType = IR_TYPES[cfgData.hw?.ir?.type ?? 0];
-			if (irType) upgradeData.irRemoteType = irType;
-
-			// Add optional fields if available
-			if (infoData.psrSz !== undefined) upgradeData.psramSize = infoData.psrSz;  // Total PSRAM size in MB; can be 0
-
-
-			// Make AJAX call to postUpgradeEvent API
-			return fetch('https://usage.wled.me/api/usage/upgrade', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(upgradeData)
-			});
-		})
-		.then(res => {
-			if (res.ok) {
-				if (alwaysReport) {
-					showToast('Thank you! Future upgrades will be reported automatically.');
-				} else {
-					showToast('Thank you for reporting!');
-				}
-				updateVersionInfo(info.ver, false, !!alwaysReport);
-			} else {
-				showToast('Report failed. Please try again later.', true);
-				// Do NOT update version info on failure - user will be prompted again
-			}
-		})
-		.catch(e => {
-			console.log('Failed to report upgrade', e);
-			showToast('Report failed', true);
-			updateVersionInfo(info.ver, false, !!alwaysReport);
-		});
-}
-
-function busTypeToString(t) {
-	if (t === 0)                       return "none";
-	if (t === 40)                      return "on-off";
-	if (t >= 16 && t <= 39)            return "digital";      // WS2812, SK6812, etc.
-	if (t >= 41 && t <= 47)            return "pwm";          // analog RGB/CCT/single
-	if (t >= 48 && t <= 63)            return "digital-spi";  // APA102, WS2801, etc.
-	if (t >= 64 && t <= 71)            return "hub75";        // HUB75 matrix panels
-	if (t >= 80 && t <= 95)            return "network";      // DDP, E1.31, ArtNet
-	return "unknown";
-}
-
-function updateVersionInfo(version, neverAsk, alwaysReport) {
-	const versionInfo = {
-		version: version,
-		neverAsk: neverAsk,
-		alwaysReport: !!alwaysReport
-	};
-
-	// Create a Blob with JSON content and use /upload endpoint
-	const blob = new Blob([JSON.stringify(versionInfo)], {type: 'application/json'});
-	const formData = new FormData();
-	formData.append('data', blob, 'version-info.json');
-
-	fetch(getURL('/upload'), {
-		method: 'POST',
-		body: formData
-	})
-		.then(res => res.text())
-		.then(data => {
-			console.log('Version info updated', data);
-		})
-		.catch(e => {
-			console.log('Failed to update version-info.json', e);
-		});
+	try { localStorage.setItem(seenKey, info.ver); } catch (e) { /* ignore */ }
+	showToast('Running dpx_tc002 v' + info.ver);
 }
 
 size();

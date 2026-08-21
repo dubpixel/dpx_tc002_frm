@@ -1,5 +1,21 @@
 ## dpx_tc002_frm changelog
 
+### [0.4.7](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.6...0.4.7) (2026-08-21)
+
+> Stock WLED shows an unbranded "🎉 Thank you for installing WLED!" prompt on first
+> login / version change, asking to opt in to POSTing hardware details to WLED's own
+> upstream telemetry endpoint — confusing on our hardware, and not something we want
+> going to WLED's project without the user explicitly asking for it.
+
+#### Removed
+* **web:** removed WLED's built-in version-reporting feature (`wled00/data/index.js`) — the modal asking users to report hardware details (chip, LED count, matrix dims, usermods, integrations) to `https://usage.wled.me/api/usage/upgrade` on install/upgrade. Deleted entirely: no prompt, no network call, no data ever leaves the device automatically
+
+#### Changed
+* **web:** replaced it with a silent, local-only, one-time toast ("Running dpx_tc002 v{version}") shown once per browser per version change — tracked via `localStorage`, zero network calls, zero device-side file writes. Echoing the version once is useful; the unbranded ask-to-report-telemetry modal was not
+* **serial:** Improv Serial's reported firmware name (`wled00/improv.cpp`, GH #84) — was hardcoded to the literal `"WLED"`, which ESP Web Tools' post-flash Dashboard screen renders directly as "WLED {version} ({chip})". Now reports `"dpx_tc002"`
+
+---
+
 ### [0.4.6](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.5...0.4.6) (2026-08-21)
 
 > WLED's existing serial 'v' command only prints its own internal numeric build id
