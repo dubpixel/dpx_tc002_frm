@@ -132,8 +132,16 @@
       </div>
       <ol>
         <li>Plug the device into this computer via USB.</li>
-        <li>Click <strong>Connect</strong> below and select the correct serial port when prompted.</li>
-        <li>If this is a factory-fresh or non-WLED device, choose <strong>erase device</strong> when offered — a device already running this firmware doesn't need it.</li>
+        <li>Click <strong>Connect</strong> below. Your browser will pop up a port picker — pick the one entry
+          that shows up (usually named after a USB-serial chip, e.g. <code>CP210x</code> or <code>CH340</code>).
+          If nothing shows up, try a different USB cable — some are charge-only, no data lines.</li>
+        <li><strong>First time flashing this specific device</strong> (factory-fresh, still running stock Awtrix,
+          or you're not sure): choose <strong>erase device</strong> when offered. Skipping this on a first flash
+          can leave old firmware's settings behind and cause boot issues. A device that's already running
+          dpx_tc002 doesn't need it for routine updates.</li>
+        <li>The buzzer will beep continuously for the ~2 minute duration of the flash — that's expected
+          (electrical noise on the piezo pin while the chip sits in its bootloader, not the actual firmware
+          running yet). It stops on its own once flashing finishes and the device reboots.</li>
       </ol>
 
       <div class="channel-row">
