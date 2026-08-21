@@ -1,5 +1,16 @@
 ## dpx_tc002_frm changelog
 
+### [0.4.6](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.5...0.4.6) (2026-08-21)
+
+> WLED's existing serial 'v' command only prints its own internal numeric build id
+> (e.g. "WLED 2607011") — no way to confirm which of our actual releases got flashed
+> without network access to the device.
+
+#### Features
+* **serial:** new `s` serial command (`wled00/wled_serial.cpp`) — prints `dpx_tc002 v{version} | {mdns} | mac {mac}`, using the same real semver (`versionString`, sourced from `package.json`) already exposed over HTTP via `/json/info`'s `ver` field. Lets you confirm the running firmware version directly over USB serial, with zero network dependency — useful mid-flash-troubleshooting when the device isn't reachable yet
+
+---
+
 ### [0.4.5](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.4...0.4.5) (2026-08-21)
 
 > First-connect UX pass — the AP-mode welcome page was still 100% stock WLED copy

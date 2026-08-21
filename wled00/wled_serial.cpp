@@ -91,6 +91,15 @@ void handleSerial()
         else if (next == 0xC9) { state = AdaState::TPM2_Header_Type; } //TPM2 start byte
         else if (next == 'I')  { handleImprovPacket(); return; }
         else if (next == 'v')  { Serial.print("WLED"); Serial.write(' '); Serial.println(VERSION); }
+        else if (next == 's')  {
+          // dpx_tc002: 'v' only prints WLED core's own internal numeric build
+          // id (e.g. "WLED 2607011") — not useful for confirming which of OUR
+          // releases actually got flashed. versionString is our real semver
+          // (wled_metadata.h, sourced from package.json by set_metadata.py).
+          Serial.print(F("dpx_tc002 v")); Serial.print(versionString);
+          Serial.print(F(" | "));         Serial.print(cmDNS);
+          Serial.print(F(" | mac "));     Serial.println(WiFi.macAddress());
+        }
         else if (next == 0xB0) { updateBaudRate( 115200); }
         else if (next == 0xB1) { updateBaudRate( 230400); }
         else if (next == 0xB2) { updateBaudRate( 460800); }
