@@ -187,7 +187,7 @@ Consult `docs/hardening.instructions.md` (concise checklist) and
 
 ## PROJECT: dpx_tc002_frm
 
-**Status:** Active development — v0.4.8 (2026-08-21)
+**Status:** Active development — v0.5.0 (2026-08-21)
 **Branch:** `main` (feature branches: `feature/brief-description`)
 **Version File:** `VERSION` + `package.json`
 
@@ -227,6 +227,7 @@ contract defined in `SPEC.md`.
 | `dpx_icons.h` | Icon load + render — LaMetric PNG→raw pipeline (GH #16) |
 | `dpx_mqtt.h` | MQTT command dispatch, device-info + live app-state publish (#80), icon fetch over MQTT |
 | `dpx_pair.h` | Device-claim PIN display for friendster/cueMaestro server pairing |
+| `dpx_sensors.h` | SHT3x temp/humidity (I2C), battery ADC, LDR reads + ABRI; native Temperature/Humidity/Battery apps (GH #15) |
 
 ### Agent Rules (for this repo)
 

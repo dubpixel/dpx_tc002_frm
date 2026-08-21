@@ -1,5 +1,34 @@
 ## dpx_tc002_frm changelog
 
+### [0.5.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.9...0.5.0) (2026-08-21)
+
+> GH #15 — hardware sensors (SHT3x temp/humidity, battery ADC, LDR) are wired up
+> end to end and confirmed live against a real external thermometer/hygrometer.
+
+#### Added
+* **sensors:** native Temperature/Humidity/Battery apps in the rotation, off by default (`TEMP`/`HUM`/`BAT` toggles via `/api/settings`, same mechanism as `TIM`/`DAT`) — each with a real icon sourced from LaMetric's public icon catalog (thermometer #2262, waterdrop #623, battery #6358), baked into the firmware and written to `/ICONS/` on first use through the same pipeline any user-picked icon uses
+* **sensors:** Battery's icon is a live 5-segment gauge (one segment per 20% charge) rendered fresh every frame from the real reading, not a static image — fills bottom-up, and the last segment turns red under 20%
+* **sensors:** ABRI — auto-brightness ramped from the LDR reading, using the same gamma-curve formula as Blueforcer/awtrix3 (`DPX_LDR_FACTOR`/`GAMMA`)
+* **sensors:** Celsius/Fahrenheit toggle (`TEMP_F`), defaulting to Fahrenheit
+* **ctrl:** new Sensors card (Fahrenheit + ABRI toggles); Temperature/Humidity/Battery now have working +/Remove buttons in the app-loop panel and are selectable in the "Configure Channel" dropdown
+* **serial:** `s` status command now includes the real firmware version (`versionString`) alongside its existing IP/hostname/AP/WiFi/heap/app/uptime/build/MQTT/OSC fields
+
+#### Fixed
+* **api:** every dpx custom POST-body HTTP endpoint (settings, notify, custom apps, pairing, indicators, switch, power, sleep, mute, rename, sound, moodlight, syncntp, dev, osc listeners) silently discarded its request body — `req->arg("plain")` isn't something this ESPAsyncWebServerWLED fork implements for a raw JSON POST at all. Fixed via the library's real `onBody` mechanism, while preserving the `/ctrl` web UI's own already-working `plain=<json>` urlencoded convention
+* **text:** a literal `°` in C++ source compiles as 2 UTF-8 bytes, but `dpxRenderText()` walks strings byte-by-byte with no UTF-8 awareness and the font indexes the degree glyph as a single raw byte — rendered as a stray garbage glyph before the real symbol. Fixed with the correct single byte
+* **serial:** `wled00/wled_serial.cpp`'s `handleSerial()` runs before `UsermodManager::loop()` every tick, so the `s` case added in 0.4.6 consumed the byte before `dpx_matrix.h`'s own pre-existing, richer `s` status handler ever saw it — silently disabling it since 0.4.6. Removed the duplicate; the version line now lives in the real handler instead (0.4.9)
+
+#### Changed
+* **sensors:** temp/hum offset defaults recalibrated against a real external thermometer/hygrometer (`-16.5`/`38.4`, was `-9.0`/`0.0`) — see [#86](https://github.com/dubpixel/dpx_tc002_frm/issues/86) for the follow-up on making this calibration more robust than a single-point measurement
+* **sensors:** Temperature app no longer shows the F/C unit letter (now `"69°"` not `"69°F"`) — the thermometer icon already conveys it's a temperature reading
+* **ci:** release build matrix was building ~29 unrelated stock WLED board environments on every tagged release — trimmed to just `ulanzi_tc001`; also fixed the release changelog-generator step that failed on every release run and cleared ~11GB of stale Actions cache
+* **ci:** nightly and release Pages deploys no longer share one concurrency group — a release tag pushed shortly after its main commit was killing the nightly deploy mid-flight, freezing nightly's manifest at a stale version for an entire release cycle
+
+#### Removed
+* **web:** WLED's built-in "🎉 Thank you for installing WLED!" version-reporting modal, which asked users to report hardware details to WLED's own `usage.wled.me` telemetry endpoint — replaced with a silent, local-only, one-time version toast
+
+---
+
 ### [0.4.9](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.8...0.4.9) (2026-08-21)
 
 > Own regression from 0.4.6, found while reviewing the code before adding sensor
