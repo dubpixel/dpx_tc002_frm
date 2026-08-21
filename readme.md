@@ -69,10 +69,25 @@
   </p>
 </div>
    <br />
+
+### Screenshots
+
+Live off the device — `/ctrl` control panel and `/api-ref`. (See [Icons & Media Browser](#icons--media-browser)
+below for the `/browse` icon picker screenshot.)
+
+![Control panel][ui-shot-ctrl]
+![API reference][ui-shot-apiref]
+
+> 🚧 Real action shots of the device running are still placeholders for now — see the
+> [About](#about-the-project) section below.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 <!-- TABLE OF CONTENTS -->
 <details>
   <summary><h3>Table of Contents</h3></summary>
 <ol>
+    <li><a href="#screenshots">Screenshots</a></li>
     <li><a href="#about-the-project">About The Project</a></li>
     <li><a href="#getting-started">Getting Started</a></li>
     <li><a href="#first-boot-defaults">First Boot Defaults</a></li>
@@ -183,13 +198,6 @@ All standard WLED features are intact in this build. See full docs at [kno.wled.
 ![Action shot 1][action-shot-1]
 ![Action shot 2][action-shot-2]
 
-### UI Shots
-
-Live off the device — `/ctrl` control panel, `/api-ref`, and `/browse` icon picker.
-
-![Control panel][ui-shot-ctrl]
-![API reference][ui-shot-apiref]
-![Icon browser][ui-shot-browse]
 </details>
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
