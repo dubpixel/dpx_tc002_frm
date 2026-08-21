@@ -3,77 +3,81 @@
 	<head>
 		<meta charset="utf-8">
 		<meta content='width=device-width' name='viewport'>
-		<meta name="theme-color" content="#222222">
-		<title>Welcome!</title>
+		<meta name="theme-color" content="#14121a">
+		<title>Set up your device</title>
 		<style>
+			:root { --purple: #b76ce7; }
 			body {
-				font-family: Verdana, Helvetica, sans-serif;
+				font-family: -apple-system, BlinkMacSystemFont, Verdana, Helvetica, sans-serif;
 				text-align: center;
-				background-color: #222;
+				background-color: #14121a;
 				margin: 0;
-				color: #fff;
+				padding: 6vh 1.2rem 2rem;
+				color: #eee9f5;
 			}
-	
-			button {
+			h1 { font-size: 1.5rem; margin: 0.6em 0 0.2em; }
+			h1 span { color: var(--purple); }
+			p.lede { color: #a89fbc; margin: 0 0 1.5em; line-height: 1.5; }
+			#dpxName {
+				display: inline-block;
+				font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+				background: rgba(183, 108, 231, 0.1);
+				border: 1px solid rgba(183, 108, 231, 0.3);
+				border-radius: 8px;
+				padding: 0.5em 0.9em;
+				margin: 0 0 1.5em;
+				font-size: 0.95em;
+				color: #eee9f5;
+			}
+			button.primary {
 				outline: none;
 				cursor: pointer;
-				padding: 8px;
-				margin: 10px;
-				width: 230px;
+				padding: 0.9em 1.4em;
+				width: 260px;
+				max-width: 90%;
 				text-transform: uppercase;
-				font-family: helvetica;
-				font-size: 19px;
-				background-color: #333;
-				color: white;
-				border: 0px solid white;
+				font-size: 1rem;
+				font-weight: 600;
+				background-color: var(--purple);
+				color: #1a1421;
+				border: 0;
 				border-radius: 25px;
+				box-shadow: 0 4px 18px rgba(183, 108, 231, 0.35);
 			}
-
-			img {
-				width: 950px;
-				max-width: 82%;
-				image-rendering: pixelated;
-				image-rendering: crisp-edges;
-				margin: 4vh 0 0 0;
-				animation: fi 1s;
+			.skip {
+				margin-top: 2.2em;
+				font-size: 0.8rem;
 			}
-			
-			@keyframes fi {
-				from { opacity: 0; }
-				to   { opacity: 1; }
-			}
-	
-			.main {
-				animation: fi 1.5s .7s both;
+			.skip a { color: #766c88; text-decoration: underline; }
+			#dpxVer {
+				font-size: 0.75rem;
+				color: #6a6178;
+				margin: -0.8em 0 1.6em;
 			}
 		</style>
 	</head>
 	<body>
-		<img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAG0AAAAfCAMAAADazLOuAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAABLUExURQAAAAB81gCU/zKq///mo7sWMN8bO+ZIYtZaAP9rAP+HMsCiG+TAIOnMS0KqNU7KPnLUZOrq6v///4CAgGhoaL+/v6CgoExMTAAAAAlm4O8AAAAZdFJOU////////////////////////////////wABNAq3AAAACXBIWXMAAA7DAAAOwwHHb6hkAAACN0lEQVRIS73VjVLCMBAEYIr8CYKkrdj3f1J37zaXFCpTO+piaDgbPq9px9VQ0qyrvKj4q6m0Zr1h+M7xF1zRmnWzqV9/0d2jttGotO1uv9dUObwej5oqp7fzWVPl8n69aprzoOUUbbvdIbV3OLwitXc6vSG1d7m8I3feSEN0j2CeNbOY4MxigjOLCc4sZsTV2l1cCyy4wIILLLjAxtykltq2rbTU+qi01N5rXNO2leaFORoija2l5MM5a02ac9Ya16Sk5tgaPrUpjZub0BL6YqSxKwbH77XUUmSkJXSl8QtaMuyJhq5maL5nTKVpZC13VmtMpTFT2g4vJjTuGfMzzXftiUZnhdtgb1xofvypRon5TjNnxYN9zJo6K5ruSIzQtGuVZn0x91rKvdHBvm39E7SyZ4y06Gz8BDBFKzsXmhcwyfsGZ9VpbhoiCinaxPNmGWmWWrNU2jB0q6HvOhN1JUtCixQtp2g51ZVUXIPS2RMAD++T2nY/DrDjOMDO4wC7jmNYj3d73nrXug8Yt9uNB8xNU1cKNXWlUFNXCjV1pZhGTE83m2vWfYf/NGj4Bg1zu5JD3/MnH5ZWfLOksbmGWGjgXMN5/C2GXYGFFW9Nmtle6Xut0Gm+JsayCj8z0nhjGvYJzVf4aSzmNYsr+u7Q2JIdoX3YOQjOslmsW1jJ3120nE9gfo79hTaNdcsqVR610lvO47pllae9ReZ805zKo2a3iaY5c75pTmVCA6dJ5H7N0sr/asPwBehb7ifEhusRAAAAAElFTkSuQmCC">
-		<div class="main">
-			<h1>Welcome to WLED!</h1>
-			<h3>A versatile tool for controlling LEDs</h3>
-			<h4>Find out more at wled.me</h4>
-			<p id="dpxName" style="margin:0.5em 0;font-size:0.95em;color:#8cf"></p>
-			<b>Next steps:</b><br><br>
-			Connect to your local WiFi here!<br>
-			<button onclick="window.location.href='./settings/wifi'">WiFi settings</button><br>
-			<i>Just trying this out in AP mode?</i><br>
-			<small style="color:#aaa">If the AP network just appeared, allow a few seconds for it to stabilise before connecting.</small><br><br>
-			<button onclick="window.location.href='./?sliders'">To the controls!</button><br>
-		</div>
+		<h1>Connect your <span>dpx_tc002</span> to WiFi</h1>
+		<p id="dpxName">Loading device name…</p>
+		<p id="dpxVer"></p>
+		<p class="lede">One step left: give it your WiFi network so it can<br>reach <b>matrix_blaster</b> and stay connected on your network.</p>
+		<button class="primary" onclick="window.location.href='./settings/wifi'">Set up WiFi →</button>
+		<p class="skip"><a href="./?sliders">Skip — control it in AP mode instead</a></p>
 		<script>
-			// dpx_tc002: show this device's actual mDNS/AP name (it's unique per
-			// device — a MAC suffix, not the literal string "dpx-tc002") so
-			// there's no ambiguity about what to connect to next, whether
-			// you're still on the AP or already joined WiFi.
+			// Show this device's actual mDNS/AP name (mac-suffixed, not a fixed
+			// string) so there's no ambiguity about which device this is, whether
+			// you're still on its AP or already joined WiFi. Also show the
+			// running firmware version (WLED's own /json/info "ver" field,
+			// which set_metadata.py already sources from package.json) so
+			// there's no ambiguity about whether a flash actually took.
 			fetch('/json/info').then(function(r){return r.json();}).then(function(info){
-				if (!info.mac) return;
+				if (!info.mac) { document.getElementById('dpxName').remove(); return; }
 				var suffix = String(info.mac).replace(/:/g,'').toLowerCase().slice(-6);
 				var name = 'dpx-tc002-' + suffix;
 				document.getElementById('dpxName').textContent =
-					'This device: ' + name + ' — reachable at http://' + name + '.local once on your WiFi';
-			}).catch(function(){});
+					name + '  ·  reachable at http://' + name + '.local once on your WiFi';
+				if (info.ver) document.getElementById('dpxVer').textContent = 'firmware v' + info.ver;
+			}).catch(function(){ document.getElementById('dpxName').remove(); });
 		</script>
 	</body>
 </html>

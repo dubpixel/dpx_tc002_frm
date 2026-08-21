@@ -1,5 +1,17 @@
 ## dpx_tc002_frm changelog
 
+### [0.4.5](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.4...0.4.5) (2026-08-21)
+
+> First-connect UX pass — the AP-mode welcome page was still 100% stock WLED copy
+> ("Welcome to WLED! A versatile tool for controlling LEDs"), gave equal visual weight
+> to a "just play with it" escape hatch, and never showed which firmware was running.
+
+#### Changed
+* **web:** rewrote `wled00/data/welcome.htm` (the page shown on first AP connection, gated on WLED's own `showWelcomePage`) — dpx-branded copy explaining what to do next (connect to WiFi so the device can reach `matrix_blaster`), a single dominant "Set up WiFi →" call to action, and the "control it in AP mode instead" escape hatch demoted to a small text link instead of an equal-weight button
+* **web:** welcome page now shows the running firmware version (`v{X.Y.Z}`), read from WLED's own `/json/info` `ver` field (already sourced from `package.json` by `set_metadata.py` — no new plumbing needed) — removes any ambiguity about whether a flash actually took
+
+---
+
 ### [0.4.4](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.3...0.4.4) (2026-08-21)
 
 > ESP Web Tools' install dialog reliably shows a manifest's `name` field but not its
