@@ -156,6 +156,26 @@
       <esp-web-install-button id="install_btn" manifest="../firmware/nightly/manifest.json"></esp-web-install-button>
     </div>
 
+    <div class="panel">
+      <h2>After flashing — get it on your WiFi</h2>
+      <ol>
+        <li>Once it reboots (buzzer stops), look for a new WiFi network named <strong>dpx-tc002-XXXXXX</strong>
+          — <code>XXXXXX</code> is unique per device. Give it 10–15 seconds to show up. Password:
+          <strong>dubpixel1</strong>.</li>
+        <li>Join that network, then open <strong>http://4.3.2.1</strong> in a browser. This page prints
+          the device's exact name at the top — you'll need it in step 4.</li>
+        <li>Click <strong>WiFi settings</strong>, pick your home/venue network, enter its password, save.
+          The device reboots again and joins it (this drops you off the <code>dpx-tc002</code> network —
+          that's expected, you're done with it).</li>
+        <li>Find the device on your regular network at <strong>http://dpx-tc002-XXXXXX.local</strong>
+          (same name as the WiFi network from step 1) — that's <code>/ctrl</code>, the device's control
+          panel.</li>
+      </ol>
+      <p style="font-size:0.85rem;color:var(--text-dim);margin:0.75rem 0 0">This device also came
+        pre-configured to reach <a href="https://friendster.dubpixel.tv/about">matrix_blaster</a> over
+        MQTT — once it's on your WiFi, it should show up there as claimable within a few seconds.</p>
+    </div>
+
     <footer>
       Firmware source: <a href="https://github.com/dubpixel/dpx_tc002_frm">dubpixel/dpx_tc002_frm</a> —
       nightly rebuilds on every push to <code>main</code>, release rebuilds on each tagged version.
