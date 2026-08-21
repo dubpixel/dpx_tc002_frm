@@ -1,5 +1,16 @@
 ## dpx_tc002_frm changelog
 
+### [0.4.2](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.1...0.4.2) (2026-08-21)
+
+> The 0.4.1 first-boot fix (`doReboot = true`) was not actually sufficient — root-caused
+> the real reason live on a second device that was still shipping with stock config after
+> that "fix" was already flashed.
+
+#### Bug Fixes
+* **firstboot:** `doReboot = true` (0.4.1) didn't stop the clobber it was meant to fix. `WLED::setup()` calls `UsermodManager::setup()` (where `dpxFirstBoot()` writes `/cfg.json`) at `wled.cpp:501`, then unconditionally hits `if (needsCfgSave) serializeConfigToFS();` three lines later at `wled.cpp:504` — and `needsCfgSave` was already latched `true` back at `wled.cpp:484`, before `/cfg.json` ever existed. That re-serializes the still-100%-stock in-RAM config back over the file we just wrote, synchronously, before `loop()` (where `doReboot` is checked) ever runs — so the reboot flag never got a chance to matter. Fixed by calling `WLED::instance().reset()` directly and immediately after the write, which halts execution inside `dpxFirstBoot()` (`ESP.restart()` doesn't return) so `WLED::setup()` never reaches line 504 at all
+
+---
+
 ### [0.4.1](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.0...0.4.1) (2026-08-20)
 
 > Critical first-boot fix, found live while onboarding a real second device.

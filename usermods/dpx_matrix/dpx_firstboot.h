@@ -154,20 +154,20 @@ static void dpxFirstBoot() {
     serializeJson(doc, f);
     f.close();
 
-    // Force an immediate reboot so this config actually loads before the
-    // user can touch anything. Without this, real onboarding failure: WLED's
-    // own config load already ran (before usermods' setup(), where this
-    // function executes) using 100% stock defaults for the whole first-boot
-    // session — this file write doesn't change the RUNNING config at all.
-    // If the user saves ANY WLED settings page during that first session
-    // (WiFi setup during onboarding, unavoidably), WLED re-serializes its
-    // current (stock) in-memory state back over this file, clobbering
-    // everything we just wrote except whatever that one settings page also
-    // touched. Confirmed live on a real device: mDNS survived (narrowly —
-    // timing-dependent), but device name, AP SSID, the entire 2D matrix
-    // panel mapping, and 2 of 3 buttons were silently reset to stock,
-    // with the LED matrix and button macros non-functional as a result.
-    doReboot = true;
+    // Force an IMMEDIATE, SYNCHRONOUS reboot — setting doReboot=true and
+    // waiting for loop() is NOT enough. WLED::setup() calls
+    // UsermodManager::setup() (where this function runs) at wled.cpp:501,
+    // then unconditionally hits `if (needsCfgSave) serializeConfigToFS();`
+    // three lines later at wled.cpp:504 — and needsCfgSave was already
+    // latched true back at wled.cpp:484 (deserializeConfigFromFS(), before
+    // cfg.json existed). That re-serializes the still-100%-stock in-RAM
+    // config back over the file we just wrote, synchronously, before
+    // loop() (and doReboot) ever gets a chance to run. A prior fix here
+    // used doReboot=true and it was NOT sufficient — confirmed live: file
+    // got clobbered back to stock every time regardless. Calling reset()
+    // here instead halts execution inside this call (ESP.restart() doesn't
+    // return), so WLED::setup() never reaches line 504 at all.
     DEBUG_PRINTLN(F("DpxMatrix: /cfg.json written — rebooting now to load it"));
+    WLED::instance().reset();
 }
 
