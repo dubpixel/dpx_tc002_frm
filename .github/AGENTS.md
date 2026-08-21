@@ -90,6 +90,15 @@ main                # Main development trunk. Target branch for all work.
 0_15_x              # upstream WLED maintenance branch (do not use for dpx work)
 ```
 
+> **Tag naming:** This repo carries WLED's entire upstream tag history, and
+> our own semver (starting fresh from `0.1.0`) will keep colliding with
+> WLED's historical version numbers as it climbs — confirmed live: `v0.5.0`
+> already existed as a 2018 upstream WLED release, forcing a skip straight
+> to `v0.5.1`. **Going forward, tag dpx releases as `dpx-vX.Y.Z`**, not bare
+> `vX.Y.Z`, to avoid this permanently. Existing `v0.4.x`–`v0.5.1` tags are
+> left as-is (not renamed). The `github-pages` deployment environment's
+> branch policy already allows both `v*` and `dpx-v*` tag patterns.
+
 > **Note:** This repo is a private fork of WLED. Do NOT open PRs to upstream
 > `wled/WLED` unless the change is generic WLED code with no dpx_tc002-specific content.
 
