@@ -84,6 +84,22 @@
   .shots img { width: 100%; border-radius: 8px; border: 1px solid var(--panel-border); display: block; }
   .shots-note { font-size: 0.8rem; color: var(--text-dim); margin: 0.6rem 0 0; }
 
+  .shots-toggle summary {
+    cursor: pointer;
+    color: var(--purple);
+    font-size: 0.85rem;
+    font-weight: 600;
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    user-select: none;
+  }
+  .shots-toggle summary::-webkit-details-marker { display: none; }
+  .shots-toggle summary::before { content: "\25B8"; transition: transform 0.15s; display: inline-block; }
+  .shots-toggle[open] summary::before { transform: rotate(90deg); }
+  .shots-toggle .shots { margin-top: 0.75rem; }
+
   /* friendster brand colors (matches friendster.dubpixel.tv's own palette),
      used only for the companion-server callout so it visually reads as a
      link to a distinct product, not more of this site's own purple theme */
@@ -187,11 +203,14 @@
 
     <div class="panel">
       <h2>Action shots</h2>
-      <div class="shots">
-        <img src="images/action_shot_placeholder.svg" alt="Action shot placeholder 1">
-        <img src="images/action_shot_placeholder_2.svg" alt="Action shot placeholder 2">
-      </div>
-      <p class="shots-note">🚧 Placeholders — real photos coming later.</p>
+      <p class="shots-note" style="margin:0 0 0.5rem">🚧 Placeholders — real photos coming later.</p>
+      <details class="shots-toggle">
+        <summary>Show placeholders</summary>
+        <div class="shots">
+          <img src="images/action_shot_placeholder.svg" alt="Action shot placeholder 1">
+          <img src="images/action_shot_placeholder_2.svg" alt="Action shot placeholder 2">
+        </div>
+      </details>
     </div>
 
     <div class="panel">
@@ -221,9 +240,12 @@
         animated collection), and an <strong style="color:var(--text)">on-device file manager</strong> for
         <code>/ICONS/</code> and <code>/MELODIES/</code>.
       </p>
-      <div class="shots" style="grid-template-columns:1fr">
-        <img src="images/ui_shot_browse.png" alt="/browse icon browser">
-      </div>
+      <details class="shots-toggle">
+        <summary>Show screenshot</summary>
+        <div class="shots" style="grid-template-columns:1fr">
+          <img src="images/ui_shot_browse.png" alt="/browse icon browser">
+        </div>
+      </details>
     </div>
 
     <div class="panel">
@@ -300,11 +322,14 @@
 
     <div class="panel">
       <h2>UI shots</h2>
-      <div class="shots" style="grid-template-columns:1fr">
-        <img src="images/ui_shot_ctrl.png" alt="/ctrl control panel">
-        <img src="images/ui_shot_apiref.png" alt="/api-ref API reference page">
-      </div>
-      <p class="shots-note">Live off the device — <code>/ctrl</code> control panel and <code>/api-ref</code>. (<code>/browse</code> icon picker is up in the Icons section above.)</p>
+      <p class="shots-note" style="margin:0 0 0.5rem">Live off the device — <code>/ctrl</code> control panel and <code>/api-ref</code>. (<code>/browse</code> icon picker is up in the Icons section above.)</p>
+      <details class="shots-toggle">
+        <summary>Show screenshots</summary>
+        <div class="shots" style="grid-template-columns:1fr">
+          <img src="images/ui_shot_ctrl.png" alt="/ctrl control panel">
+          <img src="images/ui_shot_apiref.png" alt="/api-ref API reference page">
+        </div>
+      </details>
     </div>
 
     <div class="panel">

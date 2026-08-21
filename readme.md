@@ -63,9 +63,8 @@
     <img alt="matrix_blaster companion server" src="https://img.shields.io/badge/companion%20server-matrix__blaster-7ee787?style=for-the-badge&labelColor=0a0a0d">
   </a>
   <p>
-    <a href="https://friendster.dubpixel.tv/about"><strong>friendster.dubpixel.tv</strong></a> —
-    account/device management, PIN device-claim, and a buddy-list-style way to message your devices.
-    Optional; this firmware works standalone without it.
+    <sub><i>Account/device management, PIN device-claim, and a buddy-list-style way to message your devices —
+    <a href="https://friendster.dubpixel.tv/about">friendster.dubpixel.tv</a>. Optional; this firmware works standalone.</i></sub>
   </p>
 </div>
    <br />
@@ -75,8 +74,13 @@
 Live off the device — `/ctrl` control panel and `/api-ref`. (See [Icons & Media Browser](#icons--media-browser)
 below for the `/browse` icon picker screenshot.)
 
+<details>
+<summary>Click to expand</summary>
+
 ![Control panel][ui-shot-ctrl]
 ![API reference][ui-shot-apiref]
+
+</details>
 
 > 🚧 Real action shots of the device running are still placeholders for now — see the
 > [About](#about-the-project) section below.
@@ -339,7 +343,12 @@ Not just an 8×8 pixel renderer — `/browse` on the device is a built-in browse
 - **Bigtime GIFs** — Blueforcer/awtrix3's animated GIF collection, one-click install from GitHub.
 - **On-Device Files** — a small file manager for `/ICONS/`, `/MELODIES/`, and device root (list, delete).
 
+<details>
+<summary>Screenshot</summary>
+
 ![Icon browser][ui-shot-browse]
+
+</details>
 
 Once installed, reference an icon by name in any notify/custom-app call:
 ```
