@@ -1,5 +1,15 @@
 ## dpx_tc002_frm changelog
 
+### [0.4.4](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.3...0.4.4) (2026-08-21)
+
+> ESP Web Tools' install dialog reliably shows a manifest's `name` field but not its
+> `version` field, even where the button is embedded on pages we don't control.
+
+#### Bug Fixes
+* **build:** the ESP Web Tools manifest's `name` field (`pio-scripts/dpx_web_flash_bins.py`) was a static string, `"dpx_tc002 (Ulanzi TC001)"` — no version number, anywhere the install button shows up. Now reads `dpx_tc002 v{version} (Ulanzi TC001)`, reusing the same `version` value already read from `package.json` for the manifest's `version` field. Makes the firmware version visible in the install dialog itself (e.g. on friendster's embedded button, a page we can't edit directly) instead of only on our own `/flash/` page's separate version text
+
+---
+
 ### [0.4.3](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.2...0.4.3) (2026-08-21)
 
 > Every device was presenting the exact same name to friendster (and anything else reading

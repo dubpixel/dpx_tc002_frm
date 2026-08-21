@@ -72,7 +72,11 @@ def collect_web_flash_bins(source, target, env):
     manifest_parts.sort(key=lambda p: p["offset"])
 
     manifest = {
-        "name": "dpx_tc002 (Ulanzi TC001)",
+        # ESP Web Tools' install dialog reliably shows manifest.name but not
+        # manifest.version (confirmed live) — bake the version into the name
+        # so it's visible wherever the install button is embedded, including
+        # on friendster's own page where we can't add separate version text.
+        "name": f"dpx_tc002 v{version} (Ulanzi TC001)",
         "version": version,
         "new_install_prompt_erase": True,
         "builds": [
