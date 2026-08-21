@@ -1,5 +1,14 @@
 ## dpx_tc002_frm changelog
 
+### [0.4.1](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.0...0.4.1) (2026-08-20)
+
+> Critical first-boot fix, found live while onboarding a real second device.
+
+#### Bug Fixes
+* **firstboot:** first-boot config (`dpxFirstBoot()`) was written to disk but never actually loaded — WLED's own config load runs before usermods' `setup()`, so the entire first-boot session ran on 100% stock defaults regardless of what got written. Saving any WLED settings page during that session (WiFi setup during onboarding — unavoidable) re-serialized the stock in-memory state back over the file, silently clobbering it. Confirmed live: device name stuck on `"WLED"`, AP SSID stuck on `"WLED-AP"`, the entire 2D matrix panel mapping missing (LED matrix didn't render at all), 2 of 3 buttons gone. Fixed by forcing an immediate reboot right after the first-boot write so the correct config loads before the user can touch anything
+
+---
+
 ### [0.4.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.3.0...0.4.0) (2026-08-20)
 
 > A factory-fresh device is now actually claimable, and friendster can echo a device's
