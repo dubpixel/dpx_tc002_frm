@@ -126,6 +126,14 @@ static std::vector<DpxOscListener>    dpxOscListeners;
 static int     dpxCurrentApp   = 0;               // index into dpxApps
 static bool    dpxAutoTrans    = true;             // auto-advance enabled
 static unsigned long dpxAppStartMs = 0;            // when current app was shown
+// MIDDLE-long toggles this on/off (dpx_matrix.h's handleButton()). While
+// true, the user is manually browsing raw WLED effects via LEFT/RIGHT
+// (bypassing the dpx app system entirely — a direct effectCurrent poke) and
+// dpxAppLoopTick() must not auto-advance, or its independent per-app dwell
+// timer eventually fires and forcibly reasserts dpx's own effect over
+// whatever the user just picked — confirmed live: previously, browsing got
+// interrupted mid-way by the normal app-rotation timer.
+static bool    dpxPatternBrowsing = false;
 
 // Active scroll state — one per display
 static DpxScrollState dpxScroll;
@@ -588,7 +596,7 @@ static void dpxAppLoopTick() {
         else ++it;
     }
 
-    if (!dpxAutoTrans) return;
+    if (!dpxAutoTrans || dpxPatternBrowsing) return;
     if (dpxApps.empty()) return;
 
     unsigned long now = millis();

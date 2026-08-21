@@ -391,10 +391,22 @@ public:
     // We use WLED's APIs (toggleOnOff, stateUpdated) for WLED-level actions.
     //
     // Button layout (TC001 front, left→right):
-    //   b=0  GPIO DPX_BTN_LEFT   short=prev app    long=dismiss notif, or (GH #75)
-    //                                                   browse notif history when idle
-    //   b=1  GPIO DPX_BTN_MID    short=next app    long=cycle WLED effect
-    //   b=2  GPIO DPX_BTN_RIGHT  short=power tog, or exit history browse (GH #75)
+    //   b=0  GPIO DPX_BTN_LEFT   short=prev app (or prev WLED effect while
+    //                                            browsing — see below)
+    //                            long=dismiss notif, or (GH #75) browse notif
+    //                                 history when idle
+    //   b=1  GPIO DPX_BTN_MID    short=next app
+    //                            long=toggle "pattern browsing" mode — first
+    //                                 press hands the segment to a raw WLED
+    //                                 effect, second press returns to dpx
+    //                                 Matrix. While browsing, dpxAppLoopTick()
+    //                                 (dpx_apps.h) is suspended so its
+    //                                 independent per-app dwell timer can't
+    //                                 forcibly reassert dpx's effect mid-
+    //                                 browse (confirmed live: it used to).
+    //   b=2  GPIO DPX_BTN_RIGHT  short=power tog, or exit history browse
+    //                                 (GH #75), or next WLED effect while
+    //                                 browsing
     //                            long=show IP
     bool handleButton(uint8_t b) override {
         if (!_initDone || b > 2) return false;
@@ -421,15 +433,31 @@ public:
                             // step back through recent notification history.
                             if (dpxNotifActive) dpxDismissNotification();
                             else dpxHistoryNext();
+                        } else if (dpxPatternBrowsing) {
+                            effectCurrent = (effectCurrent + strip.getModeCount() - 1) % strip.getModeCount();
+                            stateChanged = true;
+                            colorUpdated(CALL_MODE_BUTTON);
                         } else {
                             dpxPrevApp();
                         }
                         break;
-                    case 1:  // MIDDLE — next app / long=cycle effect
+                    case 1:  // MIDDLE — next app / long=toggle pattern browsing
                         if (lng) {
-                            effectCurrent = (effectCurrent + 1) % strip.getModeCount();
-                            stateChanged = true;
-                            colorUpdated(CALL_MODE_BUTTON);
+                            if (dpxPatternBrowsing) {
+                                // Exit — hand the segment back to dpx Matrix
+                                // and reset the dwell timer so the current
+                                // app doesn't look like it's been showing
+                                // (stale, pre-browse) for its full duration
+                                // already and instantly advance.
+                                dpxPatternBrowsing = false;
+                                dpxAppStartMs = millis();
+                                dpxActivateCurrentApp();
+                            } else {
+                                dpxPatternBrowsing = true;
+                                effectCurrent = (effectCurrent + 1) % strip.getModeCount();
+                                stateChanged = true;
+                                colorUpdated(CALL_MODE_BUTTON);
+                            }
                         } else {
                             dpxNextApp();
                         }
@@ -441,6 +469,10 @@ public:
                             doc["text"] = ip; doc["color"] = "#00FF88";
                             String s; serializeJson(doc, s);
                             dpxPushNotification(s.c_str());
+                        } else if (dpxPatternBrowsing) {
+                            effectCurrent = (effectCurrent + 1) % strip.getModeCount();
+                            stateChanged = true;
+                            colorUpdated(CALL_MODE_BUTTON);
                         } else if (dpxHistoryBrowsing) {
                             // GH #75 — short RIGHT exits history browsing instead
                             // of toggling power, while browsing is active.
