@@ -209,7 +209,7 @@ contract defined in `SPEC.md`.
 | dpx_tc002.md | Markdown / `dpx_reference/` | Build plan: phase order, usermod structure, GPIO map | Read before firmware work |
 | dpx_tc002_server.md | Markdown / `dpx_friendster/docs/` | Companion server plan (Friendster/CueMaster) — lives in the sibling `dpx_friendster` repo, not this one | Read before any server work |
 | HANDOFF_TODO.md | Markdown / `docs/` | Feature roadmap: 6 items, status, implementation notes | Read before starting new features |
-| site | HTML / `site/` | GitHub Pages site: landing page (`/`), browser-flash installer (`/flash/`, ESP Web Tools), generated API docs (`/api/`, see `tools/build_pages_api_docs.js`) | Auto-deployed via `.github/workflows/web-flash-deploy.yml` on every push to `main` |
+| site | HTML / `site/` | GitHub Pages site: landing page (`/`), browser-flash installer (`/flash/`, ESP Web Tools), generated API docs (`/api/`, see `tools/build_pages_api_docs.js`) | Auto-deployed via `.github/workflows/pages-deploy.yml` on every push to `main` |
 
 > Reference docs live in the sibling repo `../dpx_tc001/dpx_reference/` (relative to this repo's root) — clone `dpx_tc001` alongside `dpx_tc002_frm` for these paths to resolve.
 

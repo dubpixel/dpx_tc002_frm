@@ -1,4 +1,4 @@
-name: Web Flash Deploy
+name: Pages Deploy
 
 # Rebuilds the Ulanzi TC001 (dpx_tc002) firmware and republishes the
 # GitHub Pages site (site/) — a project landing page at the root
