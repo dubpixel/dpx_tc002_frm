@@ -68,3 +68,6 @@ fp-info-cache
 *.kicad_prl
 build_output/dpx_build.ts
 wled00/dpx_build_id.h
+
+# local access notes / credentials -- never commit
+docs/access_brief*.md
