@@ -40,7 +40,10 @@ jobs:
       # this tag's section straight from it instead — one atomic release
       # step, scoped notes, no second network call.
       run: |
-        VERSION="${GITHUB_REF_NAME#v}"
+        # Strip whichever tag prefix is present: new tags are dpx-vX.Y.Z (see
+        # AGENTS.md "Tag naming"), old ones (pre-dpx-v0.6.0) were bare vX.Y.Z.
+        VERSION="${GITHUB_REF_NAME#dpx-v}"
+        VERSION="${VERSION#v}"
         awk -v ver="$VERSION" '
           /^### \[/ {
             if (capture) exit
