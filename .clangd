@@ -1,0 +1,24 @@
+# clangd (host clang) can't parse GCC/xtensa-only flags PlatformIO's
+# compile_commands.json emits for this ESP32 target — it aborted parsing
+# immediately on every usermod file with driver errors before ever reaching
+# real code, which is what caused the wall of false "unknown type" noise on
+# every edit. Stripping the incompatible flags lets it fall through to the
+# real -I include paths (already correct, from PlatformIO) instead of bailing
+# out immediately. This won't be 100% clean — clangd still isn't the actual
+# xtensa-esp32-elf-g++ toolchain, so target-specific macros/attributes some
+# framework headers depend on may still misresolve — but it should clear the
+# vast majority of the noise instead of failing on line 1 of every file.
+CompileFlags:
+  Remove:
+    - -mlongcalls
+    - -mtext-section-literals
+    - -mfix-esp32-psram-cache-issue
+    - -fstrict-volatile-bitfields
+    - -fno-tree-switch-conversion
+    - -free
+    - -fipa-pta
+    - -fno-rtti
+    - -fno-exceptions
+  Add:
+    - -Wno-unknown-warning-option
+    - -Wno-unknown-attributes

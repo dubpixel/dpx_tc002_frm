@@ -61,6 +61,11 @@ static bool     DPX_SHOW_HUM       = false;
 static bool     DPX_SHOW_BAT       = false;
 static bool     DPX_ABRI           = false;   // auto-brightness from LDR
 static bool     DPX_TEMP_FAHRENHEIT = true;   // toggle in /ctrl (Sensors card) or POST /api/settings {"TEMP_F":false}
+// GH #88 — off by default (preserves today's frictionless CueMaestro/local-LAN
+// behavior). When on, every dpx live-control API call must include the
+// correct settingsPIN on each request — no session/unlock-window state like
+// WLED's own /settings PIN, so there's no "left unlocked" gap to forget.
+static bool     DPX_CTRL_LOCK      = false;
 
 // ── Load dev.json from LittleFS ───────────────────────────────────────────────
 static void dpxLoadDev() {
@@ -93,6 +98,7 @@ static void dpxLoadDev() {
     if (doc.containsKey("show_bat"))  DPX_SHOW_BAT  = doc["show_bat"].as<bool>();
     if (doc.containsKey("abri"))      DPX_ABRI      = doc["abri"].as<bool>();
     if (doc.containsKey("temp_f"))    DPX_TEMP_FAHRENHEIT = doc["temp_f"].as<bool>();
+    if (doc.containsKey("ctrl_lock")) DPX_CTRL_LOCK = doc["ctrl_lock"].as<bool>();
     if (doc.containsKey("timezone_posix")) {
         DPX_TIMEZONE = doc["timezone_posix"].as<String>();
         setenv("TZ", DPX_TIMEZONE.c_str(), 1);

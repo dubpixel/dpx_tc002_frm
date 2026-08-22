@@ -122,6 +122,30 @@ static inline String dpxBody(AsyncWebServerRequest* req) {
     return req->arg("plain");
 }
 
+// GH #88 — opt-in per-request PIN gate for dpx's own live-control API surface,
+// distinct from WLED's own /settings correctPIN mechanism (which unlocks a
+// 15-min window, not per-request). When DPX_CTRL_LOCK is off (default), this
+// is always a no-op — preserves today's frictionless CueMaestro/local-LAN
+// behavior. When on, every mutating dpx API call must carry the correct PIN
+// on that request alone; no unlock state to leave open or forget to relock.
+// Reuses WLED's own settingsPIN (the same value friendster already provisions
+// at device-claim time) rather than a second secret to manage. `body` may be
+// empty for endpoints with no JSON payload (nextapp, reboot, etc) — the PIN
+// is then only checked via the `pin` query/form arg.
+static bool dpxCtrlPinOK(AsyncWebServerRequest* req, const String& body) {
+    if (!DPX_CTRL_LOCK) return true;
+    if (!strlen(settingsPIN)) return true; // lock enabled but no PIN configured — nothing to check
+    String pin = req->hasParam("pin") ? req->arg("pin") : String();
+    if (!pin.length() && body.length()) {
+        StaticJsonDocument<96> doc;
+        if (!deserializeJson(doc, body) && doc.containsKey("pin"))
+            pin = doc["pin"].as<String>();
+    }
+    if (pin.length() && pin == settingsPIN) return true;
+    req->send(401, F("application/json"), F("{\"error\":\"pin required\"}"));
+    return false;
+}
+
 // 256-pixel screen dump as JSON array.
 static String dpxScreenJson() {
     DynamicJsonDocument doc(4096);
@@ -187,6 +211,7 @@ static String dpxSettingsJson() {
     doc[F("TEMP_F")]     = DPX_TEMP_FAHRENHEIT;
     doc[F("TEMP_OFFSET")] = DPX_TEMP_OFFSET;
     doc[F("HUM_OFFSET")]  = DPX_HUM_OFFSET;
+    doc[F("CTRL_LOCK")]  = DPX_CTRL_LOCK;
     String s; serializeJson(doc, s); return s;
 }
 
@@ -270,6 +295,14 @@ static void dpxApplySettings(const String& body) {
         DPX_TC_MUTE = doc["TC_MUTE"].as<bool>();
         dpxMergeDev(((String)F("{\"tc_mute\":") + (DPX_TC_MUTE ? F("true}") : F("false}"))).c_str());
     }
+    // GH #88 — enabling costs nothing (device starts unlocked); disabling
+    // while already on requires this same POST /api/settings call to have
+    // already passed dpxCtrlPinOK() above, so a caller without the PIN can't
+    // turn its own lock back off.
+    if (doc.containsKey("CTRL_LOCK")) {
+        DPX_CTRL_LOCK = doc["CTRL_LOCK"].as<bool>();
+        dpxMergeDev(((String)F("{\"ctrl_lock\":") + (DPX_CTRL_LOCK ? F("true}") : F("false}"))).c_str());
+    }
 }
 
 // ── Route registration ────────────────────────────────────────────────────────
@@ -332,10 +365,12 @@ static void dpxRegisterRoutes() {
     // this was a real, previously-undiscovered bug (dismiss/clear never
     // actually ran over HTTP, always returned {"ok":true} anyway).
     server.on("/api/notify/dismiss", HTTP_POST, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPinOK(r, String())) return;
         dpxDismissNotification();
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
     server.on("/api/notify/clear", HTTP_POST, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPinOK(r, String())) return;
         // Clear ALL queued notifications at once
         dpxNotifQueue.clear();
         r->send(200, F("application/json"), F("{\"ok\":true}"));
@@ -349,6 +384,7 @@ static void dpxRegisterRoutes() {
         r->send(200, F("application/json"), dpxNotifQueueJson());
     });
     server.on("/api/notify/queue/delete", HTTP_POST, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPinOK(r, String())) return;
         if (!r->hasParam("id")) { r->send(400, F("text/plain"), F("id required")); return; }
         bool ok = dpxNotifQueueDelete((unsigned long)r->getParam("id")->value().toInt());
         r->send(ok ? 200 : 404, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"not found\"}"));
@@ -360,16 +396,19 @@ static void dpxRegisterRoutes() {
         r->send(200, F("application/json"), dpxNotifHistoryJson());
     });
     server.on("/api/notify/history/clear", HTTP_POST, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPinOK(r, String())) return;
         dpxNotifHistoryClear();
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
     server.on("/api/notify/history/delete", HTTP_POST, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPinOK(r, String())) return;
         if (!r->hasParam("id")) { r->send(400, F("text/plain"), F("id required")); return; }
         bool ok = dpxNotifHistoryDelete((unsigned long)r->getParam("id")->value().toInt());
         r->send(ok ? 200 : 404, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"not found\"}"));
     });
     server.on("/api/notify", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         if (body.length()) dpxPushNotification(body.c_str());
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     }).onBody(dpxCaptureBody);
@@ -381,6 +420,7 @@ static void dpxRegisterRoutes() {
     // Empty body = clear early.
     server.on("/api/pair", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         bool ok = dpxSetPair(body.c_str());
         r->send(ok ? 200 : 400, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"bad JSON\"}"));
     }).onBody(dpxCaptureBody);
@@ -401,6 +441,7 @@ static void dpxRegisterRoutes() {
         }
         // POST: push or delete (empty body = delete)
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         bool isDelete = (body.length() <= 2);
         dpxSetCustomApp(name, body.c_str());
         if (isDelete) {
@@ -417,14 +458,17 @@ static void dpxRegisterRoutes() {
     // ── App navigation ────────────────────────────────────────────────────────
     server.on("/api/switch", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         bool ok = body.length() ? dpxSwitchToApp(body.c_str()) : false;
         r->send(ok ? 200 : 400, F("application/json"), ok ? F("{\"ok\":true}") : F("{\"error\":\"not found\"}"));
     }).onBody(dpxCaptureBody);
     server.on("/api/nextapp", HTTP_POST, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPinOK(r, String())) return;
         dpxNextApp();
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
     server.on("/api/previousapp", HTTP_POST, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPinOK(r, String())) return;
         dpxPrevApp();
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     });
@@ -433,6 +477,7 @@ static void dpxRegisterRoutes() {
     // {"power": true/false}  — maps to WLED brightness
     server.on("/api/power", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         DynamicJsonDocument doc(64);
         if (!deserializeJson(doc, body) && doc.containsKey("power")) {
             bool on = doc["power"].as<bool>();
@@ -451,6 +496,7 @@ static void dpxRegisterRoutes() {
     // {"color":[r,g,b],"blink":ms}  blink=0 → solid, blink>0 → on/off interval ms
     auto handleIndicator = [](AsyncWebServerRequest* r, int idx) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         DynamicJsonDocument doc(128);
         if (!deserializeJson(doc, body)) {
             if (doc.containsKey("color")) {
@@ -487,6 +533,7 @@ static void dpxRegisterRoutes() {
     server.on("/api/time", HTTP_ANY, [](AsyncWebServerRequest* r) {
         if (r->method() == HTTP_POST) {
             String body = dpxBody(r);
+            if (!dpxCtrlPinOK(r, body)) return;
             DynamicJsonDocument doc(64);
             if (!deserializeJson(doc, body) && doc.containsKey("utc")) {
                 time_t t = (time_t)doc["utc"].as<uint32_t>();
@@ -515,6 +562,7 @@ static void dpxRegisterRoutes() {
     // POST body (optional): {"timezone":"PST8PDT,...","server":"pool.ntp.org"}
     server.on("/api/syncntp", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         DynamicJsonDocument doc(256);
         if (!deserializeJson(doc, body)) {
             if (doc.containsKey("timezone")) {
@@ -543,7 +591,9 @@ static void dpxRegisterRoutes() {
     // ── Settings ──────────────────────────────────────────────────────────────
     server.on("/api/settings", HTTP_ANY, [](AsyncWebServerRequest* r) {
         if (r->method() == HTTP_POST) {
-            dpxApplySettings(dpxBody(r));
+            String body = dpxBody(r);
+            if (!dpxCtrlPinOK(r, body)) return;
+            dpxApplySettings(body);
             r->send(200, F("application/json"), F("{\"ok\":true}"));
             return;
         }
@@ -554,6 +604,7 @@ static void dpxRegisterRoutes() {
     server.on("/api/dev", HTTP_ANY, [](AsyncWebServerRequest* r) {
         if (r->method() == HTTP_POST) {
             String body = dpxBody(r);
+            if (!dpxCtrlPinOK(r, body)) return;
             if (body.length()) dpxMergeDev(body.c_str());
             r->send(200, F("application/json"), F("{\"ok\":true}"));
             return;
@@ -568,6 +619,7 @@ static void dpxRegisterRoutes() {
             return;
         }
         if (r->method() == HTTP_DELETE) {
+            if (!dpxCtrlPinOK(r, String())) return;
             // Path passed as ?path=<encoded> query param — DELETE body not reliably parsed
             String path = r->arg("path");
             if (path.length()) {
@@ -582,6 +634,7 @@ static void dpxRegisterRoutes() {
         }
         // POST: parse URL-encoded body — plain=<json> (ESPAsyncWebServer form field)
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         DynamicJsonDocument doc(256);
         if (deserializeJson(doc, body)) { r->send(400, F("text/plain"), F("bad JSON")); return; }
         DpxOscListener lsr;
@@ -611,6 +664,7 @@ static void dpxRegisterRoutes() {
     // Empty body      → re-enable dpx overlay
     server.on("/api/moodlight", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         body.trim();
         if (!body.length() || body == "{}") {
             dpxEnabled = true;
@@ -634,6 +688,9 @@ static void dpxRegisterRoutes() {
     // Same mechanism as AsyncCallbackJsonWebHandler — works regardless of Content-Type.
     server.on("/api/rtttl", HTTP_POST,
         [](AsyncWebServerRequest* r) {
+            // Raw RTTTL text, not JSON — pin (when CTRL_LOCK is on) can only
+            // arrive as a query/form arg here, not a body field.
+            if (!dpxCtrlPinOK(r, String())) return;
             String body = r->_tempObject ? String((char*)r->_tempObject) : String();
             body.trim();
             if (body.isEmpty()) {
@@ -683,6 +740,7 @@ static void dpxRegisterRoutes() {
     // Bypasses RTTTL parser and DPX_SOUND_ENABLED — hardware-only test.
     // Add ?active=1 to test active-buzzer theory: DC pulse instead of PWM.
     server.on("/api/beeptest", HTTP_POST, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPinOK(r, String())) return;
         bool testActive = r->hasParam("active") && r->arg("active") == "1";
         if (testActive) {
             // Active buzzer test: simple DC on/off, no PWM
@@ -716,6 +774,7 @@ static void dpxRegisterRoutes() {
     // sound files are RTTTL text stored in /MELODIES/<name>.txt on LittleFS
     server.on("/api/sound", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         body.trim();
         // Empty body or {} = stop
         if (!body.length() || body == F("{}")) {
@@ -768,6 +827,7 @@ static void dpxRegisterRoutes() {
     // {"from":"/ICONS/a.raw","to":"/ICONS/b.raw"}
     server.on("/api/rename", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         DynamicJsonDocument doc(256);
         if (deserializeJson(doc, body)) { r->send(400, F("text/plain"), F("bad JSON")); return; }
         String from = doc["from"] | String();
@@ -833,11 +893,13 @@ static void dpxRegisterRoutes() {
 
     // ── Reboot ────────────────────────────────────────────────────────────────
     server.on("/dpx/reboot", HTTP_ANY, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPinOK(r, String())) return;
         r->send(200, F("text/plain"), F("OK"));
         delay(200);
         ESP.restart();
     });
     server.on("/api/reboot", HTTP_ANY, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPinOK(r, String())) return;
         r->send(200, F("application/json"), F("{\"ok\":true}"));
         delay(200);
         ESP.restart();
@@ -848,6 +910,7 @@ static void dpxRegisterRoutes() {
     // If N is 0 or omitted, sleeps indefinitely (wake on button press only).
     server.on("/api/sleep", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         DynamicJsonDocument doc(64);
         uint64_t secs = 0;
         if (!deserializeJson(doc, body) && doc.containsKey("sleep"))
@@ -863,6 +926,7 @@ static void dpxRegisterRoutes() {
     // POST body: {"name":"Time","mute":true}   mute=false to un-mute
     server.on("/api/mute", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
         DynamicJsonDocument doc(128);
         if (!deserializeJson(doc, body) && doc.containsKey("name")) {
             String name = doc["name"].as<String>();

@@ -565,7 +565,7 @@ function renderDir(data,elId,prefix){
       var nb=prompt("Rename \""+fname+"\" to (no extension):",fbase);
       if(!nb||nb===fbase)return;
       nb=nb.trim().replace(/[^a-zA-Z0-9_\-]/g,"_");if(!nb)return;
-      fetch("/api/rename",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      fetch(pinURL("/api/rename"),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
         body:"plain="+encodeURIComponent(JSON.stringify({from:prefix+fname,to:prefix+nb+fext}))})
       .then(function(r){
         if(r.ok){toast("Renamed \u2192 "+nb+fext);
@@ -698,7 +698,7 @@ select option{background:#222}
 <div class="card">
 <h2>Notification History <span style="font-size:11px;opacity:0.7;font-weight:normal">GH #75 &mdash; outer-button replay backlog</span> <button class="sm" style="margin-top:0;margin-left:6px" onclick="loadNotifHistory()">&#8635;</button></h2>
 <div id="notifh_list" style="font-size:12px;margin-bottom:8px">Loading&hellip;</div>
-<button class="red sm" onclick="fetch('/api/notify/history/clear',{method:'POST'}).then(function(){loadNotifHistory();toast('History cleared');})">&#10006; Clear History</button>
+<button class="red sm" onclick="fetch(pinURL('/api/notify/history/clear'),{method:'POST'}).then(function(){loadNotifHistory();toast('History cleared');})">&#10006; Clear History</button>
 </div>
 
 <div class="card">
@@ -936,12 +936,21 @@ select option{background:#222}
 </div>
 
 <div class="card">
+<h2>Security</h2>
+<p style="color:#666;font-size:11px;margin-bottom:10px">Off by default &mdash; this device's live control (this page, and its API) is open to anyone on the same network with zero friction, which is normally what you want for a fast local show. Turn this on only if the device sits on a network you don't fully trust (shared WiFi, a venue LAN with strangers on it) and you want a PIN required on every control action. Uses the same PIN as the device's WLED settings/OTA lock.</p>
+<div class="row" style="margin-bottom:8px;align-items:center">
+  <div class="chk"><input type="checkbox" id="ctrl_lock" onchange="apiPost('/api/settings',{CTRL_LOCK:this.checked}).then(function(){toast(document.getElementById('ctrl_lock').checked?'Live control now requires the PIN':'Live control unlocked')})"><label for="ctrl_lock">Require PIN for live control</label></div>
+</div>
+<button class="sm" style="margin-top:0" onclick="if(askPin())toast('PIN saved for this browser')">Set/Change stored PIN</button>
+</div>
+
+<div class="card">
 <h2>Sound <span id="snd_status" style="font-size:10px;color:#666"></span></h2>
 <div class="row" style="margin-bottom:6px">
   <div class="chk"><input type="checkbox" id="snd_en"><label for="snd_en">Sound enabled</label></div>
   <div style="flex:1;margin-left:10px;color:#555;font-size:11px">Volume: n/a &#8212; passive piezo</div>
   <button class="sm" style="margin-top:0" onclick="saveSndSettings()">Save</button>
-  <button class="sm" style="margin-top:0;margin-left:4px;background:#285" onclick="fetch('/api/beeptest',{method:'POST'}).then(function(r){return r.json();}).then(function(d){toast('pin:'+d.pin+' ch:'+d.ledc_ch+' snd:'+d.sound_enabled);}).catch(function(e){toast('Error: '+e,false);})">&#9834; Test</button>
+  <button class="sm" style="margin-top:0;margin-left:4px;background:#285" onclick="fetch(pinURL('/api/beeptest'),{method:'POST'}).then(function(r){return r.json();}).then(function(d){toast('pin:'+d.pin+' ch:'+d.ledc_ch+' snd:'+d.sound_enabled);}).catch(function(e){toast('Error: '+e,false);})">&#9834; Test</button>
 </div>
 <hr>
 <label>RTTTL &#8212; inline melody (format: <code style="color:#8cf">Name:d=4,o=5,b=120:c,e,g</code>)</label>
@@ -975,7 +984,14 @@ select option{background:#222}
 <script>
 function h2r(h){return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
 function toast(m,ok){var t=document.getElementById("toast");t.textContent=m;t.style.background=ok===false?"#822":"#2a5";t.style.display="block";setTimeout(function(){t.style.display="none";},2500);}
-function apiPost(url,data){return fetch(url,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(data))}).then(function(r){r.ok?toast(url.split("/").pop()+" OK"):toast("Error "+r.status,false);}).catch(function(e){toast(String(e),false);});}
+// GH #88 — CTRL_LOCK: when the device requires a per-request PIN on its
+// live-control API, every call here needs to carry it. Stored in
+// localStorage so it survives a reload; asked for lazily on first 401
+// rather than every page load (most devices never turn this on).
+var dpxPin=localStorage.getItem("dpx_pin")||"";
+function pinURL(u){if(!dpxPin)return u;return u+(u.indexOf("?")>=0?"&":"?")+"pin="+encodeURIComponent(dpxPin);}
+function askPin(){var p=prompt("This device requires a PIN for live control. Enter it:");if(p){dpxPin=p;localStorage.setItem("dpx_pin",p);return true;}return false;}
+function apiPost(url,data){return fetch(pinURL(url),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(data))}).then(function(r){if(r.status===401){if(askPin())return apiPost(url,data);toast("PIN required",false);return r;}r.ok?toast(url.split("/").pop()+" OK"):toast("Error "+r.status,false);return r;}).catch(function(e){toast(String(e),false);});}
 function strip(d){Object.keys(d).forEach(function(k){if(d[k]===undefined||d[k]==="")delete d[k];});return d;}
 // Effect/palette id = array index (GH #11 pattern slots)
 fetch("/api/effects").then(function(r){return r.json();}).then(function(fx){var s=document.getElementById("ch_fx_effect");if(!s)return;fx.forEach(function(e,i){var o=document.createElement("option");o.value=i;o.textContent=e;s.appendChild(o);});}).catch(function(){});
@@ -1021,7 +1037,7 @@ function loadLoop(){
       btns.appendChild(bMute);
       if(!app.native){
         var bDel=document.createElement("button");bDel.textContent="Remove";bDel.className="red sm";bDel.style.marginTop="0";
-        bDel.onclick=(function(n){return function(){fetch("/api/custom?name="+encodeURIComponent(n),{method:"POST"}).then(function(){toast("Removed "+n);setTimeout(loadLoop,600);});};})(app.name);
+        bDel.onclick=(function(n){return function(){fetch(pinURL("/api/custom?name="+encodeURIComponent(n)),{method:"POST"}).then(function(){toast("Removed "+n);setTimeout(loadLoop,600);});};})(app.name);
         btns.appendChild(bDel);
       } else {
         var bDel=document.createElement("button");bDel.textContent="Remove";bDel.className="red sm";bDel.style.marginTop="0";
@@ -1068,7 +1084,7 @@ function sendCustomApp(){
   d.overlay=document.getElementById("ca_overlay").value;
   var dur=+document.getElementById("ca_dur").value;if(dur>0)d.duration=dur;
   var p=+document.getElementById("ca_prog").value;if(p>=0){d.progress=p;d.progressC=h2r(document.getElementById("ca_pc").value);d.progressBC=h2r(document.getElementById("ca_pbc").value);}
-  fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(strip(d)))}).then(function(r){r.ok?toast("App pushed"):toast("Error "+r.status,false);setTimeout(loadLoop,500);}).catch(function(e){toast(String(e),false);});
+  fetch(pinURL("/api/custom?name="+encodeURIComponent(name)),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(strip(d)))}).then(function(r){r.ok?toast("App pushed"):toast("Error "+r.status,false);setTimeout(loadLoop,500);}).catch(function(e){toast(String(e),false);});
 }
 function loadCustomApp(){
   var name=document.getElementById("ca_name").value;if(!name){toast("Pick an app name first",false);return;}
@@ -1090,7 +1106,7 @@ function loadCustomApp(){
 }
 function deleteCustomApp(){
   var name=document.getElementById("ca_name").value;if(!name){toast("Name required",false);return;}
-  fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST"}).then(function(){toast("App removed");setTimeout(loadLoop,600);});
+  fetch(pinURL("/api/custom?name="+encodeURIComponent(name)),{method:"POST"}).then(function(){toast("App removed");setTimeout(loadLoop,600);});
 }
 function sendInd(n){apiPost("/api/indicator"+n,{color:h2r(document.getElementById("i"+n+"c").value),blink:+document.getElementById("i"+n+"b").value,fade:+document.getElementById("i"+n+"f").value});}
 var _briT=null;function sendBri(){clearTimeout(_briT);_briT=setTimeout(function(){apiPost("/api/settings",{BRI:+document.getElementById("bri").value});},300);}
@@ -1105,7 +1121,7 @@ function loadListeners(){
       var info=document.createElement("div");
       info.innerHTML='<span style="color:#8cf;font-size:11px">'+lsr.label+'</span><br><code style="color:#4af;font-size:10px">'+lsr.path+'</code> <span style="color:#555">\u2192</span> <code style="color:#fa6;font-size:10px">'+lsr.channel+'</code>';
       var bDel=document.createElement("button");bDel.textContent="\u2715";bDel.className="sm red";bDel.style.cssText="margin:0;padding:2px 8px";
-      bDel.onclick=(function(p){return function(){fetch("/api/osc/listeners?path="+encodeURIComponent(p),{method:"DELETE"}).then(function(r){r.ok?toast("Removed"):toast("Error",false);loadListeners();});};})(lsr.path);
+      bDel.onclick=(function(p){return function(){fetch(pinURL("/api/osc/listeners?path="+encodeURIComponent(p)),{method:"DELETE"}).then(function(r){r.ok?toast("Removed"):toast("Error",false);loadListeners();});};})(lsr.path);
       row.appendChild(info);row.appendChild(bDel);el.appendChild(row);
     });
   }).catch(function(){el.innerHTML="<span style='color:#f66'>Error loading</span>";});
@@ -1117,7 +1133,7 @@ function addListener(){
   var channel=document.getElementById("osc_ch_txt").value.trim();
   var label=document.getElementById("osc_label_txt").value.trim()||channel;
   if(!path||!channel){toast("Path and channel required",false);return;}
-  fetch("/api/osc/listeners",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify({path:path,channel:channel,label:label}))}).then(function(r){if(r.ok){toast("Listener added \u2192 "+channel);loadListeners();document.getElementById("osc_path_manual").value="";document.getElementById("osc_ch_txt").value="";document.getElementById("osc_label_txt").value="";}else{toast("Error",false);}});
+  fetch(pinURL("/api/osc/listeners"),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify({path:path,channel:channel,label:label}))}).then(function(r){if(r.ok){toast("Listener added \u2192 "+channel);loadListeners();document.getElementById("osc_path_manual").value="";document.getElementById("osc_ch_txt").value="";document.getElementById("osc_label_txt").value="";}else{toast("Error",false);}});
 }
 loadListeners();
 function saveTCSettings(){
@@ -1170,7 +1186,7 @@ function addChannel(){
   var name=document.getElementById("ca_name").value.trim().replace(/\s+/g,"_");
   if(!name){toast("Enter a channel name",false);return;}
   var text=document.getElementById("ca_text").value||name;
-  fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify({text:text,scrollSpeed:80}))}).then(function(r){r.ok?toast("Channel '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
+  fetch(pinURL("/api/custom?name="+encodeURIComponent(name)),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify({text:text,scrollSpeed:80}))}).then(function(r){r.ok?toast("Channel '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
 }
 // GH #11 — WLED pattern slot: hands the display over to a real WLED FX-engine
 // effect for `duration` seconds, then dpx Matrix resumes automatically.
@@ -1178,7 +1194,7 @@ function addPatternSlot(){
   var name=document.getElementById("ch_fx_name").value.trim().replace(/\s+/g,"_");
   if(!name){toast("Enter a channel name",false);return;}
   var d={type:"wled_fx",effect:+document.getElementById("ch_fx_effect").value,palette:+document.getElementById("ch_fx_palette").value,speed:+document.getElementById("ch_fx_speed").value,intensity:+document.getElementById("ch_fx_intensity").value,duration:+document.getElementById("ch_fx_dur").value};
-  fetch("/api/custom?name="+encodeURIComponent(name),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(d))}).then(function(r){r.ok?toast("Pattern slot '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
+  fetch(pinURL("/api/custom?name="+encodeURIComponent(name)),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(d))}).then(function(r){r.ok?toast("Pattern slot '"+name+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
 }
 // GH #31 — customizable Time/Date instance: own color/offset/icon, and
 // multiple instances via the #30 slot query param.
@@ -1188,7 +1204,7 @@ function addCustomClock(){
   var slot=document.getElementById("ch_cc_slot").value.trim();
   var d={type:document.getElementById("ch_cc_kind").value,color:h2r(document.getElementById("ch_cc_color").value),offset:+document.getElementById("ch_cc_offset").value,icon:document.getElementById("ch_cc_icon").value||undefined,pushIcon:+document.getElementById("ch_cc_pushicon").value,label:document.getElementById("ch_cc_label").value.trim()||undefined,noScroll:document.getElementById("ch_cc_static").checked};
   var url="/api/custom?name="+encodeURIComponent(name)+(slot?"&slot="+encodeURIComponent(slot):"");
-  fetch(url,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(d))}).then(function(r){r.ok?toast("Clock '"+name+(slot?"#"+slot:"")+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
+  fetch(pinURL(url),{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"plain="+encodeURIComponent(JSON.stringify(d))}).then(function(r){r.ok?toast("Clock '"+name+(slot?"#"+slot:"")+"' created"):toast("Error",false);setTimeout(loadLoop,400);});
 }
 
 function sendRtttl(){var v=document.getElementById("rtttl").value.trim();if(!v){toast("Enter RTTTL string",false);return;}apiPost("/api/sound",{rtttl:v});}
@@ -1197,6 +1213,7 @@ fetch("/api/settings").then(function(r){return r.json();}).then(function(s){
   if(s.MQTT_PREFIX){mqttPrefix=s.MQTT_PREFIX;var note=document.getElementById("mqtt_prefix_note");if(note)note.innerHTML='MQTT prefix: <code style="color:#4af">'+s.MQTT_PREFIX+'</code> &nbsp;&nbsp; OSC namespace: <code style="color:#4af">/dpx_tc002</code>';}
   var sf=document.getElementById("sns_f");if(sf&&s.TEMP_F!==undefined)sf.checked=s.TEMP_F;
   var sa=document.getElementById("sns_abri");if(sa&&s.ABRI!==undefined)sa.checked=s.ABRI;
+  var cl=document.getElementById("ctrl_lock");if(cl&&s.CTRL_LOCK!==undefined)cl.checked=s.CTRL_LOCK;
   var en=document.getElementById("snd_en");var st=document.getElementById("snd_status");
   if(s.SOUND!==undefined){en.checked=s.SOUND;}else{en.checked=true;}
   if(st){st.textContent=en.checked?"(on)":"(DISABLED \u2014 check this box and Save)";st.style.color=en.checked?"#2a5":"#f66";}
@@ -1240,7 +1257,7 @@ function loadNotifQueue(){
   }).catch(function(){var el=document.getElementById("notifq_list");if(el)el.textContent="(error loading)";});
 }
 function deleteNotifQueueItem(id){
-  fetch("/api/notify/queue/delete?id="+id,{method:"POST"}).then(loadNotifQueue);
+  fetch(pinURL("/api/notify/queue/delete?id="+id),{method:"POST"}).then(loadNotifQueue);
 }
 // GH #75 — history backlog panel, same list/delete pattern as the queue panel above.
 function loadNotifHistory(){
@@ -1257,7 +1274,7 @@ function loadNotifHistory(){
   }).catch(function(){var el=document.getElementById("notifh_list");if(el)el.textContent="(error loading)";});
 }
 function deleteNotifHistoryItem(id){
-  fetch("/api/notify/history/delete?id="+id,{method:"POST"}).then(loadNotifHistory);
+  fetch(pinURL("/api/notify/history/delete?id="+id),{method:"POST"}).then(loadNotifHistory);
 }
 loadStatus();
 loadNotifQueue();
