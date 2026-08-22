@@ -5,23 +5,32 @@
 # --auto   : skip all display/audio prompts (CI mode)
 # --fast   : skip timing-sensitive sleeps
 # --reboot : include persistence-after-reboot test
-# --suite  : jump straight to one suite: connectivity|apps|icons|notify|overlay|indicators|tc|sound|settings|persist|lint
+# --suite  : jump straight to one suite: connectivity|apps|icons|notify|overlay|indicators|tc|sound|settings|persist|ctrl_lock|lint
 #            e.g. `bash tools/dpx_test.sh --suite=overlay` to test only overlay effects
+# --pin=NNNN : the device's real WLED settingsPIN — required to run `ctrl_lock`
 #
 # NOTE on `persist` (GH #36): this suite power-cycles the device and is gated
 # behind --reboot, so it's SKIPPED by every --auto/--fast/CI run — it's the
 # only suite that verifies settings survive a reboot. Run it manually before
 # any release that touches settings persistence:
 #   bash tools/dpx_test.sh --reboot --suite=persist <IP>
+#
+# NOTE on `ctrl_lock` (GH #88): this suite flips the device's live CTRL_LOCK
+# setting on and off. Disabling it again requires the device's real
+# settingsPIN, which the harness has no way to know on its own — so this
+# suite is SKIPPED unless --pin=<the device's actual PIN> is passed, to
+# never risk leaving a device locked with no known way back in.
+#   bash tools/dpx_test.sh --pin=8718 --suite=ctrl_lock <IP>
 # =============================================================================
 HOST="${!#}"; [[ "$HOST" == --* || -z "$HOST" ]] && HOST="192.168.2.33"
 BASE="http://$HOST"
-AUTO=false; FAST=false; REBOOT=false; SUITE=""
+AUTO=false; FAST=false; REBOOT=false; SUITE=""; CTRL_PIN=""
 for a in "$@"; do case "$a" in
     --auto)    AUTO=true ;;
     --fast)    FAST=true ;;
     --reboot)  REBOOT=true ;;
     --suite=*) SUITE="${a#*=}" ;;
+    --pin=*)   CTRL_PIN="${a#*=}" ;;
 esac; done
 
 G="\033[0;32m"; R="\033[0;31m"; Y="\033[1;33m"
@@ -43,6 +52,13 @@ restore() {
     # Restore BRI, TIM, DAT
     curl -sf -X POST "$BASE/api/settings" -H "Content-Type: application/x-www-form-urlencoded" \
          --data-urlencode "plain={\"TIM\":$SAVED_TIM,\"DAT\":$SAVED_DAT,\"BRI\":$SAVED_BRI}" > /dev/null 2>&1
+    # GH #88 safety net — if the ctrl_lock suite ran (only possible with
+    # --pin) and something aborted mid-suite, make sure the device isn't
+    # left locked. No-ops harmlessly if CTRL_LOCK was never touched.
+    if [[ -n "$CTRL_PIN" ]]; then
+        curl -sf -X POST "$BASE/api/settings?pin=$CTRL_PIN" -H "Content-Type: application/x-www-form-urlencoded" \
+             --data-urlencode 'plain={"CTRL_LOCK":false}' > /dev/null 2>&1
+    fi
 }
 trap restore EXIT
 
@@ -52,6 +68,14 @@ _post() { curl -sf --compressed --max-time 8 -X POST "$BASE$1" \
 _get()  { curl -sf --compressed --max-time 8 "$BASE$1"; }
 _jq()   { echo "$1" | jq -r "$2" 2>/dev/null; }
 _wait() { $FAST || sleep "$1"; }
+# Like _post but returns the HTTP status code instead of the body (no -f, so
+# 401s etc don't get silently swallowed) — needed to actually verify CTRL_LOCK
+# blocks/allows requests, not just that the JSON came back looking right.
+_post_status() { curl -s -o /dev/null -w '%{http_code}' --compressed --max-time 8 -X POST "$BASE$1" \
+               -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "plain=$2"; }
+assert_status() {
+    [[ "$1" == "$2" ]] && ok "$3" || fail "$3 (expected HTTP $2, got $1)"
+}
 
 # POST to /api/custom?name=X with body fields
 _app() { local n="$1" b="$2"
@@ -386,6 +410,51 @@ assert_ok "$(_post /api/settings '{"TIM":false}')" "TIM=false"
 assert_no "$(_get /api/apps)" '"Time"' "Time hidden"
 assert_ok "$(_post /api/settings '{"TIM":true}')" "TIM=true"
 assert_has "$(_get /api/apps)" '"Time"' "Time visible"
+fi
+
+# ── ctrl_lock (GH #88) ─────────────────────────────────────────────────────────
+# Requires the device's real settingsPIN via --pin — see header note above.
+# Never runs without it, so a normal --auto/CI pass can't accidentally strand
+# a device locked with no way back in.
+if suite "ctrl_lock"; then
+if [[ -z "$CTRL_PIN" ]]; then
+    skip "ctrl_lock (pass --pin=<device PIN> to enable)"
+else
+    assert_key "$(_get /api/settings)" '.CTRL_LOCK' "false" "CTRL_LOCK off by default"
+
+    resp=$(_post_status /api/notify '{"text":"probe","duration":2}')
+    assert_status "$resp" "200" "notify works while unlocked"
+
+    resp=$(_post_status /api/settings '{"CTRL_LOCK":true}')
+    assert_status "$resp" "200" "enable CTRL_LOCK needs no PIN"
+
+    resp=$(_post_status /api/notify '{"text":"blocked","duration":2}')
+    assert_status "$resp" "401" "notify BLOCKED with no PIN once locked"
+
+    body="{\"text\":\"wrong\",\"duration\":2,\"pin\":\"0000\"}"
+    resp=$(_post_status /api/notify "$body")
+    assert_status "$resp" "401" "notify BLOCKED with wrong PIN"
+
+    body="{\"text\":\"ok\",\"duration\":2,\"pin\":\"$CTRL_PIN\"}"
+    resp=$(_post_status /api/notify "$body")
+    assert_status "$resp" "200" "notify works with correct PIN in body"
+
+    resp=$(curl -s -o /dev/null -w '%{http_code}' --compressed --max-time 8 -X POST \
+        "$BASE/api/notify?pin=$CTRL_PIN" -H "Content-Type: application/x-www-form-urlencoded" \
+        --data-urlencode 'plain={"text":"ok qs","duration":2}')
+    assert_status "$resp" "200" "notify works with correct PIN as query arg"
+
+    resp=$(_post_status /api/settings '{"CTRL_LOCK":false}')
+    assert_status "$resp" "401" "disable CTRL_LOCK BLOCKED without PIN (no self-bypass)"
+
+    resp=$(curl -s -o /dev/null -w '%{http_code}' --compressed --max-time 8 -X POST \
+        "$BASE/api/settings?pin=$CTRL_PIN" -H "Content-Type: application/x-www-form-urlencoded" \
+        --data-urlencode 'plain={"CTRL_LOCK":false}')
+    assert_status "$resp" "200" "disable CTRL_LOCK succeeds with correct PIN"
+
+    assert_key "$(_get /api/settings)" '.CTRL_LOCK' "false" "CTRL_LOCK restored to off"
+    _post /api/notify/clear '{}' > /dev/null
+fi
 fi
 
 # ── persist ───────────────────────────────────────────────────────────────────

@@ -847,18 +847,28 @@ static void dpxRegisterRoutes() {
     server.on("/api/list", HTTP_GET, [](AsyncWebServerRequest* r) {
         String dir = r->hasArg("dir") ? r->arg("dir") : "/";
         if (!dir.startsWith("/")) dir = "/" + dir;
+        // GH #151 — /ICONS/ is only ever supposed to hold real icons (raw
+        // 192-byte 8x8 RGB888 buffers, always named *.raw). A stray non-.raw
+        // file left over from a manual upload/test still shows up here
+        // otherwise, gets surfaced to friendster's icon picker as if it were
+        // a real icon, and then the device silently can't serve it (the MQTT
+        // icon/get handler only ever looks for <name>.raw) — friendster just
+        // times out with no explanation. Filter those out at the source.
+        bool iconsDir = (dir == "/ICONS/" || dir == "/ICONS");
         DynamicJsonDocument doc(4096);
         JsonArray arr = doc.to<JsonArray>();
         File d = LittleFS.open(dir, "r");
         if (d && d.isDirectory()) {
             File f = d.openNextFile();
             while (f) {
-                JsonObject o = arr.createNestedObject();
                 String name = f.name();
                 int slash = name.lastIndexOf('/');
                 if (slash >= 0) name = name.substring(slash + 1); // basename only
+                bool isDir = f.isDirectory();
+                if (iconsDir && !isDir && !name.endsWith(".raw")) { f = d.openNextFile(); continue; }
+                JsonObject o = arr.createNestedObject();
                 o["name"] = name;
-                o["type"] = f.isDirectory() ? "dir" : "file";
+                o["type"] = isDir ? "dir" : "file";
                 o["size"] = f.size();
                 f = d.openNextFile();
             }
