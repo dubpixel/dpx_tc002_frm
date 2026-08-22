@@ -61,11 +61,16 @@ static bool     DPX_SHOW_HUM       = false;
 static bool     DPX_SHOW_BAT       = false;
 static bool     DPX_ABRI           = false;   // auto-brightness from LDR
 static bool     DPX_TEMP_FAHRENHEIT = true;   // toggle in /ctrl (Sensors card) or POST /api/settings {"TEMP_F":false}
-// GH #88 — off by default (preserves today's frictionless CueMaestro/local-LAN
-// behavior). When on, every dpx live-control API call must include the
-// correct settingsPIN on each request — no session/unlock-window state like
-// WLED's own /settings PIN, so there's no "left unlocked" gap to forget.
-static bool     DPX_CTRL_LOCK      = false;
+// GH #88 — on by default: the device's live-control API (and the /ctrl page
+// itself, which shows notification history and other device state) requires
+// the PIN unless explicitly opted out. Has zero practical effect until a
+// settingsPIN actually exists (dpxCtrlPinOK/dpxCtrlPageOK both no-op when
+// settingsPIN is empty) — so a freshly-flashed, unclaimed device stays fully
+// open, and this only starts mattering once dpx_friendster provisions a PIN
+// at claim time. No session/unlock-window state like WLED's own /settings
+// PIN — every request/page-load is checked independently, nothing to forget
+// to relock.
+static bool     DPX_CTRL_LOCK      = true;
 
 // ── Load dev.json from LittleFS ───────────────────────────────────────────────
 static void dpxLoadDev() {

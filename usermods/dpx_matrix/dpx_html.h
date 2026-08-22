@@ -607,6 +607,43 @@ static const char ctrl_nav_html[] PROGMEM = R"EOF(
   </div>
 )EOF";
 
+// GH #88 — served instead of ctrl_html when CTRL_LOCK is on and the request
+// didn't carry a valid PIN. No cookie/header trickery: this fork of
+// ESPAsyncWebServer only exposes headers a handler explicitly marks
+// "interesting" before parsing finishes, which a plain server.on() lambda
+// can't do — so "remembering" the PIN across page loads happens client-side
+// via localStorage, same mechanism /ctrl's own JS already uses for API
+// calls. First visit (no ?pin= at all) auto-redirects if a PIN is already
+// stored; a *wrong* supplied PIN uses the other variant below instead, which
+// skips that auto-redirect (no infinite loop) and clears the stale value.
+static const char ctrl_lock_html[] PROGMEM = R"EOF(
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Locked</title></head>
+<body style="font-family:monospace;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+<div style="text-align:center">
+<h2 style="color:#4af;margin-bottom:14px">&#128274; PIN required</h2>
+<form onsubmit="localStorage.setItem('dpx_pin',document.getElementById('p').value);location.href='/ctrl?pin='+encodeURIComponent(document.getElementById('p').value);return false;">
+<input id="p" type="password" autofocus style="font-size:18px;padding:6px;width:120px;text-align:center;background:#1a1a2e;color:#eee;border:1px solid #2a2a4a;border-radius:4px">
+<br><button style="margin-top:12px;padding:6px 18px;font-size:14px;background:#2a5;color:#fff;border:none;border-radius:4px">Unlock</button>
+</form>
+</div>
+<script>var p=localStorage.getItem("dpx_pin");if(p)location.replace("/ctrl?pin="+encodeURIComponent(p));</script>
+</body></html>
+)EOF";
+static const char ctrl_lock_bad_html[] PROGMEM = R"EOF(
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Locked</title></head>
+<body style="font-family:monospace;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
+<div style="text-align:center">
+<h2 style="color:#c44;margin-bottom:6px">&#128274; Wrong PIN</h2>
+<p style="color:#888;margin-bottom:14px;font-size:12px">Try again</p>
+<form onsubmit="localStorage.setItem('dpx_pin',document.getElementById('p').value);location.href='/ctrl?pin='+encodeURIComponent(document.getElementById('p').value);return false;">
+<input id="p" type="password" autofocus style="font-size:18px;padding:6px;width:120px;text-align:center;background:#1a1a2e;color:#eee;border:1px solid #2a2a4a;border-radius:4px">
+<br><button style="margin-top:12px;padding:6px 18px;font-size:14px;background:#2a5;color:#fff;border:none;border-radius:4px">Unlock</button>
+</form>
+</div>
+<script>localStorage.removeItem("dpx_pin");</script>
+</body></html>
+)EOF";
+
 static const char ctrl_html[] PROGMEM = R"EOF(
 <!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>dpx_tc002</title>
 <style>
@@ -937,7 +974,7 @@ select option{background:#222}
 
 <div class="card">
 <h2>Security</h2>
-<p style="color:#666;font-size:11px;margin-bottom:10px">Off by default &mdash; this device's live control (this page, and its API) is open to anyone on the same network with zero friction, which is normally what you want for a fast local show. Turn this on only if the device sits on a network you don't fully trust (shared WiFi, a venue LAN with strangers on it) and you want a PIN required on every control action. Uses the same PIN as the device's WLED settings/OTA lock.</p>
+<p style="color:#666;font-size:11px;margin-bottom:10px">On by default once a PIN exists &mdash; this page and its API require the PIN so someone else on the same network can't view your notification history or control the device. Turn it off only for a trusted venue LAN where you want zero friction (e.g. a fast CueMaestro show setup). Uses the same PIN as the device's WLED settings/OTA lock. Has no effect until a PIN is actually set.</p>
 <div class="row" style="margin-bottom:8px;align-items:center">
   <div class="chk"><input type="checkbox" id="ctrl_lock" onchange="apiPost('/api/settings',{CTRL_LOCK:this.checked}).then(function(){toast(document.getElementById('ctrl_lock').checked?'Live control now requires the PIN':'Live control unlocked')})"><label for="ctrl_lock">Require PIN for live control</label></div>
 </div>

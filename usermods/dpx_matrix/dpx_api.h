@@ -122,11 +122,11 @@ static inline String dpxBody(AsyncWebServerRequest* req) {
     return req->arg("plain");
 }
 
-// GH #88 — opt-in per-request PIN gate for dpx's own live-control API surface,
+// GH #88 — per-request PIN gate for dpx's own live-control API surface,
 // distinct from WLED's own /settings correctPIN mechanism (which unlocks a
-// 15-min window, not per-request). When DPX_CTRL_LOCK is off (default), this
-// is always a no-op — preserves today's frictionless CueMaestro/local-LAN
-// behavior. When on, every mutating dpx API call must carry the correct PIN
+// 15-min window, not per-request). On by default once a settingsPIN exists
+// (see DPX_CTRL_LOCK's own comment in dpx_persist.h); opt-out for a trusted
+// venue LAN. When on, every mutating dpx API call must carry the correct PIN
 // on that request alone; no unlock state to leave open or forget to relock.
 // Reuses WLED's own settingsPIN (the same value friendster already provisions
 // at device-claim time) rather than a second secret to manage. `body` may be
@@ -144,6 +144,19 @@ static bool dpxCtrlPinOK(AsyncWebServerRequest* req, const String& body) {
     if (pin.length() && pin == settingsPIN) return true;
     req->send(401, F("application/json"), F("{\"error\":\"pin required\"}"));
     return false;
+}
+
+// GH #88 — gates loading the /ctrl page itself (not just the API calls it
+// makes): the page shows notification history, device/network info, and
+// other state that shouldn't be visible to just anyone who can reach the
+// device's IP, once CTRL_LOCK is on. Only the `pin` query arg is checked
+// (see ctrl_lock_html's comment in dpx_html.h for why — no cookie support
+// without a bigger custom-handler rewrite this fork doesn't need otherwise).
+static bool dpxCtrlPageOK(AsyncWebServerRequest* req) {
+    if (!DPX_CTRL_LOCK) return true;
+    if (!strlen(settingsPIN)) return true;
+    String pin = req->hasParam("pin") ? req->arg("pin") : String();
+    return pin.length() && pin == settingsPIN;
 }
 
 // 256-pixel screen dump as JSON array.
@@ -311,6 +324,14 @@ static void dpxRegisterRoutes() {
 
     // ── Pages ─────────────────────────────────────────────────────────────────
     server.on("/ctrl",    HTTP_GET, [](AsyncWebServerRequest* r) {
+        if (!dpxCtrlPageOK(r)) {
+            // A pin was actually supplied and it was wrong (vs. no pin at
+            // all) — use the variant without the localStorage auto-redirect
+            // so a stale/incorrect stored PIN doesn't loop forever.
+            bool wrongPinGiven = r->hasParam("pin");
+            r->send_P(401, PSTR("text/html"), wrongPinGiven ? ctrl_lock_bad_html : ctrl_lock_html);
+            return;
+        }
         r->send_P(200, PSTR("text/html"), ctrl_html);
     });
     server.on("/browse",  HTTP_GET, [](AsyncWebServerRequest* r) {

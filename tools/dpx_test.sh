@@ -420,7 +420,16 @@ if suite "ctrl_lock"; then
 if [[ -z "$CTRL_PIN" ]]; then
     skip "ctrl_lock (pass --pin=<device PIN> to enable)"
 else
-    assert_key "$(_get /api/settings)" '.CTRL_LOCK' "false" "CTRL_LOCK off by default"
+    # CTRL_LOCK is on by default (GH #88) once a PIN exists, so the device
+    # may already be locked when this suite starts — don't assume either
+    # state. Capture it, force-unlock (using the PIN, since a POST to
+    # /api/settings for ANY field requires it while locked, not just the
+    # CTRL_LOCK field itself), run the lifecycle test, then restore whatever
+    # the original state actually was.
+    orig_lock=$(_jq "$(_get /api/settings)" '.CTRL_LOCK')
+    curl -s -o /dev/null --compressed --max-time 8 -X POST "$BASE/api/settings?pin=$CTRL_PIN" \
+        -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode 'plain={"CTRL_LOCK":false}'
+    assert_key "$(_get /api/settings)" '.CTRL_LOCK' "false" "CTRL_LOCK force-unlocked to start the suite"
 
     resp=$(_post_status /api/notify '{"text":"probe","duration":2}')
     assert_status "$resp" "200" "notify works while unlocked"
@@ -452,7 +461,15 @@ else
         --data-urlencode 'plain={"CTRL_LOCK":false}')
     assert_status "$resp" "200" "disable CTRL_LOCK succeeds with correct PIN"
 
-    assert_key "$(_get /api/settings)" '.CTRL_LOCK' "false" "CTRL_LOCK restored to off"
+    assert_key "$(_get /api/settings)" '.CTRL_LOCK' "false" "CTRL_LOCK unlocked after full lifecycle test"
+    # Restore whatever the device's actual original state was (enabling is
+    # always free — no pin needed).
+    if [[ "$orig_lock" == "true" ]]; then
+        _post /api/settings '{"CTRL_LOCK":true}' > /dev/null
+        assert_key "$(_get /api/settings)" '.CTRL_LOCK' "true" "CTRL_LOCK restored to its original (on) state"
+    else
+        ok "CTRL_LOCK left off, matching its original state"
+    fi
     _post /api/notify/clear '{}' > /dev/null
 fi
 fi

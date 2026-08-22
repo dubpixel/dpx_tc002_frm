@@ -1,5 +1,16 @@
 ## dpx_tc002_frm changelog
 
+### [0.6.1](https://github.com/dubpixel/dpx_tc002_frm/compare/0.6.0...0.6.1) (2026-08-22)
+
+> Follow-up to 0.6.0's CTRL_LOCK, shipped the same day after live use surfaced
+> two real gaps: the page itself wasn't gated, and the default was wrong.
+
+#### Changed
+* **security:** `CTRL_LOCK` now defaults **on** (was off) — has zero practical effect until a `settingsPIN` actually exists, so a freshly-flashed, unclaimed device stays fully open; only starts mattering once one is provisioned (e.g. by dpx_friendster at claim time)
+* **security:** `/ctrl` itself now requires the PIN when `CTRL_LOCK` is on, not just the API calls it makes — the page shows notification history and other device state that shouldn't be visible to anyone who can reach the device's IP. No cookie support (this ESPAsyncWebServer fork only exposes headers a handler explicitly marks "interesting" before parsing finishes, which a plain route lambda can't do), so the PIN is remembered client-side via the same `localStorage` mechanism the API-call gate already used — enter it once, a small lock page auto-redirects on subsequent visits
+
+---
+
 ### [0.6.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.5.1...0.6.0) (2026-08-22)
 
 > GH #88 — an opt-in per-request PIN lock for the device's live-control API,
