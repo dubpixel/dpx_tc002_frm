@@ -38,6 +38,28 @@ pio run -t upload -e ulanzi_tc001
 - **Never pipe through `| tail` or `| grep`** — hides progress bars, makes it look frozen
 - OTA upload: `-e ulanzi_tc001_ota`
 
+#### Real test devices: PIN-gated OTA (since 2026-08-22)
+
+Both real dpx_tc002 test units have a WLED `settingsPIN` set (pushed by
+`dpx_friendster`'s device-claim rollout, GH #110). The same `correctPIN` flag
+that gates `/settings` also gates the `/update` OTA endpoint — an OTA upload
+to either device will 401 with "Please unlock settings first!" unless it's
+unlocked first. Read `docs/access_brief_test_devices.md` (gitignored, local
+only) for current IPs/PINs before flashing either real unit — **do not
+hardcode PINs here**, that file (or its dpx_friendster source of truth) is
+the only place they should live, since they can drift on re-claim/reprovision.
+
+Unlock before any OTA push to a real unit (works for both `curl` scripting
+and manual flashing via the web `/update` page):
+```
+POST http://<device-ip>/settings/sync   (form-encoded)
+Body: PIN=<pin>
+```
+Unlocks globally (not per-session) for 15 minutes, then auto-relocks. This
+step has no effect on plain `pio run -t upload` (serial) — only OTA (`-e
+ulanzi_tc001_ota`, or a raw `curl -F update=@firmware.bin http://<ip>/update`)
+needs it.
+
 ### Running a Single Test
 
 Tests use Node.js built-in test runner (`node:test`). The single test file is
