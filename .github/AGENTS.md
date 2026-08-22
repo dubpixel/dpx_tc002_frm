@@ -55,10 +55,21 @@ and manual flashing via the web `/update` page):
 POST http://<device-ip>/settings/sync   (form-encoded)
 Body: PIN=<pin>
 ```
-Unlocks globally (not per-session) for 15 minutes, then auto-relocks. This
-step has no effect on plain `pio run -t upload` (serial) — only OTA (`-e
-ulanzi_tc001_ota`, or a raw `curl -F update=@firmware.bin http://<ip>/update`)
-needs it.
+Unlocks **globally** (not per-session, not scoped to just `/update`) for 15
+minutes, then auto-relocks — `/settings` is wide open for that whole window
+too. This step has no effect on plain `pio run -t upload` (serial) — only OTA
+(`-e ulanzi_tc001_ota`, or a raw `curl -F update=@firmware.bin
+http://<ip>/update`) needs it.
+
+**Relock immediately after flashing** instead of waiting out the 15 minutes:
+```
+GET http://<device-ip>/settings/lock
+```
+Verify with `curl -o /dev/null -w '%{http_code}' http://<ip>/update` — 401
+means locked.
+
+Note `/ctrl` (the dpx web UI) is **not** covered by this PIN at all — tracked
+as open in [#88](https://github.com/dubpixel/dpx_tc002_frm/issues/88).
 
 ### Running a Single Test
 
