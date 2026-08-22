@@ -23,32 +23,43 @@ jobs:
     runs-on: ubuntu-latest
     needs: wled_build
     steps:
+    - uses: actions/checkout@v4
     - uses: actions/download-artifact@v4
       with:
         merge-multiple: true
-    - name: Create draft release
+    - name: Extract this version's CHANGELOG.md section
+      id: notes
+      # Previously this job ran the janheinrichmerker changelog-generator action
+      # in a second step, updating the release AFTER the first draft-create
+      # step. That second call created its own separate "untagged-<sha>"
+      # release instead of updating the one just created (no explicit
+      # tag_name — it apparently didn't reliably re-resolve the same tag),
+      # AND generator dumped the project's ENTIRE historical changelog into
+      # every release body, not just this version's notes. CHANGELOG.md is
+      # already hand-maintained per-release (see update-docs skill), so pull
+      # this tag's section straight from it instead — one atomic release
+      # step, scoped notes, no second network call.
+      run: |
+        VERSION="${GITHUB_REF_NAME#v}"
+        awk -v ver="$VERSION" '
+          /^### \[/ {
+            if (capture) exit
+            if ($0 ~ ("\\[" ver "\\]")) { capture=1; next }
+            next
+          }
+          capture && /^---$/ { exit }
+          capture { print }
+        ' CHANGELOG.md > release_notes.md
+        if [ ! -s release_notes.md ]; then
+          echo "_No CHANGELOG.md entry found for $VERSION._" > release_notes.md
+        fi
+    - name: Create release
       uses: softprops/action-gh-release@v1
       with:
-        body: "Release assets uploaded. Release notes pending..."
-        draft: True
+        tag_name: ${{ github.ref_name }}
+        body_path: release_notes.md
+        draft: true
         files: |
           *.bin
           *.bin.gz
-    - name: "✏️ Generate release changelog"
-      id: changelog
-      uses: janheinrichmerker/action-github-changelog-generator@v2.4
-      with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          # sinceTag was hardcoded to v0.15.0, a tag from upstream WLED that
-          # doesn't exist in this fork — the action errored on every single
-          # release run ("can't find tag v0.15.0"). Omitted so it uses the
-          # actual previous tag in this repo's own history instead.
-          maxIssues: 500
-          # Exclude issues that were closed without resolution from changelog
-          excludeLabels: 'stale,wontfix,duplicate,invalid,external,question,use-as-is,not_planned'       
-    - name: Update release description
-      uses: softprops/action-gh-release@v1
-      with:
-        body: ${{ steps.changelog.outputs.changelog }}
-        draft: True
 

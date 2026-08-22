@@ -61,10 +61,16 @@ jobs:
     - name: Cache PlatformIO
       uses: actions/cache@v4
       with:
+        # build_output is NOT cached here on purpose: pio-scripts/output_bins.py
+        # stamps the release filename with package.json's version at build time,
+        # but that file isn't part of this key. If only the version bumped (no
+        # wled00/usermods changes), PlatformIO's own incremental build would see
+        # nothing to relink and skip re-running the post-action, leaving a stale,
+        # wrong-versioned .bin sitting in a restored build_output — which then
+        # got uploaded and attached to the new release under its old filename.
         path: |
               ~/.platformio/.cache
               ~/.buildcache
-              build_output
         key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', '.github/platformio_release.ini.template', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
         restore-keys: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', '.github/platformio_release.ini.template', 'pio-scripts/output_bins.py') }}-
     - name: Set up Python
