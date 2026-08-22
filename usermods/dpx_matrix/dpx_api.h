@@ -179,7 +179,16 @@ void dpxServeLockPage(AsyncWebServerRequest* request, bool wrongPinGiven) {
 // (only /json's config-save sub-path checked correctPIN, never
 // deserializeState()). These are forward-declared with external linkage in
 // wled_server.cpp/ws.cpp rather than pulling a usermod header into WLED
-// core, to keep that coupling one-directional and minimal.
+// core, to keep that coupling one-directional and minimal. Those forward
+// declarations and call sites are wrapped in #ifdef DPX_MATRIX_ENABLED (a
+// build_flag only this project's own environments set, in
+// platformio_override.ini) — without that guard, any other usermod's own
+// custom-build environment (this repo still carries dozens of unrelated
+// stock WLED usermods, each with its own CI-validated environment) fails to
+// link against these symbols, since they only exist when dpx_matrix itself
+// is actually compiled in. Confirmed live: an unguarded version of this
+// broke the stock "Usermod CI" workflow's build for every other usermod the
+// moment it shipped.
 //
 // Unlike /ctrl (our own JS, which attaches the pin to every request via
 // pinURL()), WLED's stock UI code has no idea our pin mechanism exists and
