@@ -77,6 +77,14 @@ value but is checked independently of `/settings`'s own unlock-window — so
 unlocking `/settings` above does **not** also unlock any of this, and vice
 versa.
 
+**Important distinction (v0.6.3):** `/ctrl` itself checks the PIN on
+*every single request* (its own JS attaches it automatically) — but WLED's
+stock UI/WS code has no way to do that, so the native-UI gate instead opens
+a 15-minute unlock window on `/`'s own PIN-gated page load, then lets
+`/json`/WS writes through PIN-free until it expires (mirrors WLED's own
+`correctPIN`/`PIN_TIMEOUT`). Load `/?pin=<pin>` once before scripting
+against `/json` or the WebSocket directly, or every write will 401.
+
 ### Running a Single Test
 
 Tests use Node.js built-in test runner (`node:test`). The single test file is
@@ -235,7 +243,7 @@ Consult `docs/hardening.instructions.md` (concise checklist) and
 
 ## PROJECT: dpx_tc002_frm
 
-**Status:** Active development — v0.6.2 (2026-08-22)
+**Status:** Active development — v0.6.3 (2026-08-22)
 **Branch:** `main` (feature branches: `feature/brief-description`)
 **Version File:** `VERSION` + `package.json`
 

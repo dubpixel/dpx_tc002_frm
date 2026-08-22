@@ -1,5 +1,17 @@
 ## dpx_tc002_frm changelog
 
+### [0.6.3](https://github.com/dubpixel/dpx_tc002_frm/compare/0.6.2...0.6.3) (2026-08-22)
+
+> Same-day hotfix for a real regression 0.6.2 introduced: WLED's native UI
+> stopped working entirely under CTRL_LOCK.
+
+#### Fixed
+* **regression:** 0.6.2 gated WLED's own `/json` state-change POST and the WebSocket's incoming state messages the same strict, per-request way as `/ctrl` — but WLED's stock browser UI has no idea our PIN mechanism exists and can't attach it to every slider drag or effect click, so every native-UI interaction silently 401'd the moment `CTRL_LOCK` was on. Reported live: "no WLED patterns seem to work". Fixed by giving the native-UI gate a 15-minute unlock window instead (mirrors WLED's own `correctPIN`/`PIN_TIMEOUT`) — load `/` once with the right PIN and the native UI works normally for a while, same as WLED's own settings pages always have. `/ctrl` itself is untouched: its own JS still attaches the PIN to every single request, no window, exactly as before
+
+Verified live on both real devices: native UI writes correctly blocked before the page is loaded with the PIN, then work with no PIN needed (HTTP and WebSocket both) once it has been.
+
+---
+
 ### [0.6.2](https://github.com/dubpixel/dpx_tc002_frm/compare/0.6.1...0.6.2) (2026-08-22)
 
 > Second same-day CTRL_LOCK follow-up: closes the same nuisance-hacking gap

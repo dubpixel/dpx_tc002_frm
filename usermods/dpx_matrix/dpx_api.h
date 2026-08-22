@@ -180,18 +180,46 @@ void dpxServeLockPage(AsyncWebServerRequest* request, bool wrongPinGiven) {
 // deserializeState()). These are forward-declared with external linkage in
 // wled_server.cpp/ws.cpp rather than pulling a usermod header into WLED
 // core, to keep that coupling one-directional and minimal.
+//
+// Unlike /ctrl (our own JS, which attaches the pin to every request via
+// pinURL()), WLED's stock UI code has no idea our pin mechanism exists and
+// can't be made to send it on every slider drag / effect click — gating
+// those the same strict per-request way as /ctrl broke the native UI
+// entirely the moment CTRL_LOCK was on (confirmed live: every /json write
+// silently 401'd, no pattern/slider changes took effect). So this gate uses
+// a short unlock WINDOW instead — same tradeoff, same 15-minute duration,
+// as WLED's own correctPIN/PIN_TIMEOUT mechanism it's sitting right next to.
+// Load "/" once with the right PIN and the native UI just works normally
+// for a while, same as it always has for WLED's own settings pages.
+static unsigned long dpxWledUnlockTime = 0;
+#define DPX_WLED_UNLOCK_WINDOW 900000UL // 15 min, matches WLED's PIN_TIMEOUT
+static bool dpxWledSessionUnlocked() {
+    return dpxWledUnlockTime && (millis() - dpxWledUnlockTime < DPX_WLED_UNLOCK_WINDOW);
+}
 bool dpxWledPageGateOK(AsyncWebServerRequest* request) {
-    return dpxLockOK(request->hasParam("pin") ? request->arg("pin") : String());
+    String pin = request->hasParam("pin") ? request->arg("pin") : String();
+    if (dpxLockOK(pin)) {
+        if (pin.length()) dpxWledUnlockTime = millis(); // real pin supplied — (re)start the window
+        return true;
+    }
+    return dpxWledSessionUnlocked();
 }
 bool dpxWledStateGateOK(AsyncWebServerRequest* request, JsonObject root) {
     String pin = request->hasParam("pin") ? request->arg("pin") : String();
     if (!pin.length() && root.containsKey("pin")) pin = root["pin"].as<String>();
-    return dpxLockOK(pin);
+    if (dpxLockOK(pin)) {
+        if (pin.length()) dpxWledUnlockTime = millis();
+        return true;
+    }
+    return dpxWledSessionUnlocked();
 }
 // No AsyncWebServerRequest exists on the WebSocket path — the pin can only
-// ever arrive inside the JSON payload itself there.
+// ever arrive inside the JSON payload itself there (WLED's own UI never
+// sends one at all, relying entirely on the window above).
 bool dpxWledWsStateGateOK(JsonObject root) {
-    return dpxLockOK(root.containsKey("pin") ? root["pin"].as<String>() : String());
+    String pin = root.containsKey("pin") ? root["pin"].as<String>() : String();
+    if (dpxLockOK(pin)) return true;
+    return dpxWledSessionUnlocked();
 }
 
 // 256-pixel screen dump as JSON array.
