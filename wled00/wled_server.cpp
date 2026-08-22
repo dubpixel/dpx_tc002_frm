@@ -29,14 +29,18 @@ static void createEditHandler();
 // — this closes that the same way /ctrl's own gate already works. Forward
 // declared here rather than #including a usermod header into WLED core, to
 // keep the coupling one-directional: core doesn't need to know dpx_matrix
-// exists beyond these three symbols, and this is a no-op (always returns
-// true) whenever the dpx_matrix usermod isn't compiled in... except it isn't
-// actually a no-op in that case, since nothing would define these symbols
-// and the link would fail — this project always builds dpx_matrix in, so
-// that's an acceptable, intentional coupling for this specific fork.
+// exists beyond these three symbols. Guarded by DPX_MATRIX_ENABLED (set via
+// a build_flag only in this project's own environments — see
+// platformio_override.ini) because these symbols genuinely don't exist in
+// any build that doesn't link dpx_matrix in — the stock usermod CI builds
+// dozens of OTHER usermods' own custom environments against this same core
+// file, and an earlier, unguarded version of this code broke every one of
+// them with an undefined-reference linker error (confirmed live in CI).
+#ifdef DPX_MATRIX_ENABLED
 bool dpxWledPageGateOK(AsyncWebServerRequest* request);
 bool dpxWledStateGateOK(AsyncWebServerRequest* request, JsonObject root);
 void dpxServeLockPage(AsyncWebServerRequest* request, bool wrongPinGiven);
+#endif
 
 
 // define flash strings once (saves flash memory)
@@ -443,11 +447,13 @@ void initServer()
     const String& url = request->url();
     isConfig = url.indexOf(F("cfg")) > -1;
     if (!isConfig) {
+      #ifdef DPX_MATRIX_ENABLED
       if (!dpxWledStateGateOK(request, root)) {
         releaseJSONBufferLock();
         serveJsonError(request, 401, ERR_DENIED);
         return;
       }
+      #endif
       /*
       #ifdef WLED_DEBUG
         DEBUG_PRINTLN(F("Serialized HTTP"));
@@ -631,7 +637,9 @@ void initServer()
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (captivePortal(request)) return;
+    #ifdef DPX_MATRIX_ENABLED
     if (!dpxWledPageGateOK(request)) { dpxServeLockPage(request, request->hasArg(F("pin"))); return; }
+    #endif
     if (!showWelcomePage || request->hasArg(F("sliders"))) {
       handleStaticContent(request, F("/index.htm"), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_index, PAGE_index_length);
     } else {

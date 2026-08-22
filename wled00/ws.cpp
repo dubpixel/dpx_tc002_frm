@@ -12,7 +12,13 @@ static bool sendLiveLedsWs(uint32_t wsClient);
 // incoming state messages went straight to deserializeState() with zero PIN
 // check, same gap as /json's state path (already closed in wled_server.cpp)
 // — closing it here too so it can't be used to bypass that gate entirely.
+// Guarded by DPX_MATRIX_ENABLED (see wled_server.cpp's matching comment) —
+// this symbol only exists in builds that link dpx_matrix in; the stock
+// usermod CI builds dozens of other usermods against this same core file,
+// and an unguarded version of this broke every one of them at link time.
+#ifdef DPX_MATRIX_ENABLED
 bool dpxWledWsStateGateOK(JsonObject root);
+#endif
 
 // define some constants for binary protocols, dont use defines but C++ style constexpr
 constexpr uint8_t BINARY_PROTOCOL_GENERIC = 0xFF; // generic / auto detect NOT IMPLEMENTED
@@ -67,12 +73,16 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
           verboseResponse = true;
         } else if (root.containsKey("lv")) {
           wsLiveClientId = root["lv"] ? client->id() : 0;
-        } else if (dpxWledWsStateGateOK(root)) {
-          verboseResponse = deserializeState(root);
-        } else {
+        }
+        #ifdef DPX_MATRIX_ENABLED
+        else if (!dpxWledWsStateGateOK(root)) {
           releaseJSONBufferLock();
           client->text(F("{\"error\":\"pin required\"}"));
           return;
+        }
+        #endif
+        else {
+          verboseResponse = deserializeState(root);
         }
         releaseJSONBufferLock();
 
