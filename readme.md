@@ -47,6 +47,8 @@
         <br />
      »  
      <a href="https://github.com/dubpixel/dpx_tc002_frm/tree/main/"><strong>Project Here!</strong></a>
+     »
+    <a href="https://dubpixel.github.io/dpx_tc002_frm/flash/"><strong>Flash a Device Here!</strong></a>
      »  
     <a href="https://github.com/dubpixel/dpx_tc002_frm/tree/main/hardware/src/dpx_tc002_frm/bom"><strong>BOM Here!</strong></a>
      » 
