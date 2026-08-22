@@ -69,10 +69,13 @@ Verify with `curl -o /dev/null -w '%{http_code}' http://<ip>/update` — 401
 means locked.
 
 Note `/ctrl` (the dpx web UI) has its own **separate** PIN gate as of v0.6.1
-(`CTRL_LOCK`, on by default once a settingsPIN exists) — [#88](https://github.com/dubpixel/dpx_tc002_frm/issues/88). It reuses the same settingsPIN
-value but is checked independently (per-request/per-page-load, no
-unlock-window), so unlocking `/settings` above does **not** also unlock
-`/ctrl`, and vice versa.
+(`CTRL_LOCK`, on by default once a settingsPIN exists) — [#88](https://github.com/dubpixel/dpx_tc002_frm/issues/88). As of v0.6.2 the same `CTRL_LOCK`
+also covers WLED's own native UI/API: root `/`, `/json`'s state-change POST,
+and the WebSocket's incoming state messages (only `/json`'s config-save path
+had ever checked a PIN before this). All of it reuses the same settingsPIN
+value but is checked independently of `/settings`'s own unlock-window — so
+unlocking `/settings` above does **not** also unlock any of this, and vice
+versa.
 
 ### Running a Single Test
 
@@ -232,7 +235,7 @@ Consult `docs/hardening.instructions.md` (concise checklist) and
 
 ## PROJECT: dpx_tc002_frm
 
-**Status:** Active development — v0.6.1 (2026-08-22)
+**Status:** Active development — v0.6.2 (2026-08-22)
 **Branch:** `main` (feature branches: `feature/brief-description`)
 **Version File:** `VERSION` + `package.json`
 

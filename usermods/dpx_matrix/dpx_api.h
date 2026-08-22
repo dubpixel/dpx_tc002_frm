@@ -122,41 +122,76 @@ static inline String dpxBody(AsyncWebServerRequest* req) {
     return req->arg("plain");
 }
 
-// GH #88 — per-request PIN gate for dpx's own live-control API surface,
-// distinct from WLED's own /settings correctPIN mechanism (which unlocks a
-// 15-min window, not per-request). On by default once a settingsPIN exists
-// (see DPX_CTRL_LOCK's own comment in dpx_persist.h); opt-out for a trusted
-// venue LAN. When on, every mutating dpx API call must carry the correct PIN
-// on that request alone; no unlock state to leave open or forget to relock.
-// Reuses WLED's own settingsPIN (the same value friendster already provisions
-// at device-claim time) rather than a second secret to manage. `body` may be
-// empty for endpoints with no JSON payload (nextapp, reboot, etc) — the PIN
-// is then only checked via the `pin` query/form arg.
-static bool dpxCtrlPinOK(AsyncWebServerRequest* req, const String& body) {
+// GH #88 — per-request PIN gate, distinct from WLED's own /settings
+// correctPIN mechanism (which unlocks a 15-min window, not per-request). On
+// by default once a settingsPIN exists (see DPX_CTRL_LOCK's own comment in
+// dpx_persist.h); opt-out for a trusted venue LAN. Reuses WLED's own
+// settingsPIN (the same value friendster already provisions at device-claim
+// time) rather than a second secret to manage.
+//
+// dpxLockOK() is the actual decision, given whatever candidate pin was
+// found; everything else here is just extracting that candidate from a
+// given call site's shape (HTTP body/query, WS JSON, page-load query arg).
+static bool dpxLockOK(const String& pin) {
     if (!DPX_CTRL_LOCK) return true;
     if (!strlen(settingsPIN)) return true; // lock enabled but no PIN configured — nothing to check
+    return pin.length() && pin == settingsPIN;
+}
+
+// `body` may be empty for endpoints with no JSON payload (nextapp, reboot,
+// etc) — the PIN is then only checked via the `pin` query/form arg.
+static bool dpxCtrlPinOK(AsyncWebServerRequest* req, const String& body) {
     String pin = req->hasParam("pin") ? req->arg("pin") : String();
     if (!pin.length() && body.length()) {
         StaticJsonDocument<96> doc;
         if (!deserializeJson(doc, body) && doc.containsKey("pin"))
             pin = doc["pin"].as<String>();
     }
-    if (pin.length() && pin == settingsPIN) return true;
+    if (dpxLockOK(pin)) return true;
     req->send(401, F("application/json"), F("{\"error\":\"pin required\"}"));
     return false;
 }
 
-// GH #88 — gates loading the /ctrl page itself (not just the API calls it
-// makes): the page shows notification history, device/network info, and
-// other state that shouldn't be visible to just anyone who can reach the
-// device's IP, once CTRL_LOCK is on. Only the `pin` query arg is checked
-// (see ctrl_lock_html's comment in dpx_html.h for why — no cookie support
-// without a bigger custom-handler rewrite this fork doesn't need otherwise).
+// Gates loading a page itself (not just the API calls it makes) — /ctrl
+// shows notification history, device/network info, and other state that
+// shouldn't be visible to just anyone who can reach the device's IP, once
+// CTRL_LOCK is on; same reasoning applies to WLED's own "/" (see
+// dpxWledPageGateOK below). Only the `pin` query arg is checked (see
+// ctrl_lock_html's comment in dpx_html.h for why — no cookie support without
+// a bigger custom-handler rewrite this fork doesn't need otherwise).
 static bool dpxCtrlPageOK(AsyncWebServerRequest* req) {
-    if (!DPX_CTRL_LOCK) return true;
-    if (!strlen(settingsPIN)) return true;
-    String pin = req->hasParam("pin") ? req->arg("pin") : String();
-    return pin.length() && pin == settingsPIN;
+    return dpxLockOK(req->hasParam("pin") ? req->arg("pin") : String());
+}
+
+// Serves the shared PIN-entry (or wrong-PIN) page in place of whatever page
+// was actually requested. Used by /ctrl below and, via the forward
+// declaration in wled_server.cpp, by WLED core's own "/" — both call sites
+// pass wrongPinGiven=true only when a pin WAS supplied and didn't match (vs.
+// none at all), since ctrl_lock_html's auto-redirect-from-localStorage would
+// otherwise loop forever on a stale/incorrect stored value.
+void dpxServeLockPage(AsyncWebServerRequest* request, bool wrongPinGiven) {
+    request->send_P(401, PSTR("text/html"), wrongPinGiven ? ctrl_lock_bad_html : ctrl_lock_html);
+}
+
+// GH #88 follow-up — same gate, for WLED's own native UI/API (root "/", the
+// /json state-change POST, and the WebSocket's incoming state messages),
+// which had zero PIN protection of any kind on the actual control surface
+// (only /json's config-save sub-path checked correctPIN, never
+// deserializeState()). These are forward-declared with external linkage in
+// wled_server.cpp/ws.cpp rather than pulling a usermod header into WLED
+// core, to keep that coupling one-directional and minimal.
+bool dpxWledPageGateOK(AsyncWebServerRequest* request) {
+    return dpxLockOK(request->hasParam("pin") ? request->arg("pin") : String());
+}
+bool dpxWledStateGateOK(AsyncWebServerRequest* request, JsonObject root) {
+    String pin = request->hasParam("pin") ? request->arg("pin") : String();
+    if (!pin.length() && root.containsKey("pin")) pin = root["pin"].as<String>();
+    return dpxLockOK(pin);
+}
+// No AsyncWebServerRequest exists on the WebSocket path — the pin can only
+// ever arrive inside the JSON payload itself there.
+bool dpxWledWsStateGateOK(JsonObject root) {
+    return dpxLockOK(root.containsKey("pin") ? root["pin"].as<String>() : String());
 }
 
 // 256-pixel screen dump as JSON array.
@@ -324,14 +359,7 @@ static void dpxRegisterRoutes() {
 
     // ── Pages ─────────────────────────────────────────────────────────────────
     server.on("/ctrl",    HTTP_GET, [](AsyncWebServerRequest* r) {
-        if (!dpxCtrlPageOK(r)) {
-            // A pin was actually supplied and it was wrong (vs. no pin at
-            // all) — use the variant without the localStorage auto-redirect
-            // so a stale/incorrect stored PIN doesn't loop forever.
-            bool wrongPinGiven = r->hasParam("pin");
-            r->send_P(401, PSTR("text/html"), wrongPinGiven ? ctrl_lock_bad_html : ctrl_lock_html);
-            return;
-        }
+        if (!dpxCtrlPageOK(r)) { dpxServeLockPage(r, r->hasParam("pin")); return; }
         r->send_P(200, PSTR("text/html"), ctrl_html);
     });
     server.on("/browse",  HTTP_GET, [](AsyncWebServerRequest* r) {

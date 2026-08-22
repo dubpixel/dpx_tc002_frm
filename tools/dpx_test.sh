@@ -52,10 +52,15 @@ restore() {
     # Restore BRI, TIM, DAT
     curl -sf -X POST "$BASE/api/settings" -H "Content-Type: application/x-www-form-urlencoded" \
          --data-urlencode "plain={\"TIM\":$SAVED_TIM,\"DAT\":$SAVED_DAT,\"BRI\":$SAVED_BRI}" > /dev/null 2>&1
-    # GH #88 safety net — if the ctrl_lock suite ran (only possible with
-    # --pin) and something aborted mid-suite, make sure the device isn't
-    # left locked. No-ops harmlessly if CTRL_LOCK was never touched.
-    if [[ -n "$CTRL_PIN" ]]; then
+    # GH #88 safety net — ONLY fires if the ctrl_lock suite started (needs
+    # --pin) but never reached its own restore step (aborted mid-suite) —
+    # CTRL_LOCK_SUITE_DONE is set at the end of that suite's own restore, so
+    # a normal successful run must NOT hit this, or it'll force the device
+    # back to unlocked immediately after the suite correctly restored it to
+    # locked (the actual bug this comment used to have: this condition was
+    # just `-n "$CTRL_PIN"`, so it fired unconditionally on EVERY exit and
+    # silently undid a fully successful run's own restore, every time).
+    if [[ -n "$CTRL_PIN" && -z "$CTRL_LOCK_SUITE_DONE" ]]; then
         curl -sf -X POST "$BASE/api/settings?pin=$CTRL_PIN" -H "Content-Type: application/x-www-form-urlencoded" \
              --data-urlencode 'plain={"CTRL_LOCK":false}' > /dev/null 2>&1
     fi
@@ -453,6 +458,30 @@ else
         --data-urlencode 'plain={"text":"ok qs","duration":2}')
     assert_status "$resp" "200" "notify works with correct PIN as query arg"
 
+    # GH #88 follow-up (v0.6.2) — same lock also covers WLED's own native
+    # UI/API, not just dpx's own routes.
+    resp=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "$BASE/")
+    assert_status "$resp" "401" "WLED root / BLOCKED with no PIN once locked"
+
+    resp=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "$BASE/?pin=$CTRL_PIN")
+    assert_status "$resp" "200" "WLED root / works with correct PIN"
+
+    # This suite may run standalone (--suite=ctrl_lock), so it can't rely on
+    # the connectivity suite having captured SAVED_BRI earlier — capture and
+    # restore locally instead of leaving the test's own bri:40 probe applied.
+    orig_bri_local=$(_jq "$(_get /api/settings)" '.BRI')
+
+    resp=$(curl -s -o /dev/null -m 8 -w '%{http_code}' -X POST "$BASE/json/state" \
+        -H "Content-Type: application/json" -d '{"bri":40}')
+    assert_status "$resp" "401" "WLED /json state change BLOCKED with no PIN"
+
+    resp=$(curl -s -o /dev/null -m 8 -w '%{http_code}' -X POST "$BASE/json/state?pin=$CTRL_PIN" \
+        -H "Content-Type: application/json" -d '{"bri":40}')
+    assert_status "$resp" "200" "WLED /json state change works with correct PIN"
+
+    curl -s -o /dev/null -m 8 -X POST "$BASE/json/state?pin=$CTRL_PIN" \
+        -H "Content-Type: application/json" -d "{\"bri\":$orig_bri_local}"
+
     resp=$(_post_status /api/settings '{"CTRL_LOCK":false}')
     assert_status "$resp" "401" "disable CTRL_LOCK BLOCKED without PIN (no self-bypass)"
 
@@ -471,6 +500,7 @@ else
         ok "CTRL_LOCK left off, matching its original state"
     fi
     _post /api/notify/clear '{}' > /dev/null
+    CTRL_LOCK_SUITE_DONE=1  # tell the exit trap's safety net to stand down — this suite finished cleanly
 fi
 fi
 

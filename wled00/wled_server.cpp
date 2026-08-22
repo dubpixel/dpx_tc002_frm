@@ -23,6 +23,21 @@
 // forward declarations
 static void createEditHandler();
 
+// GH #88 — implemented in usermods/dpx_matrix/dpx_api.h. Root "/" and the
+// /json state-change POST below had zero PIN protection of any kind (only
+// /json's config-save sub-path checked correctPIN, never deserializeState())
+// — this closes that the same way /ctrl's own gate already works. Forward
+// declared here rather than #including a usermod header into WLED core, to
+// keep the coupling one-directional: core doesn't need to know dpx_matrix
+// exists beyond these three symbols, and this is a no-op (always returns
+// true) whenever the dpx_matrix usermod isn't compiled in... except it isn't
+// actually a no-op in that case, since nothing would define these symbols
+// and the link would fail — this project always builds dpx_matrix in, so
+// that's an acceptable, intentional coupling for this specific fork.
+bool dpxWledPageGateOK(AsyncWebServerRequest* request);
+bool dpxWledStateGateOK(AsyncWebServerRequest* request, JsonObject root);
+void dpxServeLockPage(AsyncWebServerRequest* request, bool wrongPinGiven);
+
 
 // define flash strings once (saves flash memory)
 static const char s_redirecting[] PROGMEM = "Redirecting...";
@@ -428,6 +443,11 @@ void initServer()
     const String& url = request->url();
     isConfig = url.indexOf(F("cfg")) > -1;
     if (!isConfig) {
+      if (!dpxWledStateGateOK(request, root)) {
+        releaseJSONBufferLock();
+        serveJsonError(request, 401, ERR_DENIED);
+        return;
+      }
       /*
       #ifdef WLED_DEBUG
         DEBUG_PRINTLN(F("Serialized HTTP"));
@@ -611,6 +631,7 @@ void initServer()
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (captivePortal(request)) return;
+    if (!dpxWledPageGateOK(request)) { dpxServeLockPage(request, request->hasArg(F("pin"))); return; }
     if (!showWelcomePage || request->hasArg(F("sliders"))) {
       handleStaticContent(request, F("/index.htm"), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_index, PAGE_index_length);
     } else {

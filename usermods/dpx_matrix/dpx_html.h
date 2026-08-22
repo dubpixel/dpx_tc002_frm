@@ -621,12 +621,12 @@ static const char ctrl_lock_html[] PROGMEM = R"EOF(
 <body style="font-family:monospace;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;height:100vh;margin:0">
 <div style="text-align:center">
 <h2 style="color:#4af;margin-bottom:14px">&#128274; PIN required</h2>
-<form onsubmit="localStorage.setItem('dpx_pin',document.getElementById('p').value);location.href='/ctrl?pin='+encodeURIComponent(document.getElementById('p').value);return false;">
+<form onsubmit="localStorage.setItem('dpx_pin',document.getElementById('p').value);location.href=location.pathname+'?pin='+encodeURIComponent(document.getElementById('p').value);return false;">
 <input id="p" type="password" autofocus style="font-size:18px;padding:6px;width:120px;text-align:center;background:#1a1a2e;color:#eee;border:1px solid #2a2a4a;border-radius:4px">
 <br><button style="margin-top:12px;padding:6px 18px;font-size:14px;background:#2a5;color:#fff;border:none;border-radius:4px">Unlock</button>
 </form>
 </div>
-<script>var p=localStorage.getItem("dpx_pin");if(p)location.replace("/ctrl?pin="+encodeURIComponent(p));</script>
+<script>var p=localStorage.getItem("dpx_pin");if(p)location.replace(location.pathname+"?pin="+encodeURIComponent(p));</script>
 </body></html>
 )EOF";
 static const char ctrl_lock_bad_html[] PROGMEM = R"EOF(
@@ -635,7 +635,7 @@ static const char ctrl_lock_bad_html[] PROGMEM = R"EOF(
 <div style="text-align:center">
 <h2 style="color:#c44;margin-bottom:6px">&#128274; Wrong PIN</h2>
 <p style="color:#888;margin-bottom:14px;font-size:12px">Try again</p>
-<form onsubmit="localStorage.setItem('dpx_pin',document.getElementById('p').value);location.href='/ctrl?pin='+encodeURIComponent(document.getElementById('p').value);return false;">
+<form onsubmit="localStorage.setItem('dpx_pin',document.getElementById('p').value);location.href=location.pathname+'?pin='+encodeURIComponent(document.getElementById('p').value);return false;">
 <input id="p" type="password" autofocus style="font-size:18px;padding:6px;width:120px;text-align:center;background:#1a1a2e;color:#eee;border:1px solid #2a2a4a;border-radius:4px">
 <br><button style="margin-top:12px;padding:6px 18px;font-size:14px;background:#2a5;color:#fff;border:none;border-radius:4px">Unlock</button>
 </form>

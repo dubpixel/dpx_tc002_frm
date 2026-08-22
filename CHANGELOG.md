@@ -1,5 +1,16 @@
 ## dpx_tc002_frm changelog
 
+### [0.6.2](https://github.com/dubpixel/dpx_tc002_frm/compare/0.6.1...0.6.2) (2026-08-22)
+
+> Second same-day CTRL_LOCK follow-up: closes the same nuisance-hacking gap
+> on WLED's own native UI/API, not just dpx's.
+
+#### Fixed
+* **security:** WLED's root `/` (the native color/effects/brightness UI), `/json`'s state-change POST, and the WebSocket's incoming state messages had **zero** PIN protection of any kind — only `/json`'s config-save sub-path ever checked `correctPIN`, never `deserializeState()`, the actual thing that changes what the device is doing. All three now go through the same `CTRL_LOCK` gate `/ctrl` already used, closing off the exact bypass a determined nuisance actor would've had even with `/ctrl` itself locked down. No legacy `/win` API exists in this build, so nothing else was in scope. Modifying `wled_server.cpp`/`ws.cpp` (WLED core, not the dpx usermod) was a deliberate exception to this repo's usual "don't touch core" convention, done via forward-declared hook functions rather than pulling a usermod header into core
+* **web:** `/ctrl`'s lock page now redirects back to whatever path it was loaded from (`location.pathname`) instead of a hardcoded `/ctrl`, so the exact same page can gate WLED's `/` too
+
+---
+
 ### [0.6.1](https://github.com/dubpixel/dpx_tc002_frm/compare/0.6.0...0.6.1) (2026-08-22)
 
 > Follow-up to 0.6.0's CTRL_LOCK, shipped the same day after live use surfaced
