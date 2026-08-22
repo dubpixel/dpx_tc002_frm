@@ -1,0 +1,28 @@
+name: Cache Cleanup
+
+# GitHub Actions cache doesn't reliably self-prune fast enough for this repo's
+# CI pattern: every build.yml/usermods.yml run creates its own per-environment
+# pio-Linux-* cache entry, keyed (in part) on file hashes, so a burst of
+# version-bump commits or tagged releases creates a fresh cache entry each
+# time instead of reusing an old one. Confirmed live twice now (once mid-
+# session, once here): usage climbed past 12GB in a single day of active
+# work. These are pure build-speed caches -- losing them just costs one
+# slower rebuild next time, nothing is lost. Run weekly rather than reacting
+# to it manually every time it happens again.
+on:
+  schedule:
+    - cron: '0 6 * * 0' # Sundays, 6 AM UTC
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  prune:
+    name: Delete all Actions caches
+    runs-on: ubuntu-latest
+    steps:
+    - name: Delete all caches for this repo
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: gh cache delete --all --succeed-on-no-caches --repo ${{ github.repository }}
