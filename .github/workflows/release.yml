@@ -66,3 +66,24 @@ jobs:
           *.bin
           *.bin.gz
 
+    - name: Also promote this build to the Nightly release
+      # dpx-v* tags are always cut directly from main's tip (this project's
+      # actual tagging workflow) -- so this build IS what nightly.yml would
+      # otherwise rebuild from scratch at its next 2 AM UTC run anyway.
+      # Reuse the artifacts already downloaded above instead of burning CI
+      # minutes (and cache) on a redundant identical build. nightly.yml's own
+      # schedule keeps running independently, so a day with no release still
+      # gets a fresh nightly build as normal -- this just keeps nightly from
+      # sitting stale in between releases. Published immediately (not a
+      # draft), matching nightly.yml's own always-live behavior; the
+      # versioned release above stays a draft pending manual review either way.
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: nightly
+        name: "Nightly Release (from ${{ github.ref_name }})"
+        prerelease: true
+        body: "Same build as [${{ github.ref_name }}](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}) — see its release notes for details."
+        files: |
+          *.bin
+          *.bin.gz
+

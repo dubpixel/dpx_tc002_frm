@@ -7,11 +7,12 @@ name: Cache Cleanup
 # time instead of reusing an old one. Confirmed live twice now (once mid-
 # session, once here): usage climbed past 12GB in a single day of active
 # work. These are pure build-speed caches -- losing them just costs one
-# slower rebuild next time, nothing is lost. Run weekly rather than reacting
-# to it manually every time it happens again.
+# slower rebuild next time, nothing is lost. Run daily rather than reacting
+# to it manually every time it happens again -- weekly wasn't tight enough:
+# usage climbed past 12GB in a single day of active work.
 on:
   schedule:
-    - cron: '0 6 * * 0' # Sundays, 6 AM UTC
+    - cron: '0 3 * * *' # daily, 3 AM UTC (an hour after nightly.yml's 2 AM build)
   workflow_dispatch:
 
 permissions:
