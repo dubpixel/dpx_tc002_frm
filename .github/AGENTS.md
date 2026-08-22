@@ -229,7 +229,7 @@ Consult `docs/hardening.instructions.md` (concise checklist) and
 
 ## PROJECT: dpx_tc002_frm
 
-**Status:** Active development — v0.5.1 (2026-08-21)
+**Status:** Active development — v0.6.0 (2026-08-22)
 **Branch:** `main` (feature branches: `feature/brief-description`)
 **Version File:** `VERSION` + `package.json`
 

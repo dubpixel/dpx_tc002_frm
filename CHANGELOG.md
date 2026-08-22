@@ -1,5 +1,27 @@
 ## dpx_tc002_frm changelog
 
+### [0.6.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.5.1...0.6.0) (2026-08-22)
+
+> GH #88 — an opt-in per-request PIN lock for the device's live-control API,
+> plus a real fix for dpx_friendster#151's icon-picker timeout.
+
+#### Added
+* **security:** `CTRL_LOCK` — off-by-default device setting; when on, every mutating dpx API call (`notify`, `switch`, `power`, `settings`, `dev`, `rename`, `reboot`, etc — ~27 routes) requires the device's existing WLED `settingsPIN` on that request alone (`pin` body field or `?pin=` query arg), not a session/unlock-window like WLED's own `/settings` PIN. Enabling is free; disabling while already on requires the PIN too, so a caller without it can't turn its own lock back off. Read-only GET endpoints are untouched. New Security card in `/ctrl` toggles it and prompts for/remembers the PIN (localStorage) on first 401
+* **test:** `ctrl_lock` suite in `tools/dpx_test.sh`, covering the full CTRL_LOCK lifecycle end to end — gated behind a new `--pin=<device PIN>` flag (same pattern as `--reboot` gating `persist`), since disabling it again requires knowing the device's real PIN
+
+#### Fixed
+* **icons:** `/api/list` was listing every file in `/ICONS/` regardless of extension, so two leftover, never-actually-converted `.gif` files got surfaced to dpx_friendster's icon picker as if they were real icons — the MQTT `icon/get` handler only ever looks for `<name>.raw` and silently no-ops otherwise, so friendster just timed out (502) waiting on a response that was never coming (dpx_friendster#151). Filtered `/api/list` to `*.raw`-only when listing `/ICONS/` specifically
+
+#### Changed
+* **ci:** `build.yml`'s PlatformIO cache no longer includes `build_output` — a version-only bump with no source changes was restoring a stale, wrong-versioned binary from cache instead of rebuilding, which then got uploaded under its old filename
+* **ci:** `release.yml`'s changelog-generator step (which failed on every run and produced a placeholder "pending" body, or — when it worked — dumped the entire project history into every release) replaced with a single step that pulls this version's own section straight from `CHANGELOG.md`
+* **ci:** `nightly.yml`'s changelog step had the same hardcoded-nonexistent-tag bug `release.yml` had already been fixed for; nightly had silently stopped publishing anything for an unknown stretch. Also dropped a dead `repository-dispatch` step pinging upstream `wled/WLED-WebInstaller` (no token configured, and not relevant now that this isn't a stock WLED fork)
+
+#### Removed
+* **web:** the plain `BOM Here!` / `Interactive BOM Here!` hero links from readme.md — this project has no hardware BOM of its own, it targets the stock Ulanzi TC001
+
+---
+
 ### [0.5.1](https://github.com/dubpixel/dpx_tc002_frm/compare/0.4.9...0.5.1) (2026-08-21)
 
 > GH #15 — hardware sensors (SHT3x temp/humidity, battery ADC, LDR) are wired up

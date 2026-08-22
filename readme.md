@@ -394,9 +394,10 @@ python ltc_osc_bridge_gui.py                                               # or 
 <!-- ROADMAP -->
 ## Roadmap
 
-- [ ] Button macros (prev/next app, dismiss notification, show IP)
+- [x] Button macros (prev/next app, dismiss notification, show IP)
 - [x] LDR-based auto brightness (ABRI, v0.5.1)
 - [x] Temperature/humidity sensor display (I²C, v0.5.1) — see [#86](https://github.com/dubpixel/dpx_tc002_frm/issues/86) for calibration follow-up
+- [x] Optional PIN lock for the live-control API (`CTRL_LOCK`, v0.6.0) — see [#88](https://github.com/dubpixel/dpx_tc002_frm/issues/88)
 - [ ] Preset integration — trigger dpx apps from WLED presets
 - [ ] 2D effect groups in web UI
 - [ ] Social/community features via the companion server (likes, reactions, that kind of thing) — speculative, low priority
