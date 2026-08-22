@@ -18,6 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: wled_build
     steps:
+      - uses: actions/checkout@v4
+      - name: Determine latest release tag
+        id: last_tag
+        # sinceTag below used to be hardcoded to v16.0.0, a tag from upstream
+        # WLED that doesn't exist in this fork — every nightly run errored on
+        # "can't find tag v16.0.0, specified with --since-tag option." Compute
+        # the actual latest reachable tag instead.
+        run: echo "tag=$(git describe --tags --abbrev=0)" >> "$GITHUB_OUTPUT"
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -28,8 +36,8 @@ jobs:
         id: changelog
         uses: janheinrichmerker/action-github-changelog-generator@v2.4
         with:
-          token: ${{ secrets.GITHUB_TOKEN }} 
-          sinceTag: v16.0.0
+          token: ${{ secrets.GITHUB_TOKEN }}
+          sinceTag: ${{ steps.last_tag.outputs.tag }}
           output: CHANGELOG_NIGHTLY.md
           # Exclude issues that were closed without resolution from changelog
           excludeLabels: 'stale,wontfix,duplicate,invalid,external,question,use-as-is,not_planned'
