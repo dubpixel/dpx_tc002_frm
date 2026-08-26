@@ -135,6 +135,17 @@ static inline String dpxBody(AsyncWebServerRequest* req) {
 static bool dpxLockOK(const String& pin) {
     if (!DPX_CTRL_LOCK) return true;
     if (!strlen(settingsPIN)) return true; // lock enabled but no PIN configured — nothing to check
+    // GH #88 — while the device is broadcasting its own AP (WiFi lost, moved
+    // to a new venue, first boot, etc), it isn't on any shared network at
+    // all, so the "nuisance actor on the same LAN" threat model this whole
+    // feature exists for doesn't apply — and gating the setup/recovery flow
+    // itself would be a real trap (locked out of reconfiguring WiFi with no
+    // shared network to reach the device on in the first place). WLED's own
+    // /settings PIN already has this exact precedent: pinRequired explicitly
+    // skips the check during initial WiFi provisioning. Confirmed live: a
+    // previously-claimed device falling back to AP mode demanded the PIN
+    // just to load the WiFi setup page, before this fix.
+    if (apActive) return true;
     return pin.length() && pin == settingsPIN;
 }
 

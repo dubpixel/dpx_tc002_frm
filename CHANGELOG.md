@@ -1,5 +1,18 @@
 ## dpx_tc002_frm changelog
 
+### [0.6.5](https://github.com/dubpixel/dpx_tc002_frm/compare/0.6.3...0.6.5) (2026-08-26)
+
+> Reported live: a previously-claimed device falling back to WiFi AP mode
+> demanded the CTRL_LOCK PIN just to reach the WiFi setup page — and even
+> once past that, silently showed the normal main UI instead of prompting to
+> reconnect.
+
+#### Fixed
+* **security:** `CTRL_LOCK`'s gate (root `/`, `/json`, WebSocket, `/ctrl`) now bypasses entirely while the device is in AP mode (`apActive`) — a device broadcasting its own recovery hotspot isn't on any shared network yet, so the "nuisance actor on the LAN" threat model doesn't apply, and gating the WiFi setup/recovery flow itself was a real usability trap. Matches WLED's own `/settings` PIN precedent, which already skips its check during initial WiFi provisioning for the same reason
+* **wifi:** WLED's `showWelcomePage` is a one-time-ever flag — it permanently flips `false` the instant a device has ever saved real WiFi credentials, so a previously-configured device falling back to AP mode (lost WiFi, moved to a new venue) silently served the normal main UI instead of prompting to reconnect, looking unresponsive rather than asking for help. Root `/` now also shows the Welcome/setup page (with its existing "Set up WiFi" button) any time `apActive` is true, not just on true first-boot. The existing `?sliders=1` stock-WLED override still forces the main UI if that's ever actually wanted
+
+---
+
 ### [0.6.3](https://github.com/dubpixel/dpx_tc002_frm/compare/0.6.2...0.6.3) (2026-08-22)
 
 > Same-day hotfix for a real regression 0.6.2 introduced: WLED's native UI

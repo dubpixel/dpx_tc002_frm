@@ -640,7 +640,17 @@ void initServer()
     #ifdef DPX_MATRIX_ENABLED
     if (!dpxWledPageGateOK(request)) { dpxServeLockPage(request, request->hasArg(F("pin"))); return; }
     #endif
-    if (!showWelcomePage || request->hasArg(F("sliders"))) {
+    // dpx: showWelcomePage is a ONE-TIME flag -- it's permanently false the
+    // instant a device has ever had real WiFi credentials saved (see
+    // network.cpp/wled.cpp), so a device that's already been configured once
+    // just silently serves the normal main UI here even when it's currently
+    // stuck in AP-fallback mode (lost WiFi, moved to a new venue, etc) —
+    // which looks like the device is broken/unresponsive rather than
+    // prompting to reconnect. Widen the condition to also show the
+    // Welcome/setup page (with its existing "Set up WiFi" button) any time
+    // apActive is true, not just on true first-boot. ?sliders=1 remains the
+    // existing stock-WLED escape hatch to force the main UI regardless.
+    if ((!showWelcomePage && !apActive) || request->hasArg(F("sliders"))) {
       handleStaticContent(request, F("/index.htm"), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_index, PAGE_index_length);
     } else {
       serveSettings(request);
