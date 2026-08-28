@@ -77,6 +77,15 @@ jobs:
       # sitting stale in between releases. Published immediately (not a
       # draft), matching nightly.yml's own always-live behavior; the
       # versioned release above stays a draft pending manual review either way.
+      #
+      # continue-on-error: this is a convenience promotion, not the actual
+      # release -- confirmed live it can hit "Resource not accessible by
+      # integration" fetching the existing nightly release (softprops/
+      # action-gh-release quirk updating a release another action created)
+      # independent of the real Create Release step above, which had already
+      # succeeded. Never let this step fail the whole job / block the real
+      # release from publishing.
+      continue-on-error: true
       uses: softprops/action-gh-release@v1
       with:
         tag_name: nightly
