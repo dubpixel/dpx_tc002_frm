@@ -458,13 +458,19 @@ else
         --data-urlencode 'plain={"text":"ok qs","duration":2}')
     assert_status "$resp" "200" "notify works with correct PIN as query arg"
 
-    # GH #88 follow-up (v0.6.2) — same lock also covers WLED's own native
-    # UI/API, not just dpx's own routes.
+    # GH #88 follow-up (v0.6.2/v0.6.3) — same lock also covers WLED's own
+    # native UI/API, not just dpx's own routes. WLED-native writes use a
+    # 15-min unlock WINDOW rather than a per-request pin (v0.6.3 — WLED's
+    # stock UI can't attach a pin to every call the way /ctrl's own JS does)
+    # — so BOTH "blocked with no pin" checks must run before EITHER
+    # "works with correct pin" check, or the first successful pin submission
+    # opens the window and makes the second BLOCKED assertion structurally
+    # impossible to satisfy. (This bit a real test run: the window opening
+    # from the root-page check made the very next /json BLOCKED assertion
+    # fail every time, even though the feature was working exactly as
+    # designed — fixed by reordering here, not by changing the product.)
     resp=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "$BASE/")
     assert_status "$resp" "401" "WLED root / BLOCKED with no PIN once locked"
-
-    resp=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "$BASE/?pin=$CTRL_PIN")
-    assert_status "$resp" "200" "WLED root / works with correct PIN"
 
     # This suite may run standalone (--suite=ctrl_lock), so it can't rely on
     # the connectivity suite having captured SAVED_BRI earlier — capture and
@@ -474,6 +480,9 @@ else
     resp=$(curl -s -o /dev/null -m 8 -w '%{http_code}' -X POST "$BASE/json/state" \
         -H "Content-Type: application/json" -d '{"bri":40}')
     assert_status "$resp" "401" "WLED /json state change BLOCKED with no PIN"
+
+    resp=$(curl -s -o /dev/null -m 8 -w '%{http_code}' "$BASE/?pin=$CTRL_PIN")
+    assert_status "$resp" "200" "WLED root / works with correct PIN (opens the 15-min native-UI unlock window)"
 
     resp=$(curl -s -o /dev/null -m 8 -w '%{http_code}' -X POST "$BASE/json/state?pin=$CTRL_PIN" \
         -H "Content-Type: application/json" -d '{"bri":40}')
