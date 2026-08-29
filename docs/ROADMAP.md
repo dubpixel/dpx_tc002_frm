@@ -225,15 +225,26 @@ See Part 2 of this file.
 
 ### Phase 4 — Font Scaling / Larger Font ✅ DONE (GH #19, #63)
 
-> Shipped via the 4.2 "textScale:2 pixel-doubling" option (simpler, no new font
-> bitmap needed) rather than 4.1's second-font approach. `fontScale`/`"font":"large"`
-> JSON field, threaded through `dpxDrawChar`/`dpxRenderText`/`dpxTextPixelWidth`.
-> **Known risk, not yet visually confirmed:** most `AwtrixFont` glyphs are 5px
-> tall, so 2x scale (10px) clips against the 8-row matrix — defaults to 1x
-> (safe) with 2x opt-in until checked on hardware.
+> Originally shipped (2026-08-22) via 4.2's "fontScale:2 pixel-doubling" option
+> only, deliberately skipping 4.1's second-font approach — flagged then as
+> "not yet visually confirmed... may clip badly" since most `AwtrixFont`
+> glyphs are 5px tall and 2x (10px) exceeds the 8-row matrix.
+>
+> 2026-08-29: 4.1 (the real second font) shipped too, closing the note above.
+> `fontScale` is now a 3-tier scale — **1=small** (original 5px `AwtrixFont`,
+> unchanged), **2=medium** (new, genuinely 7px-tall glyphs — see
+> `dpx_font_medium.h`, ported from Adafruit_GFX's classic BSD-licensed 5x7
+> font, real descenders on g/p/q/y/comma reaching an 8th row), **3=large**
+> (the original 2x-doubled small font, renumbered from 2→3, otherwise
+> unchanged). **Breaking API change:** existing `fontScale:2` callers now get
+> medium instead of large — update to `fontScale:3` or `"font":"large"` for
+> the old behavior. Both new and existing tiers verified live on real
+> hardware via raw `/api/screen` pixel dumps checked byte-for-byte against
+> source font data, not just visual inspection.
 
-- [x] **4.2** Font selector `dpx_apps.h` — `fontScale` JSON field
-- [x] **4.3** UI control `dpx_html.h` — font size selector on Notification and Custom App cards
+- [x] **4.1** Second, genuinely taller font — `dpx_font_medium.h` (classic 5x7, real descenders)
+- [x] **4.2** Font selector `dpx_apps.h` — `fontScale` JSON field (now 3 tiers)
+- [x] **4.3** UI control `dpx_html.h` — font size selector on Notification and Custom App cards (Small/Medium/Large)
 
 ---
 

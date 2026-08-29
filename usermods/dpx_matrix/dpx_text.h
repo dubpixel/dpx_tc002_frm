@@ -16,6 +16,7 @@
 
 #pragma once
 #include "dpx_font.h"
+#include "dpx_font_medium.h"
 
 // Matrix dimensions — Ulanzi TC001
 static const int DPX_MATRIX_W = 32;
@@ -152,6 +153,60 @@ static int dpxRenderText(int x, int baseline, const char* text, uint32_t color, 
     return curX;
 }
 
+// ── "medium" font tier — a genuinely taller glyph set, not a scale multiplier ──
+// See dpx_font_medium.h for the actual bitmap data/format. Fixed-width (5 data
+// cols + 1 gap = 6px advance), column-major bytes, real 7px body height with
+// descenders (comma/g/p/q/y) reaching an 8th row — uses nearly the entire
+// 8-row matrix height, top-anchored at row 0 regardless of app.topText (no
+// spare rows to redistribute the way the 5px small font has).
+static inline int dpxTextPixelWidthMedium(const char* str) {
+    if (!str) return 0;
+    int n = (int)strlen(str);
+    if (!n) return 0;
+    // Fixed-width font: every char (in-range or not) advances by the same
+    // amount in dpxDrawCharMedium, so the count alone determines width.
+    return n * DPX_FONT_MEDIUM_ADV - 1; // trim trailing 1px gap of last char
+}
+
+static int dpxDrawCharMedium(int x, int topY, char c, uint32_t color, int minX = 0) {
+    uint8_t ci = (uint8_t)c;
+    if (ci < DPX_FONT_MEDIUM_FIRST || ci > DPX_FONT_MEDIUM_LAST) return x + DPX_FONT_MEDIUM_ADV;
+    int idx = (ci - DPX_FONT_MEDIUM_FIRST) * DPX_FONT_MEDIUM_W;
+    for (int col = 0; col < DPX_FONT_MEDIUM_W; col++) {
+        uint8_t bits = pgm_read_byte(&DpxFontMediumBitmaps[idx + col]);
+        int px = x + col;
+        if (px < minX || px >= DPX_MATRIX_W) continue;
+        for (int row = 0; row < DPX_FONT_MEDIUM_H; row++) {
+            if (!(bits & (1 << row))) continue;
+            dpxSetPixel(px, topY + row, color);
+        }
+    }
+    return x + DPX_FONT_MEDIUM_ADV;
+}
+
+static int dpxRenderTextMedium(int x, int topY, const char* text, uint32_t color, bool rainbow = false, int minX = 0) {
+    if (!text) return x;
+    int n = strlen(text);
+    int curX = x;
+    for (int i = 0; i < n; i++) {
+        uint32_t c = rainbow ? dpxRainbowColor(i, n) : color;
+        curX = dpxDrawCharMedium(curX, topY, text[i], c, minX);
+        if (curX >= DPX_MATRIX_W) break;
+    }
+    return curX;
+}
+
+// ── Font-tier dispatch (0=small, 1=medium, 2=large — see dpx_apps.h fontScale) ─
+// `y` is whatever the caller already computed for the small/large tiers
+// (DPX_FONT_BASELINE-relative); medium ignores it and top-anchors at row 0.
+static inline int dpxTextPixelWidthAny(int fontId, const char* text, int scale = 1) {
+    return (fontId == 1) ? dpxTextPixelWidthMedium(text) : dpxTextPixelWidth(text, scale);
+}
+static inline int dpxRenderTextAny(int fontId, int x, int y, const char* text, uint32_t color, bool rainbow = false, int minX = 0, int scale = 1) {
+    return (fontId == 1) ? dpxRenderTextMedium(x, 0, text, color, rainbow, minX)
+                          : dpxRenderText(x, y, text, color, rainbow, minX, scale);
+}
+
 // ── Token substitution (GH #18) ─────────────────────────────────────────────
 // PixelForge-compatible time/date tokens — same syntax as WLED's own FX #122
 // clock effect (see FX.cpp's segment-name token expander), so it's familiar
@@ -234,9 +289,10 @@ struct DpxScrollState {
     int16_t repeat     = -1;         // scroll repeat count (-1 = infinite)
     int16_t repeatsDone = 0;
     int     textWidth  = 0;         // cached pixel width
-    int     scale      = 1;         // GH #19/#63 pixel-doubling factor
+    int     scale      = 1;         // GH #19/#63 pixel-doubling factor (large tier)
+    int     fontId     = 0;         // 0=small, 1=medium, 2=large — see dpxRenderTextAny
 
-    void start(const String& t, uint32_t col, bool rb, int y_, int speedPct, int16_t rep, int scale_ = 1) {
+    void start(const String& t, uint32_t col, bool rb, int y_, int speedPct, int16_t rep, int scale_ = 1, int fontId_ = 0) {
         text       = t;
         sourceText = t;
         color      = col;
@@ -246,7 +302,8 @@ struct DpxScrollState {
         repeat     = rep;
         repeatsDone = 0;
         scale      = scale_;
-        textWidth  = dpxTextPixelWidth(t.c_str(), scale);
+        fontId     = fontId_;
+        textWidth  = dpxTextPixelWidthAny(fontId, t.c_str(), scale);
         scrollX    = DPX_MATRIX_W;
         lastStepMs = 0;
         active     = true;
@@ -281,7 +338,7 @@ struct DpxScrollState {
     // minX: left clip boundary, see dpxDrawChar — keeps text from running under a fixed icon.
     void render(int minX = 0) const {
         if (!active) return;
-        dpxRenderText(scrollX, y, text.c_str(), color, rainbow, minX, scale);
+        dpxRenderTextAny(fontId, scrollX, y, text.c_str(), color, rainbow, minX, scale);
     }
 };
 

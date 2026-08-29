@@ -1,5 +1,19 @@
 ## dpx_tc002_frm changelog
 
+### [0.7.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.6.5...0.7.0) (2026-08-29)
+
+> GH #19 — a genuinely taller font, not just 2x pixel-doubling the existing
+> one. Closes the "not yet visually confirmed" risk noted when 2x shipped
+> back in 0.6.0-era work.
+
+#### Added
+* **text:** `dpx_font_medium.h` — a new "medium" font tier with genuinely 7px-tall glyphs and real typographic descenders (comma/g/p/q/y reach an 8th row), ported from Adafruit_GFX's classic BSD-licensed 5x7 bitmap font (`glcdfont.c`, industry-standard dot-matrix character set), scoped to printable ASCII. `fontScale` is now 3 tiers: **1=small** (original 5px, unchanged), **2=medium** (new), **3=large** (the original 2x-doubled small font). Verified live on real hardware — raw `/api/screen` pixel dumps checked row-by-row against the source font data, not just visual inspection, for both regular glyphs and descenders
+
+#### Changed
+* **text:** **Breaking API change** — `fontScale`'s numeric meaning shifted: `2` used to mean "large" (2x), it now means "medium" (the new font). Existing callers using `fontScale:2` for the large/2x look need to switch to `fontScale:3` or `"font":"large"`. Low-risk timing for this: the option was flagged as "not yet visually confirmed" since it shipped and unlikely to have real dependents yet
+
+---
+
 ### [0.6.5](https://github.com/dubpixel/dpx_tc002_frm/compare/0.6.3...0.6.5) (2026-08-26)
 
 > Reported live: a previously-claimed device falling back to WiFi AP mode

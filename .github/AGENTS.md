@@ -243,7 +243,7 @@ Consult `docs/hardening.instructions.md` (concise checklist) and
 
 ## PROJECT: dpx_tc002_frm
 
-**Status:** Active development — v0.6.5 (2026-08-26)
+**Status:** Active development — v0.7.0 (2026-08-29)
 **Branch:** `main` (feature branches: `feature/brief-description`)
 **Version File:** `VERSION` + `package.json`
 
@@ -279,7 +279,8 @@ contract defined in `SPEC.md`.
 | `dpx_api.h` | HTTP endpoints: `/notify`, `/app`, `/custom`, `/pair`, `/tc`, `/browse` |
 | `dpx_html.h` | Embedded web UI: ctrl page, icon browser, GIF browser |
 | `dpx_tc.h` | Timecode display (both render modes), frame bar |
-| `dpx_font.h` | AwtrixFont 3x5 TomThumb bitmap font |
+| `dpx_font.h` | AwtrixFont 3x5 TomThumb bitmap font ("small" tier) |
+| `dpx_font_medium.h` | Classic Adafruit_GFX 5x7 bitmap font, real descenders ("medium" tier, GH #19) |
 | `dpx_icons.h` | Icon load + render — LaMetric PNG→raw pipeline (GH #16) |
 | `dpx_mqtt.h` | MQTT command dispatch, device-info + live app-state publish (#80), icon fetch over MQTT |
 | `dpx_pair.h` | Device-claim PIN display for friendster/cueMaestro server pairing |

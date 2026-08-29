@@ -435,7 +435,7 @@ Key points:
 
 The `dpx_matrix` usermod is original work by dubpixel, but as part of this compiled firmware distribution it is covered by EUPL v1.2.
 
-AwtrixFont (`dpx_font.h`) is BSD 3-Clause — see file header for full attribution.
+AwtrixFont (`dpx_font.h`) and the medium-tier font (`dpx_font_medium.h`) are both BSD 3-Clause — see each file's header for full attribution.
 <!-- CONTACT -->
 ## Contact
 
@@ -448,6 +448,7 @@ AwtrixFont (`dpx_font.h`) is BSD 3-Clause — see file header for full attributi
 
 * [WLED](https://github.com/wled/WLED) — the firmware base. Originally created by [Aircoookie](https://github.com/Aircoookie), now community-maintained. EUPL v1.2. Full [contributor credits at kno.wled.ge](https://kno.wled.ge/about/contributors/).
 * [AwtrixFont](https://github.com/Blueforcer/awtrix3) — TomThumb-derived 3×5 pixel font by Blueforcer et al. BSD 3-Clause.
+* [Adafruit_GFX](https://github.com/adafruit/Adafruit-GFX-Library) — the classic 5×7 bitmap font (`glcdfont.c`), used as the "medium" font tier. BSD 3-Clause.
 * [Ulanzi TC001](https://www.ulanzi.com/products/ulanzi-pixel-smart-clock-2882) — the hardware platform.
 * [NeoPixelBus](https://github.com/Makuna/NeoPixelBus) — addressable LED driver library by Makuna.
 * [ESPAsyncWebServer](https://github.com/Aircoookie/ESPAsyncWebServer) — async HTTP server for ESP32/ESP8266.

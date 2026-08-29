@@ -41,7 +41,9 @@ struct DpxCustomApp {
     bool     center      = false;
     bool     noScroll    = false;
     int      scrollSpeed = 100;      // % of base speed
-    int      fontScale   = 1;        // GH #19/#63 — 1=normal, 2=2x pixel-doubled
+    int      fontScale   = 1;        // GH #19/#63 — 1=small (5px, default), 2=medium
+                                      // (genuine 7px glyphs, see dpx_font_medium.h), 3=large
+                                      // (2x pixel-doubled small font, the original "large")
     bool     topText     = false;
     int      duration    = 0;        // seconds; 0 = use DPX_ATIME
     int16_t  repeat      = -1;
@@ -196,8 +198,11 @@ static DpxCustomApp dpxParseApp(const char* json) {
     if (doc.containsKey("center"))      app.center      = doc["center"].as<bool>();
     if (doc.containsKey("noScroll"))    app.noScroll    = doc["noScroll"].as<bool>();
     if (doc.containsKey("scrollSpeed")) app.scrollSpeed = doc["scrollSpeed"].as<int>();
-    if (doc.containsKey("fontScale"))   app.fontScale   = constrain(doc["fontScale"].as<int>(), 1, 2);
-    if (doc.containsKey("font"))        app.fontScale   = (doc["font"].as<String>() == "large") ? 2 : 1;
+    if (doc.containsKey("fontScale"))   app.fontScale   = constrain(doc["fontScale"].as<int>(), 1, 3);
+    if (doc.containsKey("font")) {
+        String f = doc["font"].as<String>();
+        app.fontScale = (f == "large") ? 3 : (f == "medium") ? 2 : 1;
+    }
     if (doc.containsKey("topText"))     app.topText     = doc["topText"].as<bool>();
     if (doc.containsKey("duration"))    app.duration    = doc["duration"].as<int>();
     if (doc.containsKey("repeat"))      app.repeat      = doc["repeat"].as<int>();
@@ -340,7 +345,12 @@ static bool dpxRenderApp(DpxCustomApp& app) {
     }
 
     int textY = app.topText ? (DPX_FONT_BASELINE - 1) : DPX_FONT_BASELINE; // proper AwtrixFont baselines
-    int scale = app.fontScale;
+    // GH #19/#63 — fontScale 1=small/2=medium/3=large maps to a font-tier
+    // id (dpxRenderTextAny's 0=small,1=medium) plus a pixel-doubling scale
+    // that only ever applies to the small font (large = small font at 2x;
+    // medium is its own taller glyph data, never doubled).
+    int fontId = (app.fontScale == 2) ? 1 : 0;
+    int scale  = (app.fontScale == 3) ? 2 : 1;
 
     // GH #18 — token substitution (#HHMM, #DATE, etc). app.text stays the raw
     // template (so a scroll in progress doesn't restart every second as the
@@ -349,7 +359,7 @@ static bool dpxRenderApp(DpxCustomApp& app) {
     String renderText = app.text;
     if (renderText.indexOf('#') >= 0) dpxExpandTokens(renderText);
 
-    int textW = dpxTextPixelWidth(renderText.c_str(), scale);
+    int textW = dpxTextPixelWidthAny(fontId, renderText.c_str(), scale);
     // Battery's icon is rendered live every frame (dpxGetBatteryIcon(), a
     // 5-segment fill gauge tracking dpxBattPct) instead of the normal
     // name-based file lookup — there's no static "dpx_batt" icon file.
@@ -361,11 +371,11 @@ static bool dpxRenderApp(DpxCustomApp& app) {
         if (app.noScroll || textW <= DPX_MATRIX_W) {
             int x = 0;
             if (app.center && textW < DPX_MATRIX_W) x = (DPX_MATRIX_W - textW) / 2;
-            dpxRenderText(x, textY, renderText.c_str(), app.color, app.rainbow, 0, scale);
+            dpxRenderTextAny(fontId, x, textY, renderText.c_str(), app.color, app.rainbow, 0, scale);
             return true; // static apps never "complete"
         }
         if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.sourceText != app.text) {
-            dpxScroll.start(renderText, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
+            dpxScroll.start(renderText, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale, fontId);
             dpxScroll.sourceText = app.text;
         }
         bool done = dpxScroll.tick();
@@ -380,11 +390,11 @@ static bool dpxRenderApp(DpxCustomApp& app) {
         if (app.noScroll || textW <= areaW) {
             int x = areaX;
             if (app.center && textW < areaW) x = areaX + (areaW - textW) / 2;
-            dpxRenderText(x, textY, renderText.c_str(), app.color, app.rainbow, areaX, scale);
+            dpxRenderTextAny(fontId, x, textY, renderText.c_str(), app.color, app.rainbow, areaX, scale);
             return true;
         }
         if ((!dpxScroll.active && !dpxScroll.completed) || dpxScroll.sourceText != app.text) {
-            dpxScroll.start(renderText, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale);
+            dpxScroll.start(renderText, app.color, app.rainbow, textY, app.scrollSpeed, app.repeat, scale, fontId);
             dpxScroll.sourceText = app.text;
         }
         bool done = dpxScroll.tick();

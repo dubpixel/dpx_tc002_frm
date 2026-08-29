@@ -699,7 +699,7 @@ select option{background:#222}
   <div style="flex:1"><label>Speed (0-100)</label><input type="number" id="n_speed" value="100" min="0" max="100"></div>
   <div style="flex:1"><label>Duration (s)</label><input type="number" id="n_dur" value="5" min="1"></div>
   <div style="flex:1"><label>Repeat (-1=&#8734;)</label><input type="number" id="n_rep" value="1" min="-1"></div>
-  <div style="flex:1"><label>Font</label><select id="n_fontsize"><option value="1">Normal</option><option value="2">Large</option></select></div>
+  <div style="flex:1"><label>Font</label><select id="n_fontsize"><option value="1">Small</option><option value="2">Medium</option><option value="3">Large</option></select></div>
 </div>
 <div class="row" style="margin-top:6px">
   <div class="chk"><input type="checkbox" id="n_center"><label for="n_center">Center</label></div>
@@ -817,7 +817,7 @@ select option{background:#222}
 <div class="row">
   <div style="flex:1"><label>Speed</label><input type="number" id="ca_speed" value="100" min="0" max="100"></div>
   <div style="flex:1"><label>Duration (s, 0=perm)</label><input type="number" id="ca_dur" value="0" min="0"></div>
-  <div style="flex:1"><label>Font</label><select id="ca_fontsize"><option value="1">Normal</option><option value="2">Large</option></select></div>
+  <div style="flex:1"><label>Font</label><select id="ca_fontsize"><option value="1">Small</option><option value="2">Medium</option><option value="3">Large</option></select></div>
 </div>
 <div class="row" style="margin-top:6px">
   <div class="chk"><input type="checkbox" id="ca_center"><label for="ca_center">Center</label></div>
