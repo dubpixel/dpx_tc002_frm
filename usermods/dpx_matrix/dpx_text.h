@@ -98,6 +98,41 @@ static int dpxDrawChar(int x, int baseline, char c, uint32_t color, int minX = 0
     GFXglyph g;
     memcpy_P(&g, &AwtrixFont.glyph[ci - AwtrixFont.first], sizeof(GFXglyph));
 
+    // 'j' at scale=2 is a special case, hand-drawn instead of pixel-doubled:
+    // it's 6px tall unscaled (dot + gap + stem + hook), taller than every
+    // other descender (5px), so the bottom-anchor below still clips its dot
+    // off entirely. Worse, its hook already has a 1px gap in the native
+    // small font (a lone curl-tip pixel one column left of the stem) that
+    // becomes a 2px *disconnected*-looking gap once doubled. Neither is
+    // fixable by shifting the anchor -- it's the ceiling of doubling this
+    // specific glyph. This replacement keeps the same bold (2px-stroke)
+    // weight as every other large-tier glyph, with each row overlapping the
+    // next so the curl reads as one continuous stroke.
+    if (c == 'j' && scale == 2) {
+        static const uint8_t jBoldRows[8] = {
+            0b001100, // dot
+            0b001100, // dot
+            0b000000, // gap
+            0b001100, // stem
+            0b001100, // stem
+            0b001100, // stem
+            0b011000, // curl (overlaps stem at bit position)
+            0b110000, // tip  (overlaps curl at bit position)
+        };
+        for (int row = 0; row < 8; row++) {
+            int py = row;
+            if (py < 0 || py >= DPX_MATRIX_H) continue;
+            uint8_t bits = jBoldRows[row];
+            for (int col = 0; col < 6; col++) {
+                if (!(bits & (0x20 >> col))) continue;
+                int px = x + col;
+                if (px < minX || px >= DPX_MATRIX_W) continue;
+                dpxSetPixel(px, py, color);
+            }
+        }
+        return x + g.xAdvance * scale;
+    }
+
     // Each row of the glyph is ceil(g.width/8) bytes; here always 1 byte (width=8)
     int bytesPerRow = (g.width + 7) / 8;
     // Shift the baseline down as scale grows so a typical full-height glyph
@@ -107,7 +142,22 @@ static int dpxDrawChar(int x, int baseline, char c, uint32_t color, int minX = 0
     // expressed as an integer delta from the scale=1 baseline so scale=1
     // is untouched (delta=0). scale=2 -> effBaseline = baseline+3.
     int effBaseline = baseline + (5 * (scale - 1) + 1) / 2;
-    int glyphTop    = effBaseline + g.yOffset * scale; // shared-anchor scaling, top pixel row on matrix
+
+    // True descenders (comma/g/j/p/q/y) all reach exactly to the baseline row
+    // itself (yOffset + height - 1 == 0) -- one row lower than every other
+    // glyph in this font, whose lowest row is -1 or above. Under the shared
+    // symmetric anchor above, that extra row pushes them ~3 scaled rows past
+    // the matrix bottom at scale=2, clipping off the entire descending
+    // stroke (a 'g' loses its tail and reads as an 'o') while leaving blank
+    // matrix rows unused above the glyph. Bottom-anchor these glyphs to the
+    // matrix's last row instead so the one feature that makes them
+    // descenders survives, at the cost of a little clipped headroom on their
+    // (already mostly-unused-at-the-top) x-height body. Applied uniformly to
+    // every descender, so they stay aligned with each other -- only their
+    // position relative to non-descending glyphs shifts.
+    bool isDescender = scale > 1 && (g.yOffset + (int)g.height - 1) >= 0;
+    int glyphTop = isDescender ? (DPX_MATRIX_H - (int)g.height * scale)
+                                : (effBaseline + g.yOffset * scale); // top pixel row on matrix
 
     for (int row = 0; row < (int)g.height; row++) {
         for (int b = 0; b < bytesPerRow; b++) {
