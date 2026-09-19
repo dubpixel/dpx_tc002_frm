@@ -465,6 +465,31 @@ static void dpxRebuildLoop() {
     if (dpxCurrentApp >= (int)dpxApps.size()) dpxCurrentApp = 0;
 }
 
+// Read every /CUSTOMAPPS/*.json back into dpxCustom at boot. This was the
+// other half of the missing-persistence bug: dpxSetCustomApp() has always
+// written these files, but nothing ever read them back, so even a channel
+// that *did* get saved (once app.save was actually reachable) sat as an
+// orphaned file forever and never returned to the live rotation after a
+// reboot. Call once from setup(), after LittleFS is mounted, before the
+// first dpxRebuildLoop().
+static void dpxLoadCustomApps() {
+    File dir = LittleFS.open("/CUSTOMAPPS", "r");
+    if (!dir || !dir.isDirectory()) return;
+    File f = dir.openNextFile();
+    while (f) {
+        if (!f.isDirectory()) {
+            String name = f.name();
+            int slash = name.lastIndexOf('/');
+            if (slash >= 0) name = name.substring(slash + 1);
+            if (name.endsWith(".json")) name = name.substring(0, name.length() - 5);
+            String json = f.readString();
+            DpxCustomApp app = dpxParseApp(json.c_str());
+            if (app.valid) dpxCustom[name] = app;
+        }
+        f = dir.openNextFile();
+    }
+}
+
 // Add or update a custom app. Empty body = remove from rotation.
 // Native apps (Time, Date) are hidden (not deleted); custom apps are erased.
 static void dpxSetCustomApp(const String& name, const char* json) {
@@ -478,11 +503,17 @@ static void dpxSetCustomApp(const String& name, const char* json) {
         if (app.valid) {
             dpxCustom[name] = app;
             dpxHiddenApps.erase(name);
-            if (app.save) {
-                LittleFS.mkdir("/CUSTOMAPPS");
-                File f = LittleFS.open("/CUSTOMAPPS/" + name + ".json", "w");
-                if (f) { f.print(json); f.close(); }
-            }
+            // Always persist -- this is a channel the user built into their
+            // rotation, not a one-shot notification (that's /api/notify, a
+            // separate path). The opt-in `save` flag was never wired up
+            // anywhere in /ctrl's UI, so gating on it silently made every
+            // channel added through the normal UI RAM-only and guaranteed to
+            // vanish on the next reboot (OTA flash included) -- exactly the
+            // "custom channels missing after reflash" bug. `app.save` is
+            // still parsed for API back-compat but no longer gates this.
+            LittleFS.mkdir("/CUSTOMAPPS");
+            File f = LittleFS.open("/CUSTOMAPPS/" + name + ".json", "w");
+            if (f) { f.print(json); f.close(); }
         }
     }
     dpxRebuildLoop();

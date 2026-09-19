@@ -164,6 +164,7 @@ public:
         // Load persistent settings
         dpxLoadDev();
         dpxLoadOscListeners();
+        dpxLoadCustomApps(); // restore saved channels — see its own comment
 
         // Sync native app visibility flags → dpxHiddenApps before building loop
         if (!DPX_SHOW_TIME) dpxHiddenApps.insert(String(F("Time")));
@@ -172,7 +173,7 @@ public:
         if (!DPX_SHOW_HUM)  dpxHiddenApps.insert(String(F("Humidity")));
         if (!DPX_SHOW_BAT)  dpxHiddenApps.insert(String(F("Battery")));
 
-        // Build the initial app loop (Time, Date only to start)
+        // Build the initial app loop (native apps + any restored custom ones)
         dpxRebuildLoop();
         dpxAppStartMs = millis();
 
