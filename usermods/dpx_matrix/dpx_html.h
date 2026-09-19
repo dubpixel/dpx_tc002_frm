@@ -120,7 +120,7 @@ code,.snip{background:#1a1a2e;color:#8cf;padding:1px 4px;border-radius:3px;font-
 <tr><td><code>noScroll</code></td><td>bool</td><td>Disable text scrolling</td><td>false</td><td class="tag">B</td></tr>
 <tr><td><code>scrollSpeed</code></td><td>int</td><td>Scroll speed % of default</td><td>100</td><td class="tag">B</td></tr>
 <tr><td><code>duration</code></td><td>int</td><td>Display time in seconds</td><td>5</td><td class="tag">B</td></tr>
-<tr><td><code>repeat</code></td><td>int</td><td>Times to scroll before ending (-1=forever)</td><td>-1</td><td class="tag">B</td></tr>
+<tr><td><code>repeat</code></td><td>int</td><td>Times to scroll before ending (-1=forever). Rejected (400) together with <code>hold:true</code> -- that combo can never auto-clear</td><td>-1</td><td class="tag">B</td></tr>
 <tr><td><code>hold</code></td><td>bool</td><td>Hold notification until dismissed</td><td>false</td><td class="tag">N</td></tr>
 <tr><td><code>stack</code></td><td>bool</td><td>Stack notification; false=replace current</td><td>true</td><td class="tag">N</td></tr>
 <tr><td><code>wakeup</code></td><td>bool</td><td>Wake matrix from sleep for notification</td><td>false</td><td class="tag">N</td></tr>

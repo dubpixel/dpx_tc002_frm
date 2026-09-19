@@ -46,6 +46,8 @@ static void dpxArchiveCurrentNotif() {
 }
 
 // Parse and enqueue a notification from JSON body (SPEC.md §5 POST /api/notify)
+// Returns false on bad JSON, or on hold:true + repeat:-1 (see dpxNotifRejectReason).
+static const char* dpxNotifRejectReason = "";
 static bool dpxPushNotification(const char* json) {
     DynamicJsonDocument doc(1024);
     if (deserializeJson(doc, json)) return false;
@@ -59,7 +61,26 @@ static bool dpxPushNotification(const char* json) {
     }
     notif.hold  = doc.containsKey("hold")  ? doc["hold"].as<bool>()  : false;
     notif.stack = doc.containsKey("stack") ? doc["stack"].as<bool>() : true;
-    notif.id    = dpxNotifNextId++;
+
+    // hold:true means "never auto-dismiss on completion"; repeat:-1 means
+    // "scroll forever, never completes". Together there is no way for the
+    // notification to ever end short of a manual dismiss -- it locks out the
+    // normal app rotation indefinitely if nobody remembers. Only actually a
+    // problem when the text scrolls at all: a short/noScroll hold is a
+    // deliberate, ordinary "leave this up until dismissed" static message,
+    // not a runaway loop, and repeat is meaningless for it anyway. Rejected
+    // outright rather than silently clamped or auto-timed-out, since an
+    // auto-timeout would also cut off legitimate long holds nobody asked to end.
+    int fontId = (notif.data.fontScale == 2) ? 1 : 0;
+    int scale  = (notif.data.fontScale == 3) ? 2 : 1;
+    int textW  = dpxTextPixelWidthAny(fontId, notif.data.text.c_str(), scale);
+    bool willScroll = !notif.data.noScroll && textW > DPX_MATRIX_W;
+    if (notif.hold && notif.data.repeat < 0 && willScroll) {
+        dpxNotifRejectReason = "hold:true with repeat:-1 (or default) on scrolling text loops forever with no way to auto-clear -- set a finite repeat, hold:false, or noScroll:true";
+        return false;
+    }
+
+    notif.id = dpxNotifNextId++;
 
     if (!notif.stack) {
         // Replace: clear queue and active

@@ -506,7 +506,13 @@ static void dpxRegisterRoutes() {
     server.on("/api/notify", HTTP_POST, [](AsyncWebServerRequest* r) {
         String body = dpxBody(r);
         if (!dpxCtrlPinOK(r, body)) return;
-        if (body.length()) dpxPushNotification(body.c_str());
+        if (body.length() && !dpxPushNotification(body.c_str())) {
+            DynamicJsonDocument err(256);
+            err["error"] = dpxNotifRejectReason[0] ? dpxNotifRejectReason : "invalid JSON body";
+            String s; serializeJson(err, s);
+            r->send(400, F("application/json"), s);
+            return;
+        }
         r->send(200, F("application/json"), F("{\"ok\":true}"));
     }).onBody(dpxCaptureBody);
 
