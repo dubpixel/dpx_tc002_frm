@@ -32,6 +32,11 @@
 #define DPX_LDR_PIN 35
 #define DPX_BATT_PIN 34
 #define DPX_SENSOR_READ_MS 10000
+// LDR reads on its own, much faster cadence than temp/hum/battery -- those
+// are slow-moving and cheap to leave alone, but ABRI (dpx_persist.h)
+// following room light felt laggy at 10s (GH: "not instant" flashlight test).
+// An ADC read is nearly free, so there's no real cost to polling it this often.
+#define DPX_LDR_READ_MS 1500
 
 // Battery raw-ADC range — ported from Blueforcer/awtrix3's PeripheryManager.cpp
 // defaults (MIN_BATTERY=475, MAX_BATTERY=665), which target this exact board's
@@ -50,6 +55,7 @@ static int      dpxBattPct      = -1;    // 0-100, calibrated from DPX_BATT_RAW_
 static int      dpxLdrRaw       = -1;    // 0-4095, -1 = not yet read
 static int      dpxLdrPct       = -1;    // 0-100 "brightness" — awtrix3's LDR_FACTOR/GAMMA curve
 static uint32_t dpxSensorsLastReadMs = 0;
+static uint32_t dpxLdrLastReadMs     = 0;
 
 // 8x8 icons for the native Temperature/Humidity/Battery apps — baked in so
 // they work without the user having to browse/download an icon first. Written
@@ -224,12 +230,25 @@ static void dpxSensorsTick() {
 
     dpxSht3xRead();
     dpxBattRaw = analogRead(DPX_BATT_PIN);
-    dpxLdrRaw  = analogRead(DPX_LDR_PIN);
     dpxBattPct = (int)constrain((float)map(dpxBattRaw, DPX_BATT_RAW_MIN, DPX_BATT_RAW_MAX, 0, 100), 0.0f, 100.0f);
-    dpxLdrPct  = dpxLdrToPercent(dpxLdrRaw);
 
-    DEBUG_PRINTF("DpxSensors: temp=%.1f hum=%.1f battRaw=%d battPct=%d ldrRaw=%d ldrPct=%d\n",
-                 dpxTemp, dpxHum, dpxBattRaw, dpxBattPct, dpxLdrRaw, dpxLdrPct);
+    DEBUG_PRINTF("DpxSensors: temp=%.1f hum=%.1f battRaw=%d battPct=%d\n",
+                 dpxTemp, dpxHum, dpxBattRaw, dpxBattPct);
+}
+
+// LDR on its own faster cadence (DPX_LDR_READ_MS) -- see that constant's
+// comment. Runs independent of DPX_SENSOR_READING so ABRI keeps tracking
+// room light even with the other (slower, more visible-on-screen) sensor
+// reads switched off.
+static void dpxLdrTick() {
+    uint32_t now = millis();
+    if (now - dpxLdrLastReadMs < DPX_LDR_READ_MS) return;
+    dpxLdrLastReadMs = now;
+
+    dpxLdrRaw = analogRead(DPX_LDR_PIN);
+    dpxLdrPct = dpxLdrToPercent(dpxLdrRaw);
+
+    DEBUG_PRINTF("DpxSensors: ldrRaw=%d ldrPct=%d\n", dpxLdrRaw, dpxLdrPct);
 }
 
 // GH #15 1.8.3 — smoothly ramps brightness from the LDR reading when enabled.

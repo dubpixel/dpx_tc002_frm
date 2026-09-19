@@ -381,8 +381,9 @@ public:
         // Advance RTTTL note sequencer
         dpxBuzzerTick();
 
-        // GH #15 phase 1 — rate-limited to once per 10s internally
+        // GH #15 phase 1 — temp/hum/battery rate-limited to once per 10s
         dpxSensorsTick();
+        dpxLdrTick();  // faster, independent cadence — see DPX_LDR_READ_MS
         dpxAbriTick();
     }
 

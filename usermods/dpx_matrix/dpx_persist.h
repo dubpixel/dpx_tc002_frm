@@ -39,7 +39,13 @@ static bool     DPX_TC_MUTE        = false;   // if true, TC signal is ignored e
 static int      DPX_MIN_BRI        = 2;
 static int      DPX_MAX_BRI        = 180;
 static float    DPX_LDR_FACTOR     = 1.0f;
-static float    DPX_LDR_GAMMA      = 3.0f;
+// 3.0 (awtrix3's original default) needed near-saturation light before
+// brightness visibly moved -- 70% of ADC range only produced ~34% brightness.
+// 2.2 is the standard display gamma-correction value: still a deliberate
+// non-linear curve (so brightness still tracks how the eye perceives light,
+// not raw lux), but far less crushing in the middle of the range -- same 70%
+// now yields ~46%.
+static float    DPX_LDR_GAMMA      = 2.2f;
 static bool     DPX_ROTATE_SCREEN  = false;
 static bool     DPX_MIRROR_SCREEN  = false;
 static bool     DPX_SENSOR_READING = true;
@@ -59,7 +65,7 @@ static bool     DPX_SHOW_DATE      = true;
 static bool     DPX_SHOW_TEMP      = false;
 static bool     DPX_SHOW_HUM       = false;
 static bool     DPX_SHOW_BAT       = false;
-static bool     DPX_ABRI           = false;   // auto-brightness from LDR
+static bool     DPX_ABRI           = true;    // auto-brightness from LDR
 static bool     DPX_TEMP_FAHRENHEIT = true;   // toggle in /ctrl (Sensors card) or POST /api/settings {"TEMP_F":false}
 // GH #88 — on by default: the device's live-control API (and the /ctrl page
 // itself, which shows notification history and other device state) requires
