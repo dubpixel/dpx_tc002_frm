@@ -357,6 +357,18 @@ See `docs/HANDOFF_TODO.md` for full detail. Summary:
 
 ---
 
+## 0. Mid-Session Issue Triage (MANDATORY)
+**Default: log it, don't fix it mid-session.**
+
+- If something broken or wanted comes up, file a GitHub issue and move on
+- Only fix immediately if the user explicitly says *"fix this"* or *"fix it now"*
+- Start of session: `gh issue list --repo dubpixel/dpx_tc002_frm`
+- End of session: `gh issue create --repo dubpixel/dpx_tc002_frm --title "..." --body "..."`
+
+The rationale: prevents mid-session context-switching that breaks working code.
+
+---
+
 ## 1. Automatic Workflow (MANDATORY)
 
 These actions are **required** and must happen automatically. **NEVER ask permission** for these workflow steps.
@@ -403,6 +415,21 @@ Bump the version number according to semantic versioning:
 **Pre-release versions:**
 - Alpha: `1.0.0-alpha.1` | Beta: `1.0.0-beta.2` | RC: `1.0.0-rc.1`
 
+**When multiple changes occur, use the highest level** (bug fix + new feature → Minor, not Patch).
+
+**Edge cases:**
+
+| Scenario | Bump Type | Reasoning |
+|----------|-----------|-----------|
+| Internal refactor, no API change | Patch | No external impact |
+| New optional parameter with default | Minor | Backwards-compatible addition |
+| Changed parameter order | Major | Breaks existing calls |
+| Deprecated feature (still works) | Minor | Deprecation warning added |
+| Removed deprecated feature | Major | Functionality removed |
+| Performance improvement | Patch | Implementation detail |
+| New dependency added | Minor | Expands capabilities |
+| Security fix | Patch | Even if behavior changes slightly |
+
 #### Version Bump Workflow
 
 1. **Determine bump type** based on changes planned
@@ -431,6 +458,21 @@ Bump the version number according to semantic versioning:
 ```
 
 **If no CHANGELOG.md exists:** Create one in the root.
+
+### Build Artifact Naming Convention
+
+`pio-scripts/output_bins.py`'s `create_release()` appends a branch-slug +
+short-SHA suffix on non-`main` builds, so multiple dev-branch builds at the
+same version stay distinguishable and never collide with (or get mistaken
+for) a `main`/release build of the same version:
+
+| Branch | Filename |
+|--------|----------|
+| `main` | `dpx_tc002_{version}_{release_name}.bin` |
+| anything else | `dpx_tc002_{version}_{release_name}-{branch-slug}-{short-sha}.bin` |
+
+Branch and SHA are read from `GITHUB_HEAD_REF`/`GITHUB_REF_NAME` and
+`GITHUB_SHA` in CI, falling back to `git rev-parse` for local builds.
 
 ### Pull Request Creation
 
@@ -489,6 +531,13 @@ Provide a status update using this template:
 - Before switching to a different component
 - When encountering a blocker or decision point
 - Every 3-5 file edits in large refactors
+
+### Resuming from Checkpoint
+
+When continuing work after a checkpoint:
+1. Read the last checkpoint status
+2. Start with the "Next Action" item
+3. Update checkpoint when that phase completes
 
 ---
 
@@ -567,21 +616,31 @@ PROJECT section.
 
 ## 6. Documentation Maintenance
 
-- `README.md` — user-facing; confirm changes with user before committing
-- `CHANGELOG.md` — keep automated in background; confirm changes to existing line items
+- `README.md` — user-facing; focus on how to USE the project, not internals; confirm changes with user before committing
+- `CHANGELOG.md` — keep automated in background; user-facing, focus on changes/version numbers/dates; confirm changes to existing line items
 - `docs/HANDOFF_TODO.md` — update feature status whenever a roadmap item changes
-- Inline comments — update when code changes; document WHY not WHAT
+- Inline comments — update when code changes (keep in sync); document WHY not WHAT; document non-obvious function parameters/return values
+- Markdown style — consistent heading hierarchy (don't skip levels), tables for structured info, code blocks with language tags, relative links to other project files
 
 ---
 
 ## 7. Code Quality Guidelines
 
-- Clear, readable code with meaningful names
+- Clear, readable code with meaningful names, testable with clear interfaces
+- Follow established coding patterns already used in this codebase
 - Proper error handling — no bare `except:` or `catch`
 - For C++: follow `docs/cpp.instructions.md` exactly
 - For web UI: follow `docs/web.instructions.md` exactly
 - For security: follow `docs/hardening.instructions.md` + `docs/securecode.instructions.md`
 - For chip-specific code: follow `docs/esp-idf.instructions.md`
+
+### Testing
+
+- Add tests alongside new logic when appropriate (see `tools/dpx_test.sh`)
+- Use deterministic inputs for tests — inject time/randomness, don't read live system state
+- Name tests by behavior (e.g. "short+repeat notification actually cleared")
+- Include both positive and negative test cases
+- If the process involves SSH into a remote server, or user input in any way — open a terminal first for the user so you both can read it
 
 ---
 
@@ -611,18 +670,21 @@ PROJECT section.
 
 ## 9. Collaboration Standards
 
-- Understand existing architecture before changing it
+- Understand existing architecture before changing it; ask for clarification when requirements are ambiguous
 - Keep `wled00/` clean — dpx_matrix features stay in `usermods/dpx_matrix/`
 - Suggest alternatives when appropriate, but don't insist
+- Consider the impact of changes on the broader codebase
+- Don't break existing APIs unless explicitly requested; provide migration paths for breaking changes, documented in the PR description
 - Explain the reasoning behind suggested changes
 - Be transparent about limitations or uncertainties
+- Keep responses concise and focused
 
 ---
 
 ## 10. Configuration & Secrets
 
+- Use `platformio_override.ini` for local dev config (gitignored — never commit it)
 - Never commit `.env` files or credentials
-- `platformio_override.ini` is gitignored — never commit it
 - No hardcoded credentials or secrets
 - If secrets are accidentally committed, notify the user immediately
 
