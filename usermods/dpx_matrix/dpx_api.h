@@ -1051,4 +1051,21 @@ static void dpxRegisterRoutes() {
         }
         r->send(400, F("text/plain"), F("name required"));
     }).onBody(dpxCaptureBody);
+
+    // GH #98 — move a custom app one position in the rotation. Body:
+    // {"name":"AppName","dir":"up"|"down"}
+    server.on("/api/reorder", HTTP_POST, [](AsyncWebServerRequest* r) {
+        String body = dpxBody(r);
+        if (!dpxCtrlPinOK(r, body)) return;
+        DynamicJsonDocument doc(128);
+        if (!deserializeJson(doc, body) && doc.containsKey("name")) {
+            String name = doc["name"].as<String>();
+            bool up = doc["dir"].as<String>() != "down";
+            bool ok = dpxReorderApp(name, up);
+            r->send(ok ? 200 : 400, F("application/json"),
+                    ok ? F("{\"ok\":true}") : F("{\"error\":\"can't move that direction\"}"));
+            return;
+        }
+        r->send(400, F("text/plain"), F("name required"));
+    }).onBody(dpxCaptureBody);
 }

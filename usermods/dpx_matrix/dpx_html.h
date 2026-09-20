@@ -66,6 +66,7 @@ code,.snip{background:#1a1a2e;color:#8cf;padding:1px 4px;border-radius:3px;font-
 <tr><td><span class="pill post">POST</span></td><td><code>/api/pair</code></td><td><code>{"pin":"482913","duration":60,"scale":1}</code> — full-screen PIN display for device-claim pairing; highest render priority. <code>scale</code> 1 (default) or 2 (larger, may clip vertically). Empty body clears early.</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/custom?name=<i>appname</i>[&amp;slot=<i>id</i>]</code></td><td>Create/update persistent custom app. Optional <code>slot</code> lets the same <code>name</code> occupy multiple rotation positions — the real key is <code>name#slot</code> everywhere (switch/mute/delete too).</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/switch</code></td><td><code>{"name":"Time"}</code> — jump to app</td></tr>
+<tr><td><span class="pill post">POST</span></td><td><code>/api/reorder</code></td><td><code>{"name":"myapp","dir":"up"}</code> — move a custom channel one position in the rotation (native apps always render first, fixed order)</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/nextapp</code></td><td>empty body</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/previousapp</code></td><td>empty body</td></tr>
 <tr><td><span class="pill post">POST</span></td><td><code>/api/power</code></td><td><code>{"power":true}</code></td></tr>
@@ -1063,8 +1064,14 @@ function loadLoop(){
     var names=apps.map(function(a){return a.name;});
     var swSel=document.getElementById("sw_app_sel");
     var caSel=document.getElementById("ca_name_sel");
+    var fxSel=document.getElementById("ch_fx_name_sel");
     if(swSel){swSel.innerHTML="<option value=''>&#8212; from loop &#8212;</option>";names.forEach(function(n){var o=document.createElement("option");o.value=n;o.textContent=n;swSel.appendChild(o);});}
     if(caSel){caSel.innerHTML="<option value=''>&#8212; existing &#8212;</option>";apps.filter(function(a){return !a.native;}).forEach(function(a){var o=document.createElement("option");o.value=a.name;o.textContent=a.name;caSel.appendChild(o);});}
+    if(fxSel){fxSel.innerHTML="<option value=''>&#8212; existing &#8212;</option>";apps.filter(function(a){return !a.native;}).forEach(function(a){var o=document.createElement("option");o.value=a.name;o.textContent=a.name;fxSel.appendChild(o);});}
+    // GH #98 — /api/apps is already returned in rotation order, so a
+    // custom app's position within just the non-native subset is enough to
+    // know whether Up/Down should be disabled, with no extra server call.
+    var customNames=apps.filter(function(a){return !a.native;}).map(function(a){return a.name;});
     apps.forEach(function(app){
       var row=document.createElement("div");
       row.style.cssText="background:#111120;border:1px solid #2a2a4a;border-radius:4px;padding:6px 10px;margin-bottom:4px"+(app.muted?";opacity:0.5":"");
@@ -1079,6 +1086,13 @@ function loadLoop(){
       bMute.onclick=(function(a){return function(){apiPost("/api/mute",{name:a.name,mute:!a.muted}).then(function(){setTimeout(loadLoop,300);});};})(app);
       btns.appendChild(bMute);
       if(!app.native){
+        var ci=customNames.indexOf(app.name);
+        var bUp=document.createElement("button");bUp.textContent="↑";bUp.className="sm";bUp.style.cssText="margin-top:0;padding:2px 7px";bUp.disabled=(ci<=0);
+        bUp.onclick=(function(n){return function(){apiPost("/api/reorder",{name:n,dir:"up"}).then(function(){setTimeout(loadLoop,300);});};})(app.name);
+        btns.appendChild(bUp);
+        var bDown=document.createElement("button");bDown.textContent="↓";bDown.className="sm";bDown.style.cssText="margin-top:0;padding:2px 7px";bDown.disabled=(ci<0||ci>=customNames.length-1);
+        bDown.onclick=(function(n){return function(){apiPost("/api/reorder",{name:n,dir:"down"}).then(function(){setTimeout(loadLoop,300);});};})(app.name);
+        btns.appendChild(bDown);
         var bDel=document.createElement("button");bDel.textContent="Remove";bDel.className="red sm";bDel.style.marginTop="0";
         bDel.onclick=(function(n){return function(){fetch(pinURL("/api/custom?name="+encodeURIComponent(n)),{method:"POST"}).then(function(){toast("Removed "+n);setTimeout(loadLoop,600);});};})(app.name);
         btns.appendChild(bDel);

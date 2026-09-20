@@ -18,6 +18,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <algorithm>
 #include <Arduino.h>
 #include "dpx_text.h"
 #include "dpx_persist.h"
@@ -53,6 +54,12 @@ struct DpxCustomApp {
     uint64_t lifetime    = 0;        // auto-remove after N seconds (0=off)
     unsigned long addedMs = 0;       // millis() when app was added
     bool     save        = false;
+    // GH #98 — explicit rotation position. dpxCustom is a std::map keyed by
+    // name, so iterating it (dpxRebuildLoop) is alphabetical by name, not
+    // insertion order -- this field is what actually drives displayed order.
+    // New apps default to -1 and get appended (max existing order + 1) in
+    // dpxSetCustomApp; -1 never persists to a file.
+    int      order       = -1;
     std::vector<DpxDrawCmd> drawCmds;
     String   overlay   = "";   // per-app pixel effect name (e.g. "rain", "snow")
     String   icon      = "";   // icon name (no extension, no path)
@@ -211,6 +218,7 @@ static DpxCustomApp dpxParseApp(const char* json) {
     if (doc.containsKey("progressBC"))  app.pbColor     = dpxParseColor(doc["progressBC"], 0x1a1a1a);
     if (doc.containsKey("lifetime"))    app.lifetime    = doc["lifetime"].as<unsigned long>();
     if (doc.containsKey("save"))        app.save        = doc["save"].as<bool>();
+    if (doc.containsKey("order"))       app.order       = doc["order"].as<int>();
     if (doc.containsKey("overlay"))  { app.overlay = doc["overlay"].as<String>(); app.overlay.toLowerCase(); }
     if (doc.containsKey("icon"))       app.icon     = doc["icon"].as<String>();
     if (doc.containsKey("pushIcon"))   app.pushIcon = doc["pushIcon"].as<int>();
@@ -451,15 +459,22 @@ static void dpxRebuildLoop() {
             newList.push_back(a);
         }
     }
-    // Custom apps in insertion order
+    // Custom apps in explicit rotation order (GH #98). dpxCustom is a
+    // std::map keyed by name, so iterating it directly is alphabetical by
+    // name, not the user's chosen order -- gather then sort by .order.
+    std::vector<String> customNames;
     for (auto& kv : dpxCustom) {
-        if (kv.second.valid) {
-            DpxApp a;
-            a.name = kv.first;
-            a.data = kv.second;
-            a.isNative = false;
-            newList.push_back(a);
-        }
+        if (kv.second.valid) customNames.push_back(kv.first);
+    }
+    std::sort(customNames.begin(), customNames.end(), [](const String& a, const String& b) {
+        return dpxCustom[a].order < dpxCustom[b].order;
+    });
+    for (auto& name : customNames) {
+        DpxApp a;
+        a.name = name;
+        a.data = dpxCustom[name];
+        a.isNative = false;
+        newList.push_back(a);
     }
     dpxApps = newList;
     if (dpxCurrentApp >= (int)dpxApps.size()) dpxCurrentApp = 0;
@@ -501,6 +516,22 @@ static void dpxSetCustomApp(const String& name, const char* json) {
     } else {
         DpxCustomApp app = dpxParseApp(json);
         if (app.valid) {
+            // GH #98 — resolve rotation position when the POST body didn't
+            // specify one explicitly (the normal /ctrl UI never sends
+            // "order"): keep the existing position on an in-place edit
+            // (pattern/text change), or append to the end for a brand-new
+            // channel. Explicit order:N (from dpxReorderApp's persistence,
+            // or a future bulk-reorder call) always wins.
+            if (app.order < 0) {
+                auto existing = dpxCustom.find(name);
+                if (existing != dpxCustom.end()) {
+                    app.order = existing->second.order;
+                } else {
+                    int maxOrder = -1;
+                    for (auto& kv : dpxCustom) if (kv.second.order > maxOrder) maxOrder = kv.second.order;
+                    app.order = maxOrder + 1;
+                }
+            }
             dpxCustom[name] = app;
             dpxHiddenApps.erase(name);
             // Always persist -- this is a channel the user built into their
@@ -512,8 +543,21 @@ static void dpxSetCustomApp(const String& name, const char* json) {
             // "custom channels missing after reflash" bug. `app.save` is
             // still parsed for API back-compat but no longer gates this.
             LittleFS.mkdir("/CUSTOMAPPS");
+            // Merge the resolved order into the raw POST body rather than
+            // re-serializing from the struct, so fields dpxGetCustomAppJson()
+            // doesn't round-trip (draw commands, label, tzOffsetMin, ...)
+            // aren't silently dropped from the persisted file.
+            DynamicJsonDocument doc(1024);
             File f = LittleFS.open("/CUSTOMAPPS/" + name + ".json", "w");
-            if (f) { f.print(json); f.close(); }
+            if (f) {
+                if (!deserializeJson(doc, json)) {
+                    doc["order"] = app.order;
+                    serializeJson(doc, f);
+                } else {
+                    f.print(json); // shouldn't happen -- dpxParseApp already validated it
+                }
+                f.close();
+            }
         }
     }
     dpxRebuildLoop();
@@ -548,6 +592,47 @@ static void dpxPrevApp() {
     dpxAppStartMs = millis();
     dpxScroll.stop();
     dpxActivateCurrentApp();
+}
+
+// GH #98 — move a custom app's rotation position by one, swapping .order
+// with its nearest custom-app neighbor (native apps always render first,
+// fixed order -- only custom channels are reorderable). Persists both
+// affected files' resolved order in place, without touching any other
+// field in them. Returns false if name isn't a custom app, or is already
+// at that edge of the rotation.
+static bool dpxReorderApp(const String& name, bool up) {
+    if (dpxCustom.find(name) == dpxCustom.end()) return false;
+
+    std::vector<String> ordered;
+    for (auto& kv : dpxCustom) ordered.push_back(kv.first);
+    std::sort(ordered.begin(), ordered.end(), [](const String& a, const String& b) {
+        return dpxCustom[a].order < dpxCustom[b].order;
+    });
+
+    int idx = -1;
+    for (int i = 0; i < (int)ordered.size(); i++) if (ordered[i] == name) { idx = i; break; }
+    int swapIdx = up ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= (int)ordered.size()) return false;
+
+    const String& other = ordered[swapIdx];
+    std::swap(dpxCustom[name].order, dpxCustom[other].order);
+
+    for (auto& n : { name, other }) {
+        String path = "/CUSTOMAPPS/" + n + ".json";
+        if (!LittleFS.exists(path)) continue;
+        File fr = LittleFS.open(path, "r");
+        if (!fr) continue;
+        DynamicJsonDocument doc(1024);
+        bool ok = !deserializeJson(doc, fr);
+        fr.close();
+        if (!ok) continue;
+        doc["order"] = dpxCustom[n].order;
+        File fw = LittleFS.open(path, "w");
+        if (fw) { serializeJson(doc, fw); fw.close(); }
+    }
+
+    dpxRebuildLoop();
+    return true;
 }
 
 // Switch to a named app; JSON body: {"name":"AppName"}
@@ -623,6 +708,7 @@ static String dpxGetCustomAppJson(const String& name) {
     doc["intensity"]   = a.fxIntensity;
     doc["offset"]      = a.tzOffsetMin;
     doc["label"]       = a.label;
+    doc["order"]       = a.order;
     String s; serializeJson(doc, s); return s;
 }
 
