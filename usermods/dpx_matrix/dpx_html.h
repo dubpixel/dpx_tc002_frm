@@ -781,8 +781,12 @@ select option{background:#222}
   <button onclick="addCustomClock()">+ Add to Rotation</button>
 </div>
 <div id="ch_fields_wledfx" style="display:none">
-  <p style="color:#8cf;font-size:12px;margin:8px 0 12px">Hands the whole display over to a real WLED effect for its dwell, then returns to dpx Matrix. No text/icon during the slot.</p>
-  <label>Channel name</label><input type="text" id="ch_fx_name" value="pattern1" placeholder="name">
+  <p style="color:#8cf;font-size:12px;margin:8px 0 12px">Hands the whole display over to a real WLED effect for its dwell, then returns to dpx Matrix. No text/icon during the slot. Pick an existing channel below to load and change its pattern in place, instead of deleting and re-adding it.</p>
+  <label>Channel name</label>
+  <div class="row" style="margin-top:0">
+    <select id="ch_fx_name_sel" style="flex:1" onchange="if(this.value){document.getElementById('ch_fx_name').value=this.value;loadPatternSlot();}"><option value="">&#8212; existing &#8212;</option></select>
+    <input type="text" id="ch_fx_name" value="pattern1" placeholder="or new name" style="flex:1">
+  </div>
   <label>Effect</label><select id="ch_fx_effect"></select>
   <label>Palette</label><select id="ch_fx_palette"><option value="-1">(leave as-is)</option></select>
   <div class="row">
@@ -1229,6 +1233,21 @@ function addChannel(){
 }
 // GH #11 — WLED pattern slot: hands the display over to a real WLED FX-engine
 // effect for `duration` seconds, then dpx Matrix resumes automatically.
+// GH #99 — load an existing wled_fx channel's current effect/palette/speed/
+// intensity/duration into the form so addPatternSlot() below re-submits
+// them as an upsert (dpxSetCustomApp keys by name) instead of requiring
+// delete+recreate just to change which pattern a channel plays.
+function loadPatternSlot(){
+  var name=document.getElementById("ch_fx_name").value;if(!name){toast("Pick an existing channel first",false);return;}
+  fetch("/api/custom?name="+encodeURIComponent(name)).then(function(r){return r.json();}).then(function(d){
+    if(d.effect!==undefined)document.getElementById("ch_fx_effect").value=d.effect;
+    if(d.palette!==undefined)document.getElementById("ch_fx_palette").value=d.palette;
+    if(d.speed!==undefined)document.getElementById("ch_fx_speed").value=d.speed;
+    if(d.intensity!==undefined)document.getElementById("ch_fx_intensity").value=d.intensity;
+    if(d.duration!==undefined)document.getElementById("ch_fx_dur").value=d.duration;
+    toast("Loaded '"+name+"'");
+  }).catch(function(e){toast("Load failed: "+e,false);});
+}
 function addPatternSlot(){
   var name=document.getElementById("ch_fx_name").value.trim().replace(/\s+/g,"_");
   if(!name){toast("Enter a channel name",false);return;}
