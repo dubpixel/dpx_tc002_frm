@@ -26,6 +26,24 @@
 
 #pragma once
 
+// GH #151 — shared pre-claim MQTT identity (see this file's "RED HERRING
+// WARNING" below for the full story). Real value lives in a gitignored
+// local build-flags file (platformio_local.ini — see
+// platformio_local.ini.sample), NOT committed here, matching
+// app/mqtt_dynsec.py's MQTT_PROVISIONING_PASSWORD env var on the
+// friendster side — the two must be kept in sync by whoever rotates
+// either one. Empty defaults below are a deliberately broken fallback
+// (an empty-password connection attempt is rejected by the broker the
+// same as no credentials at all) so a build without the local override
+// fails the same obvious way GH #151 did, rather than silently compiling
+// with something that looks plausible but isn't the real secret.
+#ifndef DPX_MQTT_PROV_USER
+#define DPX_MQTT_PROV_USER ""
+#endif
+#ifndef DPX_MQTT_PROV_PASS
+#define DPX_MQTT_PROV_PASS ""
+#endif
+
 // ESP32 LittleFS does not auto-create parent directories when opening a
 // nested path for write — /upload silently fails into a subfolder that
 // doesn't exist yet. Runs every boot (mkdir on an existing dir is a no-op).
@@ -143,15 +161,37 @@ static void dpxFirstBoot() {
     // flow is MQTT-only (mqtt_client.publish(f"{prefix}/dpx/pair", ...), no
     // HTTP fallback), and nothing wrote MQTT config before this. DNS name,
     // not a raw droplet IP, so infra can move without re-flashing every
-    // device in the field. Plain 1883/no-auth matches what's already proven
-    // live on real hardware (WSS+TLS on 443 is documented as the eventual
-    // target in dpx_tc002_server.md but isn't set up yet — upgrade later,
-    // not blocking this fix). cid/device-topic left unset: WLED's own core
+    // device in the field. cid/device-topic left unset: WLED's own core
     // derives both from the MAC (wled.cpp) identically to what's already
     // observed live — no need to duplicate that logic here.
+    //
+    // GH #151 — the broker went allow_anonymous=false under GH #110
+    // (dynamic-security plugin) *after* this comment originally said
+    // "plain 1883/no-auth matches what's proven live." That's now wrong,
+    // and was wrong silently: a fresh device just never showed up as
+    // claimable on friendster, with no error anywhere obvious. user/psk
+    // below are the shared "every not-yet-claimed device looks like this"
+    // identity (friendster's app/mqtt_dynsec.py: PROVISIONING_ROLE +
+    // ensure_provisioning_client) — NOT a real per-device secret, and NOT
+    // meant to be. It's replaced with a real per-device credential the
+    // moment this device is actually claimed (issue_device_credentials).
+    //
+    // >>> RED HERRING WARNING <<< WLED's own native Settings → Sync →
+    // MQTT page will happily let you type in a broker/user/password by
+    // hand, and it LOOKS like the normal way to fix a broken MQTT
+    // connection. For this firmware it is not: the real identity is
+    // decided here (pre-claim) and by friendster's claim flow
+    // (post-claim), not by a human typing into that settings page. If
+    // MQTT isn't connecting, the bug is almost certainly here or in
+    // mqtt_dynsec.py's broker-side role/client setup — poking at the
+    // native settings page will not fix it and may mask the real cause by
+    // making the device merely not match the dynsec client it's supposed
+    // to.
     doc["if"]["mqtt"]["en"]     = true;
     doc["if"]["mqtt"]["broker"] = "mb.dubpixel.tv";
     doc["if"]["mqtt"]["port"]   = 1883;
+    doc["if"]["mqtt"]["user"]   = DPX_MQTT_PROV_USER;
+    doc["if"]["mqtt"]["psk"]    = DPX_MQTT_PROV_PASS;
 
     File f = LittleFS.open(F("/cfg.json"), "w");
     if (!f) { DEBUG_PRINTLN(F("DpxMatrix: failed to open /cfg.json")); return; }

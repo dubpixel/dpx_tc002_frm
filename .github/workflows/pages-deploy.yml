@@ -78,6 +78,22 @@ jobs:
       - name: Install PlatformIO
         run: pip install -r requirements.txt
 
+      - name: Write MQTT provisioning build secret (GH #151)
+        # Shared pre-claim MQTT identity — see dpx_firstboot.h's "RED
+        # HERRING WARNING" comment for the full story. Must match
+        # friendster's MQTT_PROVISIONING_USERNAME/PASSWORD env exactly, or
+        # every device built by this workflow is unclaimable again.
+        env:
+          DPX_MQTT_PROV_USER: ${{ secrets.DPX_MQTT_PROV_USER }}
+          DPX_MQTT_PROV_PASS: ${{ secrets.DPX_MQTT_PROV_PASS }}
+        run: |
+          cat > platformio_local.ini <<EOF
+          [env]
+          build_flags =
+            -D DPX_MQTT_PROV_USER=\"$DPX_MQTT_PROV_USER\"
+            -D DPX_MQTT_PROV_PASS=\"$DPX_MQTT_PROV_PASS\"
+          EOF
+
       - name: Build ulanzi_tc001
         run: pio run -e ulanzi_tc001
 

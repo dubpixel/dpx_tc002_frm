@@ -1,0 +1,22 @@
+; ================================================================================
+; platformio_local.ini.sample — local-only build secrets (GH #151)
+; ================================================================================
+; Copy this to platformio_local.ini (gitignored, NOT committed) and fill in
+; the real values to build a firmware that can actually authenticate to the
+; MQTT broker pre-claim. Without this file, DPX_MQTT_PROV_USER/PASS default
+; to empty strings in dpx_firstboot.h, and a freshly-flashed device will
+; never show up as claimable on friendster — same failure as before #151
+; was fixed, just obvious at build/boot time instead of silent.
+;
+; Get the real values from whoever has friendster's deployed .env
+; (MQTT_PROVISIONING_USERNAME / MQTT_PROVISIONING_PASSWORD) — they must
+; match exactly, see app/config.py's comment on those settings.
+;
+; Official release builds (GitHub Actions, web-installer binaries) inject
+; these via CI secrets, not this file — this is for local/dev builds only.
+; ================================================================================
+
+[env]
+build_flags =
+  -D DPX_MQTT_PROV_USER=\"dpx-provisioning\"
+  -D DPX_MQTT_PROV_PASS=\"REPLACE_ME_WITH_REAL_SHARED_PASSWORD\"
