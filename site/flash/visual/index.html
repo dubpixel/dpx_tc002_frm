@@ -201,6 +201,23 @@
       </div>
       <p id="channel_note"></p>
       <esp-web-install-button id="install_btn" manifest="../../firmware/nightly/manifest.json"></esp-web-install-button>
+
+      <details id="wiggle_details" style="margin-top:1.1rem">
+        <summary style="cursor:pointer;color:var(--purple);font-size:0.9rem;font-weight:600">
+          Connect button failing with "Failed to initialize"? Try this first
+        </summary>
+        <p style="font-size:0.85rem;color:var(--text-dim);line-height:1.6;margin:0.7rem 0">
+          A device that's never been flashed before sometimes doesn't drop into its bootloader on the
+          first try — this page's flasher only pulses the reset line once, and that pulse occasionally
+          doesn't land. This button repeats that same pulse a few extra times. It does <strong>not</strong>
+          flash anything by itself. You'll be asked to pick the USB port twice total: once here, once for
+          the real Connect button above — that's expected, not a bug.
+        </p>
+        <button id="wiggle_btn" type="button" style="background:var(--bg);color:var(--text);border:1px solid var(--panel-border);border-radius:8px;padding:0.55rem 1.1rem;font-size:0.85rem;cursor:pointer">
+          Retry reset pulse
+        </button>
+        <p id="wiggle_status" style="font-size:0.85rem;color:var(--text-dim);margin:0.6rem 0 0"></p>
+      </details>
     </div>
 
     <div class="warn">
@@ -325,6 +342,52 @@
       });
     }
     setChannel(document.getElementById('channel').value);
+
+    // GH #101 — see site/flash/index.html's matching block for the full
+    // writeup. esp-web-tools' reset pulses DTR/RTS exactly once with no
+    // retry; this repeats it a few extra times via a second, independent
+    // port handle before the user retries the real Connect button.
+    (function () {
+      var btn = document.getElementById('wiggle_btn');
+      var status = document.getElementById('wiggle_status');
+      if (!btn) return;
+      if (!('serial' in navigator)) {
+        status.textContent = 'Web Serial not available in this browser.';
+        btn.disabled = true;
+        return;
+      }
+
+      function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+      async function classicResetPulse(port) {
+        await port.setSignals({ dataTerminalReady: false, requestToSend: true });
+        await sleep(150);
+        await port.setSignals({ dataTerminalReady: true, requestToSend: false });
+        await sleep(150);
+        await port.setSignals({ dataTerminalReady: false, requestToSend: false });
+      }
+
+      btn.addEventListener('click', async function () {
+        btn.disabled = true;
+        var port;
+        try {
+          status.textContent = 'Pick the device\'s USB-serial port…';
+          port = await navigator.serial.requestPort();
+          await port.open({ baudRate: 115200 });
+          for (var i = 1; i <= 3; i++) {
+            status.textContent = 'Pulsing reset (' + i + '/3)…';
+            await classicResetPulse(port);
+            await sleep(200);
+          }
+          status.textContent = 'Done. Now click Connect above as normal.';
+        } catch (e) {
+          status.textContent = 'Could not open that port: ' + e.message + ' — try a different cable/port, or just try Connect above anyway.';
+        } finally {
+          if (port) { try { await port.close(); } catch (e) {} }
+          btn.disabled = false;
+        }
+      });
+    })();
   </script>
 </body>
 </html>
