@@ -83,13 +83,25 @@ jobs:
         # HERRING WARNING" comment for the full story. Must match
         # friendster's MQTT_PROVISIONING_USERNAME/PASSWORD env exactly, or
         # every device built by this workflow is unclaimable again.
+        #
+        # GH #105 — a generic [env] section here is a dead end: none of
+        # ulanzi_tc001's build_flags chain (dpx_tc001_common.build_flags ->
+        # ${env:esp32dev.build_flags} -> ${common.build_flags}
+        # ${esp32_idf_V4.build_flags}, see platformio_override.ini /
+        # platformio.ini) ever references ${env.build_flags}, so flags
+        # placed under a plain [env] here were silently dropped — every
+        # release this workflow ever built got the "" fallback from
+        # dpx_firstboot.h's #define, never a real credential. Target
+        # [env:ulanzi_tc001] directly and re-state its real build_flags
+        # chain so the secret flags actually get appended to the compile.
         env:
           DPX_MQTT_PROV_USER: ${{ secrets.DPX_MQTT_PROV_USER }}
           DPX_MQTT_PROV_PASS: ${{ secrets.DPX_MQTT_PROV_PASS }}
         run: |
           cat > platformio_local.ini <<EOF
-          [env]
+          [env:ulanzi_tc001]
           build_flags =
+            \${dpx_tc001_common.build_flags}
             -D DPX_MQTT_PROV_USER=\"$DPX_MQTT_PROV_USER\"
             -D DPX_MQTT_PROV_PASS=\"$DPX_MQTT_PROV_PASS\"
           EOF
