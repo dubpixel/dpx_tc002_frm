@@ -1,5 +1,20 @@
 ## dpx_tc002_frm changelog
 
+### [0.8.5](https://github.com/dubpixel/dpx_tc002_frm/compare/0.8.4...0.8.5) (2026-11-20)
+
+> A real unit's erase+flash of 0.8.4 left it on 100% stock WLED defaults —
+> stock AP name, stock AP password — with `/cfg.json` never appearing even
+> after a plain reboot. Traced GH #105's CI fix end-to-end first and ruled
+> it out (confirmed via the compiled 0.8.4 binary itself that the env merge
+> and credential embedding both worked correctly). Working theory is
+> `LittleFS.begin(true)` never actually mounting after a full chip erase on
+> this unit — previously invisible without a network connection.
+
+#### Added
+* **debug:** `'s'` serial status command now always reports LittleFS mount state (`errorFlag`, used/total bytes) regardless of `WLED_DEBUG`, so a stuck first-boot can be diagnosed over serial alone (GH #106)
+
+---
+
 ### [0.8.4](https://github.com/dubpixel/dpx_tc002_frm/compare/0.8.3...0.8.4) (2026-11-20)
 
 > GH #104's fix (0.8.3) was never actually getting a real credential to apply —

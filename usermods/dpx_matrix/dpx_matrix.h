@@ -309,6 +309,20 @@ public:
                     Serial.printf("[dpx] Build   : %s\n", DPX_BUILD_ID);
                     Serial.printf("[dpx] MQTT    : %s\n", WLED_MQTT_CONNECTED ? "connected" : "disconnected");
                     Serial.printf("[dpx] OSC UDP : %s port %d\n", dpxUdpStarted ? "started" : "stopped", DPX_OSC_PORT);
+                    // GH #106 — always-on FS mount check (not gated by
+                    // WLED_DEBUG). A device stuck re-running dpxFirstBoot()
+                    // every boot with /cfg.json never appearing looks
+                    // identical to "config write silently failing," but
+                    // errorFlag==ERR_FS_BEGIN (set at wled.cpp's
+                    // WLED_FS.begin(true) call) means LittleFS never
+                    // mounted at all — a flash/erase problem, not a
+                    // dpxFirstBoot() logic bug. Visible here so this
+                    // doesn't need a network connection to diagnose.
+                    Serial.printf("[dpx] FS       : %s (errorFlag=%u)  used=%llu/%llu bytes\n",
+                        errorFlag == ERR_FS_BEGIN ? "MOUNT FAILED" : "mounted",
+                        (unsigned)errorFlag,
+                        (unsigned long long)LittleFS.usedBytes(),
+                        (unsigned long long)LittleFS.totalBytes());
                     break;
                 }
                 case 'c': {
