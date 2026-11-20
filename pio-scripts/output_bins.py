@@ -25,7 +25,19 @@ def _branch_slug():
     """Current branch name, slugified for filenames. Prefers CI env vars
     (GITHUB_HEAD_REF for PRs, GITHUB_REF_NAME for branch/tag pushes) over
     `git rev-parse --abbrev-ref HEAD`, since a CI checkout is often a
-    detached HEAD where that git command would just return "HEAD"."""
+    detached HEAD where that git command would just return "HEAD".
+
+    Returns None for a tag push (GITHUB_REF_TYPE == "tag") — GITHUB_REF_NAME
+    on a tag push is the TAG name (e.g. "dpx-v0.8.0"), not a branch. A real
+    bug this fixes: that tag name got treated as a dev-branch slug, so an
+    official release build's firmware got suffixed like a dev build
+    (dpx_tc002_0.8.0_TC001-dpx-v0.8.0-<sha>.bin instead of the plain name),
+    which silently broke dpx_web_flash_bins.py's existence check for the
+    plain filename and dropped the main firmware entry from manifest.json
+    entirely — confirmed live: the web flasher wrote only the bootloader/
+    partitions/boot_app0 stubs and skipped the actual application image."""
+    if os.environ.get("GITHUB_REF_TYPE") == "tag":
+        return None
     branch = os.environ.get("GITHUB_HEAD_REF") or os.environ.get("GITHUB_REF_NAME")
     if not branch:
         try:

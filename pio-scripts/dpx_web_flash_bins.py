@@ -55,6 +55,21 @@ def collect_web_flash_bins(source, target, env):
     fw_path = os.path.join(OUTPUT_DIR, fw_name)
     if os.path.isfile(fw_path):
         manifest_parts.append({"path": fw_name, "offset": 65536})  # 0x10000
+    else:
+        # Real bug this guards against: output_bins.py's create_release()
+        # writing the main firmware under a DIFFERENT name than `base`
+        # expects (e.g. a tag push wrongly suffixed like a dev branch,
+        # GH #152) silently left this entry out of manifest.json. ESP Web
+        # Tools then "successfully" flashed just the bootloader/partitions/
+        # boot_app0 stubs in ~2 seconds and left the chip with no valid
+        # application image — no error anywhere, just a bricked-looking
+        # device. Fail the build instead of shipping a manifest that's
+        # missing its own firmware.
+        raise FileNotFoundError(
+            f"dpx_web_flash_bins: expected main firmware at {fw_path} but it doesn't exist — "
+            "refusing to write a manifest.json with no application image in it. "
+            "Check output_bins.py's create_release() naming (branch/tag suffix logic?)."
+        )
 
     offsets = {"bootloader": 4096, "partitions": 32768, "boot_app0": 57344}
     for name, src in parts.items():
