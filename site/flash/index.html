@@ -5,6 +5,30 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>dpx_tc002 — Web Install</title>
 <link rel="icon" href="../fav_icon.png">
+<script>
+  // Mirrors this page's console output into a visible on-page panel, so a
+  // failed flash can be diagnosed from the page itself — no DevTools
+  // needed. Must run before esp-web-tools loads below to catch everything
+  // it logs (write offsets, reset/connect errors, etc. — this exact output
+  // is what caught GH #152's broken 0.8.0 release).
+  (function () {
+    window.__dpxLog = [];
+    ['log', 'info', 'warn', 'error', 'debug'].forEach(function (level) {
+      var orig = console[level];
+      console[level] = function () {
+        try {
+          var line = Array.prototype.slice.call(arguments).map(function (a) {
+            if (typeof a === 'string') return a;
+            try { return JSON.stringify(a); } catch (e) { return String(a); }
+          }).join(' ');
+          window.__dpxLog.push('[' + new Date().toISOString().slice(11, 19) + '] ' + level.toUpperCase() + ': ' + line);
+          if (window.__dpxLogRender) window.__dpxLogRender();
+        } catch (e) {}
+        return orig.apply(console, arguments);
+      };
+    });
+  })();
+</script>
 <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js"></script>
 <style>
   :root {
@@ -163,6 +187,21 @@
         <p id="wiggle_status" style="font-size:0.85rem;color:var(--text-dim);margin:0.6rem 0 0"></p>
       </details>
 
+      <details id="debug_log_details" style="margin-top:1.1rem">
+        <summary style="cursor:pointer;color:var(--purple);font-size:0.9rem;font-weight:600">
+          Debug log (for troubleshooting / bug reports)
+        </summary>
+        <p style="font-size:0.85rem;color:var(--text-dim);line-height:1.6;margin:0.7rem 0">
+          Live console output from this page, including exact flash-write offsets and any
+          errors esp-web-tools reports — the same info a browser's DevTools console shows.
+          If a flash fails or looks suspiciously fast, copy this and include it when reporting the issue.
+        </p>
+        <pre id="debug_log" style="background:var(--bg);border:1px solid var(--panel-border);border-radius:8px;padding:0.75rem;font-size:0.75rem;line-height:1.5;max-height:220px;overflow:auto;white-space:pre-wrap;color:var(--text-dim);margin:0 0 0.6rem"></pre>
+        <button id="debug_log_copy" type="button" style="background:var(--panel);color:var(--text);border:1px solid var(--panel-border);border-radius:8px;padding:0.5rem 1rem;font-size:0.8rem;cursor:pointer">
+          Copy log
+        </button>
+      </details>
+
       <div class="channel-row">
         <label for="channel">Build</label>
         <select id="channel" onchange="setChannel(this.value)">
@@ -284,6 +323,29 @@
           btn.disabled = false;
         }
       });
+    })();
+
+    // Renders the console-mirror buffer captured in <head> into the visible
+    // debug-log panel. Separate from the capture itself so the panel can be
+    // added to the DOM independently without losing anything logged before it existed.
+    (function () {
+      function render() {
+        var pre = document.getElementById('debug_log');
+        if (!pre) return;
+        pre.textContent = window.__dpxLog.length ? window.__dpxLog.join('\n') : '(nothing logged yet)';
+        pre.scrollTop = pre.scrollHeight;
+      }
+      window.__dpxLogRender = render;
+      render();
+      var copyBtn = document.getElementById('debug_log_copy');
+      if (copyBtn) {
+        copyBtn.addEventListener('click', function () {
+          navigator.clipboard.writeText(window.__dpxLog.join('\n')).then(function () {
+            copyBtn.textContent = 'Copied!';
+            setTimeout(function () { copyBtn.textContent = 'Copy log'; }, 1500);
+          });
+        });
+      }
     })();
   </script>
 </body>
