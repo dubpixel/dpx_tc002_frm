@@ -340,7 +340,7 @@ button.sm{padding:3px 8px;font-size:11px}
 h3{color:#8cf;font-size:12px;margin:10px 0 5px}
 </style></head><body>
 <h1>&#9782; Browse &amp; Install</h1>
-<nav><a href="/ctrl">&#9664; Control</a><a href="/setup">&#9881; Settings</a><a href="/screen" target="_blank">&#9654; Live</a></nav>
+<nav><a href="/ctrl">&#9664; Control</a><a href="/settings">&#9881; Settings</a><a href="/screen" target="_blank">&#9654; Live</a></nav>
 
 <div class="tabs">
   <div class="tab on" onclick="tab('icons',this)">LaMetric Icons</div>
@@ -677,7 +677,7 @@ nav{margin-bottom:12px}
 select option{background:#222}
 </style></head><body>
 <h1>&#9632; dpx_tc002</h1>
-<nav><a href="/setup">&#9881; Settings</a><a href="/browse" target="_blank">&#9782; Browse Icons</a><a href="/screen" target="_blank">&#9654; Live View</a><a href="/api-ref" target="_blank">&#128196; API Ref</a></nav>
+<nav><a href="/settings">&#9881; Settings</a><a href="/browse" target="_blank">&#9782; Browse Icons</a><a href="/screen" target="_blank">&#9654; Live View</a><a href="/api-ref" target="_blank">&#128196; API Ref</a></nav>
 <div id="status_bar" style="background:#0a0a1a;border:1px solid #2a2a4a;border-radius:4px;padding:5px 10px;margin-bottom:10px;font-size:11px;color:#666;display:flex;gap:14px;flex-wrap:wrap;align-items:center">Loading...</div>
 <div class="grid">
 
