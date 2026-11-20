@@ -127,6 +127,56 @@ uncontested deploy. **This workflow has a real design gap** (the
 the other channel) that's worth fixing properly if this keeps
 happening — not done yet, this doc is the interim mitigation.
 
+### Bug 4 — `actions/deploy-pages` dedupes by commit SHA, so re-running a stuck tag NEVER fixes it (found fixing 0.8.1, the reason Bug 3's "just re-run it" mitigation didn't work)
+
+**This is the important one — read this before re-running a `Pages Deploy`
+build for a release that's showing stale content.**
+
+`actions/deploy-pages@v4` sets its Pages deployment's identity
+(`pages_build_version`) directly from `GITHUB_SHA` — confirmed by reading
+its source (`this.sha = process.env.GITHUB_SHA` in `api-client.js`; no
+action input overrides it). A tag (`dpx-v0.8.1`) always points at one
+fixed commit, so **every single `Pages Deploy` run against that tag —
+whether from the original push, a `workflow_dispatch` retry, or a tenth
+retry — creates a deployment with the exact same ID.** If the *first*
+deployment for that SHA landed with bad content (e.g. lost the Bug 3
+race), GitHub Pages appears to treat every later "deployment" of the
+same SHA as redundant and never actually swaps the live content — no
+matter how many times the build re-runs and re-uploads a correct
+artifact.
+
+**Symptom**: `gh run view` shows a brand new, fully successful run that
+built and staged the *correct* manifest.json + firmware .bin (confirmed
+in the build log), `actions/deploy-pages`'s own log says `Reported
+success!`, and the GitHub Deployments API shows a new deployment
+record with a recent `created_at` — but `curl`'ing the live manifest
+(even from a different CDN edge node with a confirmed cache `MISS`,
+proving it's not an edge-cache artifact) still shows the **old**
+content, with a `Last-Modified` timestamp frozen at whenever the
+*first* (bad) deploy for that SHA went live. This can persist for 40+
+minutes and will never resolve on its own — it is not slow propagation,
+it's GitHub Pages refusing to re-publish an SHA it already has a record
+for.
+
+**How to tell this is what's happening**: grep the `Deploy to GitHub
+Pages` step of the suspect runs' logs for `pages_build_version` / `ID:`.
+If multiple runs against the same tag show the identical SHA there,
+re-running that tag again will not help.
+
+**The only real fix**: get a new commit SHA. Re-running
+`workflow_dispatch` against the *same* tag cannot do this — `--ref
+dpx-vX.Y.Z` always resolves to the same commit. Cut a new patch release
+(`X.Y.Z+1`) instead, even for a documentation-only or no-op change if
+nothing else needs fixing — the version bump commit itself is what
+buys a fresh SHA and therefore a fresh, un-stuck Pages deployment.
+
+**Mitigation for next time**: avoid ever landing a bad first deploy for
+a given tag's SHA in the first place — i.e. take Bug 3's mitigation
+(don't push `main` and the tag in the same breath) seriously, because
+unlike ordinary CDN staleness, **recovering from a bad deploy under a
+given SHA costs an entire extra version bump**, not just a retry or a
+wait.
+
 ### GitHub Pages' CDN cache — a real but secondary factor
 GH Pages has a fixed ~10-minute edge cache that doesn't respect
 query-string cache-busting (`?t=<timestamp>`) from an external client
@@ -151,13 +201,23 @@ actual build log first before assuming the deploy failed.
 - [ ] After the tag's `Pages Deploy` run completes, check `gh run list`
       for a second, `main`-triggered `Pages Deploy` run with an
       overlapping time window. If one exists, re-run the release build
-      explicitly: `gh workflow run "Pages Deploy" --ref dpx-vX.Y.Z`.
+      explicitly: `gh workflow run "Pages Deploy" --ref dpx-vX.Y.Z` —
+      **but only once, and only if the live manifest hasn't settled
+      within ~2 minutes of that first retry's deploy-pages step
+      finishing.** If it's *still* stale after the retry, stop retrying
+      (see Bug 4 — re-running the same tag forever will not fix it) and
+      cut a new patch version instead.
 - [ ] Verify the live manifest directly:
       `curl -s "https://dubpixel.github.io/dpx_tc002_frm/firmware/release/manifest.json"`
       — confirm it shows the new version **and** a 4-part build (main
       firmware at offset `65536`, not just bootloader/partitions/boot_app0).
 - [ ] Confirm the main `.bin` itself is actually reachable (not 404)
       before telling anyone to flash.
+- [ ] If stale after one retry: grep that run's `Deploy to GitHub
+      Pages` log step for `pages_build_version` — if it matches the
+      SHA from an earlier bad deploy of the same tag, this is Bug 4, not
+      cache lag. Cut `X.Y.Z+1` to get a fresh commit SHA rather than
+      retrying again.
 - [ ] The GitHub Release itself ships as a **draft** — remember to
       publish it manually if a public release-notes page matters this
       time.
