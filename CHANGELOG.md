@@ -1,5 +1,16 @@
 ## dpx_tc002_frm changelog
 
+### [0.8.1](https://github.com/dubpixel/dpx_tc002_frm/compare/0.8.0...0.8.1) (2026-11-20)
+
+> 0.8.0's own release build was broken — confirmed live within hours of
+> shipping it. Caught via the actual browser flash console log, not
+> guessed.
+
+#### Fixed
+* **build:** a tag push's `GITHUB_REF_NAME` is the tag itself (e.g. `dpx-v0.8.0`), not a branch — GH #101's branch-slug+SHA naming logic didn't know that and treated an official release build as a dev-branch build, suffixing the firmware filename. `dpx_web_flash_bins.py`'s existence check for the plain name then silently failed and dropped the main application image from `manifest.json` entirely. ESP Web Tools "successfully" flashed in ~2 seconds (bootloader/partitions/boot_app0 stubs only, no actual firmware), leaving the chip unable to boot — continuous buzzer beeping, no error surfaced anywhere. `_branch_slug()` now returns `None` for a tag push, and `dpx_web_flash_bins.py` raises instead of silently omitting the manifest entry if this ever recurs (GH #152)
+
+---
+
 ### [0.8.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.7.0...0.8.0) (2026-11-19)
 
 > A freshly-flashed device could never authenticate to the MQTT broker at
