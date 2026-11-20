@@ -1,5 +1,19 @@
 ## dpx_tc002_frm changelog
 
+### [0.8.4](https://github.com/dubpixel/dpx_tc002_frm/compare/0.8.3...0.8.4) (2026-11-20)
+
+> GH #104's fix (0.8.3) was never actually getting a real credential to apply —
+> traced the whole build_flags inheritance chain and found the CI secret was
+> landing in a PlatformIO `[env]` section that `ulanzi_tc001` never inherits
+> from. Every release this workflow has ever built shipped with a blank
+> pre-claim MQTT credential baked in, not just pre-#151 devices. GH #151's
+> and #104's fixes were sound; the pipeline just never fed them a real secret.
+
+#### Fixed
+* **ci:** target `[env:ulanzi_tc001]` directly for the MQTT provisioning build secret instead of a generic `[env]` section its build_flags chain never references, so `DPX_MQTT_PROV_USER`/`PASS` actually reach the compile (GH #105)
+
+---
+
 ### [0.8.3](https://github.com/dubpixel/dpx_tc002_frm/compare/0.8.2...0.8.3) (2026-11-20)
 
 > A device flashed before GH #151's MQTT fix existed could never recover from
