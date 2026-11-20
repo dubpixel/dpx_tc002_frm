@@ -1,5 +1,33 @@
 ## dpx_tc002_frm changelog
 
+### [0.8.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.7.0...0.8.0) (2026-11-19)
+
+> A freshly-flashed device could never authenticate to the MQTT broker at
+> all once GH #110 required dynsec auth, and a factory-virgin chip could
+> fail to even enter bootloader via the browser flasher — together these
+> broke the real "buy it, flash it, claim it" customer onboarding flow.
+> Both fixed, plus a batch of `/ctrl` usability fixes reported live.
+
+#### Fixed
+* **mqtt:** GH #110's shared pre-claim role (`dpx-provisioning`) existed with nobody using it — nothing ever created the actual client credential, so a freshly-flashed device could never authenticate to the broker and never showed up as claimable on friendster. Added the real client credential (`DPX_MQTT_PROV_USER`/`DPX_MQTT_PROV_PASS`, baked in at build time) and documented that WLED's own native Settings → Sync → MQTT page is a red herring for this — the real identity is decided by `dpx_firstboot.h` pre-claim and friendster's claim flow post-claim (GH #151)
+* **flash:** a factory-virgin chip with no exposed BOOT button could fail to enter bootloader via the browser web flasher — `esp-web-tools`' reset pulses DTR/RTS exactly once with no retry. Added a "Retry reset pulse" fallback (repeats the pulse 3x via a separate port handle) to both the quick and visual flash guide pages — confirmed working live against a real failing unit (GH #101)
+* **apps:** custom channels never actually persisted across a reboot — the write path only saved to disk when an unexposed `save` flag was set (never surfaced anywhere in `/ctrl`'s UI), and nothing loaded `/CUSTOMAPPS/*.json` back at boot even when a channel *was* saved (GH #93)
+* **ctrl:** `/ctrl`'s own send never actually centered text — its JS sent `noScrolling` but the server only ever parsed `noScroll`, a plain key-name typo that silently broke the No Scroll checkbox, which in turn suppressed centering downstream (GH #97)
+* **ctrl:** pattern/palette dropdowns are now alphabetized instead of WLED's internal/arbitrary order (GH #100)
+* **notify:** reject `hold:true` + `repeat:-1` (or default) on text that will actually scroll — looped forever with no way to auto-clear. Static/`noScroll` held messages are unaffected (that's a deliberate, bounded pattern)
+* **text:** large-font (2x) descender clipping fixed by bottom-anchoring descender glyphs specifically; added a hand-drawn bold 'j' glyph override at 2x scale (its taller 6px height over-shifted under the general fix)
+
+#### Added
+* **ctrl:** reorder custom channels in `/ctrl` via new Up/Down buttons — required an explicit `order` field on custom channels, since the underlying map was never actually ordered despite a stale comment claiming "insertion order" (GH #98)
+* **ctrl:** edit a pattern-slot channel's effect via dropdown without deleting and recreating the whole channel (GH #99)
+* **build:** release artifacts on non-`main` branches get a branch-slug + short-SHA suffix, so multiple dev-branch builds at the same version stay distinguishable and never collide with a `main`/release build of the same version
+
+#### Changed
+* **abri:** LDR polling split to its own faster 1.5s cadence (previously shared the 10s sensor-read interval with temp/hum/battery); gamma curve eased from 3.0 to 2.2 (standard display gamma-correction value); on by default now for new/factory-reset devices
+* **docs:** restored generic `AGENTS.md` guidance trimmed at this project's first customization commit (Rule 0 mid-session triage, version-bump edge-case table, build artifact naming convention)
+
+---
+
 ### [0.7.0](https://github.com/dubpixel/dpx_tc002_frm/compare/0.6.5...0.7.0) (2026-08-29)
 
 > GH #19 — a genuinely taller font, not just 2x pixel-doubling the existing
