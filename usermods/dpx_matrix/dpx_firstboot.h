@@ -84,7 +84,13 @@ static void dpxFirstBoot() {
 
     DEBUG_PRINTLN(F("DpxMatrix: first boot — writing /cfg.json"));
 
-    DynamicJsonDocument doc(2048);
+    // GH #106 — 2048 was already called out elsewhere in this codebase
+    // (dpx_matrix.h's serial config dump) as too tight once real content
+    // is in play; bumped here too after DPX_MQTT_PROV_USER/PASS went from
+    // always-empty (GH #105 bug) to real non-empty strings, which is the
+    // only thing that changed between a 0.8.3 device (wrote fine, blank
+    // creds) and a 0.8.4/0.8.5 device (whole write silently failed).
+    DynamicJsonDocument doc(4096);
 
     // Unique per-device suffix (last 3 MAC bytes, lowercase hex) — same
     // technique WLED itself falls back to for its own default hostname
