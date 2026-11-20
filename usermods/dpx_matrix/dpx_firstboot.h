@@ -44,6 +44,33 @@
 #define DPX_MQTT_PROV_PASS ""
 #endif
 
+// GH #104 — dpxFirstBoot() only ever runs once, the very
+// first time a device boots with no /cfg.json at all. A device originally
+// flashed BEFORE the GH #151 fix existed has a /cfg.json already — so an
+// ordinary OTA update (no erase) to a firmware build that now has a real
+// DPX_MQTT_PROV_USER/PASS baked in never re-runs that write, and the device
+// is left permanently stuck with the stale blank mqttUser/mqttPass it was
+// first flashed with: unable to authenticate to the broker, showing as
+// plain "offline" rather than "unclaimed" on friendster, forever — a real
+// customer hits this on every future firmware update, not just once.
+//
+// Runs every boot (unlike dpxFirstBoot()). Only touches mqttUser/mqttPass
+// when they're still blank AND pointed at our own broker — a device
+// that's actually been claimed already has a real per-device credential
+// here (friendster's issue_device_credentials overwrites both fields), so
+// this is a no-op for every normal claimed device and never clobbers one.
+static void dpxReprovisionMqttIfNeeded() {
+    if (!mqttEnabled) return;
+    if (strcmp(mqttServer, "mb.dubpixel.tv") != 0) return; // not pointed at our broker — leave it alone
+    if (mqttUser[0] != 0) return;                          // already has a credential (provisioning or per-device) — leave it alone
+    if (DPX_MQTT_PROV_USER[0] == 0) return;                 // this build has no real credential to apply either — nothing to do
+
+    DEBUG_PRINTLN(F("DpxMatrix: MQTT user blank on a pre-#151 device — re-applying provisioning credential"));
+    strlcpy(mqttUser, DPX_MQTT_PROV_USER, sizeof(mqttUser));
+    strlcpy(mqttPass, DPX_MQTT_PROV_PASS, sizeof(mqttPass));
+    configNeedsWrite = true; // persist so this survives the next reboot too
+}
+
 // ESP32 LittleFS does not auto-create parent directories when opening a
 // nested path for write — /upload silently fails into a subfolder that
 // doesn't exist yet. Runs every boot (mkdir on an existing dir is a no-op).
