@@ -1,5 +1,20 @@
 ## dpx_tc002_frm changelog
 
+### [0.8.2](https://github.com/dubpixel/dpx_tc002_frm/compare/0.8.1...0.8.2) (2026-11-20)
+
+> 0.8.1's release deploy got stuck on GitHub Pages' end — `actions/deploy-pages`
+> keys its deployment identity off the commit SHA, so retrying the same tag's
+> `Pages Deploy` run (even after confirming the build itself was correct) never
+> actually published the fix; GitHub Pages treated every retry against that SHA
+> as a no-op. No code changes beyond documenting the real root cause — this
+> version bump exists purely to get a fresh commit SHA so the release can
+> actually go live.
+
+#### Fixed
+* **docs:** documented the `deploy-pages`-dedupes-by-SHA failure mode (GH #152 follow-up) and updated the release checklist to stop recommending repeat retries against a stuck tag
+
+---
+
 ### [0.8.1](https://github.com/dubpixel/dpx_tc002_frm/compare/0.8.0...0.8.1) (2026-11-20)
 
 > 0.8.0's own release build was broken — confirmed live within hours of
