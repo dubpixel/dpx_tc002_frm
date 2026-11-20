@@ -1,5 +1,17 @@
 ## dpx_tc002_frm changelog
 
+### [0.8.3](https://github.com/dubpixel/dpx_tc002_frm/compare/0.8.2...0.8.3) (2026-11-20)
+
+> A device flashed before GH #151's MQTT fix existed could never recover from
+> an ordinary firmware update — confirmed live on a real unit OTA-updated
+> straight to 0.8.2, still stuck with a blank MQTT credential afterward.
+
+#### Fixed
+* **mqtt:** re-apply the provisioning credential on every boot, not just a device's very first ever boot — an OTA update (no erase) to a device flashed before GH #151 existed never got the fix, leaving it permanently stuck authenticating to the broker with nothing and showing as "offline" instead of "unclaimed," on every future update too. Never touches an already-claimed device's real per-device credential (GH #104)
+* **flash:** added a visible on-page debug log (console output mirrored into a copyable panel) to both web-flasher pages, so a failed or suspiciously-fast flash can be diagnosed without opening DevTools
+
+---
+
 ### [0.8.2](https://github.com/dubpixel/dpx_tc002_frm/compare/0.8.1...0.8.2) (2026-11-20)
 
 > 0.8.1's release deploy got stuck on GitHub Pages' end — `actions/deploy-pages`
